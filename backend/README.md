@@ -25,6 +25,18 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Authentication API
+
+- `POST /auth/login` accepts `{ "username": "...", "password": "..." }` and returns an access token plus the public user fields. The refresh token is set in the `HttpOnly` `refresh_token` cookie.
+- `POST /auth/refresh` reads that cookie, rotates it, and returns a new access token.
+- `POST /auth/logout` revokes the session represented by the refresh cookie and clears it. Existing access tokens remain valid until their 15 minute expiry.
+
+Access tokens last 15 minutes. Refresh sessions have an absolute seven day lifetime; rotating a refresh token does not extend that deadline. Concurrent refresh requests are single use: only the request that atomically replaces the stored token hash succeeds. Cookies always use `SameSite=Lax` and use `Secure` in production. Refresh and logout also require the readable `csrf_token` cookie to match the `X-CSRF-Token` request header.
+
+Set `ACCESS_TOKEN_SECRET` to a secret with at least 32 characters, along with `DATABASE_URL`, before starting the backend. Optional token lifetime settings are `ACCESS_TOKEN_TTL_SECONDS` and `REFRESH_TOKEN_TTL_SECONDS`.
+
+The auth migration clears existing sessions before renaming their token column, so users must log in again after applying it. User password values must already be scrypt hashes in the format produced by `hashPassword` in `src/auth/auth.crypto.ts`.
+
 ## Project setup
 
 ```bash
