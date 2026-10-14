@@ -13,11 +13,15 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
-import { Permissions } from '../auth/decorators/permissions.decorator.js';
+import {
+  AnyPermissions,
+  Permissions,
+} from '../auth/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto.js';
 import { UsersService } from './users.service.js';
 
@@ -40,6 +44,27 @@ export class UsersController {
       username: body.username.trim(),
       password: body.password,
       role: body.role,
+    });
+  }
+
+  @Patch(':id')
+  @AnyPermissions(
+    PERMISSIONS.usersUpdateOwnPassword,
+    PERMISSIONS.usersUpdateAdminProfile,
+    PERMISSIONS.usersUpdateCashierProfile,
+    PERMISSIONS.usersUpdateCashierCredentials,
+  )
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: UpdateUserDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.update(id, currentUser, {
+      username: body.username?.trim(),
+      password: body.password,
+      role: body.role,
+      isActive: body.isActive,
     });
   }
 

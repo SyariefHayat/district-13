@@ -30,11 +30,13 @@
 - `POST /auth/login` accepts `{ "username": "...", "password": "..." }` and returns an access token plus the public user fields. The refresh token is set in the `HttpOnly` `refresh_token` cookie.
 - `POST /auth/refresh` reads that cookie, rotates it, and returns a new access token.
 - `POST /auth/logout` revokes the session represented by the refresh cookie and clears it. Existing access tokens remain valid until their 15 minute expiry.
-- `GET /users` lists accounts (`users.read`: OWNER, ADMIN). `POST /users` creates `{ "username": "...", "password": "...", "role": "OWNER|ADMIN|CASHIER" }` (`users.create`: OWNER). `PATCH /users/:id/status` accepts `{ "isActive": true|false }` and only changes cashier status (`users.update_cashier_profile`: OWNER). `DELETE /users/:id` permanently removes an account (`users.delete`: OWNER).
+- `GET /users` lists accounts (`users.read`: OWNER, ADMIN). `POST /users` creates `{ "username": "...", "password": "...", "role": "OWNER|ADMIN|CASHIER" }` (`users.create`: OWNER). `PATCH /users/:id` updates account fields under the role rules below. `PATCH /users/:id/status` accepts `{ "isActive": true|false }` and only changes cashier status (`users.update_cashier_profile`: OWNER). `DELETE /users/:id` permanently removes an account (`users.delete`: OWNER).
+
+For `PATCH /users/:id`, OWNER and ADMIN can update only their own password. OWNER can update another ADMIN's username or password, and can fully update a CASHIER's username, password, role, and active status. ADMIN can update only a CASHIER's username and password. CASHIER cannot update accounts. Password changes revoke the target user's refresh sessions. The ACL's “name” field refers to the account username; the database has no separate display-name field.
 
 ## Authorization
 
-Authorization uses a central permission catalog and role-to-permission mapping in `src/auth/permissions/permissions.ts`. Controllers declare required permissions with `@Permissions(...)`; `PermissionsGuard` checks that the authenticated user's role grants all declared permissions. The full catalog is defined centrally so future backend modules can use the same permission names.
+Authorization uses a central permission catalog and role-to-permission mapping in `src/auth/permissions/permissions.ts`. Controllers declare required permissions with `@Permissions(...)`; `@AnyPermissions(...)` allows a route to accept one of several permissions while its service enforces the target-specific rule. `PermissionsGuard` checks these declarations against the authenticated user's role. The full catalog is defined centrally so future backend modules can use the same permission names.
 
 Permissions do not replace resource-level checks. Services must still enforce conditions such as a cashier only accessing their own transactions or opening a shift only when assigned that day. The backend currently has no product, inventory, schedule, shift, transaction, reporting, or store-settings controllers, so their catalog permissions are not attached to endpoints yet. Device management and device permissions are not part of this implementation.
 

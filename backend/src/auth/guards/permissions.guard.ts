@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { PERMISSIONS_KEY } from '../decorators/permissions.decorator.js';
+import {
+  ANY_PERMISSIONS_KEY,
+  PERMISSIONS_KEY,
+} from '../decorators/permissions.decorator.js';
 import {
   roleHasPermission,
   type Permission,
@@ -21,14 +24,23 @@ export class PermissionsGuard implements CanActivate {
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()],
     );
-    if (!requiredPermissions?.length) return true;
+    const anyPermissions = this.reflector.getAllAndOverride<Permission[]>(
+      ANY_PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (!requiredPermissions?.length && !anyPermissions?.length) return true;
 
     const user = context.switchToHttp().getRequest<Request>().user;
     if (
       !user ||
-      !requiredPermissions.every((permission) =>
-        roleHasPermission(user.role, permission),
-      )
+      (requiredPermissions?.some(
+        (permission) => !roleHasPermission(user.role, permission),
+      ) ??
+        false) ||
+      (anyPermissions?.length &&
+        !anyPermissions.some((permission) =>
+          roleHasPermission(user.role, permission),
+        ))
     ) {
       throw new ForbiddenException();
     }

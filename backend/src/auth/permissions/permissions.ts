@@ -58,6 +58,7 @@ export const ROLE_PERMISSIONS = {
   OWNER: Object.values(PERMISSIONS),
   ADMIN: [
     PERMISSIONS.usersRead,
+    PERMISSIONS.usersUpdateOwnPassword,
     PERMISSIONS.usersUpdateCashierCredentials,
     PERMISSIONS.productsRead,
     PERMISSIONS.productsCreate,
