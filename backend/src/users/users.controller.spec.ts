@@ -12,16 +12,23 @@ vi.mock('../drizzle/config/env.js', () => ({
 
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { ROLES_KEY } from '../auth/decorators/roles.decorator.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { PERMISSIONS_KEY } from '../auth/decorators/permissions.decorator.js';
+import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
+import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import { UsersController } from './users.controller.js';
 
 describe('UsersController authorization', () => {
-  it('requires authentication and the OWNER role for every account endpoint', () => {
+  it('requires authentication and declares permissions for account endpoints', () => {
     expect(Reflect.getMetadata(GUARDS_METADATA, UsersController)).toEqual([
       JwtAuthGuard,
-      RolesGuard,
+      PermissionsGuard,
     ]);
-    expect(Reflect.getMetadata(ROLES_KEY, UsersController)).toEqual(['OWNER']);
+    const findAllHandler = Object.getOwnPropertyDescriptor(
+      UsersController.prototype,
+      'findAll',
+    )?.value;
+    expect(Reflect.getMetadata(PERMISSIONS_KEY, findAllHandler)).toBe(
+      PERMISSIONS.usersRead,
+    );
   });
 });

@@ -12,8 +12,9 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
+import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
+import { Permissions } from '../auth/decorators/permissions.decorator.js';
+import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
@@ -21,17 +22,18 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto.js';
 import { UsersService } from './users.service.js';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('OWNER')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
+  @Permissions(PERMISSIONS.usersRead)
   findAll() {
     return this.usersService.findAll();
   }
 
   @Post()
+  @Permissions(PERMISSIONS.usersCreate)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   create(@Body() body: CreateUserDto) {
     return this.usersService.create({
@@ -42,6 +44,7 @@ export class UsersController {
   }
 
   @Patch(':id/status')
+  @Permissions(PERMISSIONS.usersUpdateCashierProfile)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   updateStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -52,6 +55,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @Permissions(PERMISSIONS.usersDelete)
   remove(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() currentUser: AuthenticatedUser,

@@ -2,6 +2,7 @@ import { hash } from 'argon2';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -67,10 +68,7 @@ export class UsersService {
           .where(eq(users.id, id))
           .limit(1);
         if (!user) throw new NotFoundException('User not found');
-
-        if (user.role === 'OWNER' && user.isActive) {
-          await this.assertAnotherActiveOwner(tx);
-        }
+        this.assertCashierStatusTarget(user.role);
 
         const [updated] = await tx
           .update(users)
@@ -92,19 +90,28 @@ export class UsersService {
       });
     }
 
-    const [updated] = await this.database.db
-      .update(users)
-      .set({ isActive: true, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning({
-        id: users.id,
-        username: users.username,
-        role: users.role,
-        isActive: users.isActive,
-        updatedAt: users.updatedAt,
-      });
-    if (!updated) throw new NotFoundException('User not found');
-    return updated;
+    return this.database.db.transaction(async (tx) => {
+      const [user] = await tx
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, id))
+        .limit(1);
+      if (!user) throw new NotFoundException('User not found');
+      this.assertCashierStatusTarget(user.role);
+
+      const [updated] = await tx
+        .update(users)
+        .set({ isActive: true, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning({
+          id: users.id,
+          username: users.username,
+          role: users.role,
+          isActive: users.isActive,
+          updatedAt: users.updatedAt,
+        });
+      return updated;
+    });
   }
 
   async remove(id: string, currentUserId: string): Promise<{ success: true }> {
@@ -132,6 +139,14 @@ export class UsersService {
     if (targetUserId === currentUserId) {
       throw new BadRequestException(
         'You cannot deactivate or delete your own account',
+      );
+    }
+  }
+
+  private assertCashierStatusTarget(role: string) {
+    if (role !== 'CASHIER') {
+      throw new ForbiddenException(
+        'Only cashier account status can be changed here',
       );
     }
   }

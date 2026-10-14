@@ -1,5 +1,9 @@
 import { verify } from 'argon2';
-import { ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { vi } from 'vitest';
 
 vi.mock('../drizzle/config/env.js', () => ({
@@ -116,7 +120,7 @@ describe('UsersService', () => {
     );
   });
 
-  it('prevents deactivating the last active owner', async () => {
+  it('prevents changing owner status through the cashier status endpoint', async () => {
     const tx = {
       execute: vi.fn(),
       select: vi
@@ -145,7 +149,7 @@ describe('UsersService', () => {
 
     await expect(
       service.updateStatus('owner-2', false, 'owner-1'),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(tx.update).not.toHaveBeenCalled();
   });
 
