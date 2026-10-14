@@ -3,8 +3,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { env } from '../drizzle/config/env.js';
 import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
-import { AuthGuard } from './auth.guard.js';
-import { RolesGuard } from './roles.guard.js';
+import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import { RolesGuard } from './guards/roles.guard.js';
 
 @Module({
   imports: [
@@ -14,7 +14,7 @@ import { RolesGuard } from './roles.guard.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, RolesGuard],
-  exports: [AuthGuard, RolesGuard],
+  providers: [AuthService, JwtAuthGuard, RolesGuard],
+  exports: [JwtAuthGuard, RolesGuard, JwtModule],
 })
 export class AuthModule {}

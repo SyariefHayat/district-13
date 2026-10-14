@@ -30,6 +30,7 @@
 - `POST /auth/login` accepts `{ "username": "...", "password": "..." }` and returns an access token plus the public user fields. The refresh token is set in the `HttpOnly` `refresh_token` cookie.
 - `POST /auth/refresh` reads that cookie, rotates it, and returns a new access token.
 - `POST /auth/logout` revokes the session represented by the refresh cookie and clears it. Existing access tokens remain valid until their 15 minute expiry.
+- `GET /users` lists accounts. `POST /users` creates `{ "username": "...", "password": "...", "role": "OWNER|ADMIN|CASHIER" }`. `PATCH /users/:id/status` accepts `{ "isActive": true|false }`. `DELETE /users/:id` permanently removes an account. All user-management endpoints require an OWNER access token.
 
 Access tokens last 15 minutes. Refresh sessions have an absolute seven day lifetime; rotating a refresh token does not extend that deadline. Concurrent refresh requests are single use: only the request that atomically replaces the stored token hash succeeds. Cookies always use `SameSite=Lax` and use `Secure` in production. Refresh and logout also require the readable `csrf_token` cookie to match the `X-CSRF-Token` request header.
 

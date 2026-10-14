@@ -8,11 +8,12 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+
+import { LoginDto } from './dto/login.dto.js';
 import { env } from '../drizzle/config/env.js';
 import { AuthService } from './auth.service.js';
-import { LoginDto } from './dto/login.dto.js';
+import type { Request, Response } from 'express';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 const REFRESH_COOKIE = 'refresh_token';
 const CSRF_COOKIE = 'csrf_token';

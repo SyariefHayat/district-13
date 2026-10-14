@@ -1,11 +1,11 @@
 import { verify } from 'argon2';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { env } from '../drizzle/config/env.js';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { createHash, randomBytes } from 'node:crypto';
-import { DatabaseService } from '../drizzle/database/database.service.js';
-import { env } from '../drizzle/config/env.js';
 import { sessions, users } from '../drizzle/schema/index.js';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { DatabaseService } from '../drizzle/database/database.service.js';
 
 const INVALID_CREDENTIALS = 'Invalid username or password';
 const INVALID_SESSION = 'Invalid or expired session';
