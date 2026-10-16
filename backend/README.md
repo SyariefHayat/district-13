@@ -38,7 +38,16 @@ For `PATCH /users/:id`, OWNER and ADMIN can update only their own password. OWNE
 
 Authorization uses a central permission catalog and role-to-permission mapping in `src/auth/permissions/permissions.ts`. Controllers declare required permissions with `@Permissions(...)`; `@AnyPermissions(...)` allows a route to accept one of several permissions while its service enforces the target-specific rule. `PermissionsGuard` checks these declarations against the authenticated user's role. The full catalog is defined centrally so future backend modules can use the same permission names.
 
-Permissions do not replace resource-level checks. Services must still enforce conditions such as a cashier only accessing their own transactions or opening a shift only when assigned that day. The backend currently has no product, inventory, schedule, shift, transaction, reporting, or store-settings controllers, so their catalog permissions are not attached to endpoints yet. Device management and device permissions are not part of this implementation.
+Permissions do not replace resource-level checks. Services must still enforce conditions such as a cashier only accessing their own transactions or opening a shift only when assigned that day. Schedule, shift, transaction, reporting, and store-settings controllers are not implemented yet, so their catalog permissions are not attached to endpoints. Device management and device permissions are not part of this implementation.
+
+## Inventory API
+
+- `GET /inventory/dashboard` returns paginated stock by product and location plus total stock for `WAREHOUSE` and `DISPLAY` (`inventory.read_dashboard`: OWNER, ADMIN).
+- `GET /inventory/movements` returns paginated movement history, newest first (`inventory.read_movements`: OWNER, ADMIN).
+- `POST /inventory/restock` accepts `{ "productId": "...", "quantity": 10 }` and adds stock to `WAREHOUSE` (`inventory.restock`: OWNER).
+- `POST /inventory/transfer-to-display` accepts `{ "productId": "...", "quantity": 3 }` and transfers stock from `WAREHOUSE` to `DISPLAY` (`inventory.transfer_to_display`: OWNER, ADMIN).
+
+Inventory writes require an active product, a positive integer quantity, and sufficient warehouse stock for transfers. Stock changes and their movement records are written atomically. CASHIER has no inventory permissions. Sales movements are recorded when transaction processing is implemented; this API does not create sales or accept direct `SALE` movements.
 
 Access tokens last 15 minutes. Refresh sessions have an absolute seven day lifetime; rotating a refresh token does not extend that deadline. Concurrent refresh requests are single use: only the request that atomically replaces the stored token hash succeeds. Cookies always use `SameSite=Lax` and use `Secure` in production. Refresh and logout also require the readable `csrf_token` cookie to match the `X-CSRF-Token` request header.
 

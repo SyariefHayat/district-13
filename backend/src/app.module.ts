@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { AddonsModule } from './addons/addons.module.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AddonsModule } from './addons/addons.module.js';
     ProductsModule,
     CategoriesModule,
     AddonsModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
