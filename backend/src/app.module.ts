@@ -8,6 +8,8 @@ import { ProductsModule } from './products/products.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { AddonsModule } from './addons/addons.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
+import { ShiftsModule } from './shifts/shifts.module.js';
+import { TransactionsModule } from './transactions/transactions.module.js';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { InventoryModule } from './inventory/inventory.module.js';
     CategoriesModule,
     AddonsModule,
     InventoryModule,
+    ShiftsModule,
+    TransactionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
