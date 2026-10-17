@@ -1,3 +1,4 @@
+import { boolean } from 'drizzle-orm/pg-core';
 import {
   numeric,
   pgTable,
@@ -16,6 +17,7 @@ export const cashMovements = pgTable('cash_movements', {
   recordedBy: uuid('recorded_by')
     .notNull()
     .references(() => users.id),
+  recordedByEstimated: boolean('recorded_by_estimated').default(true).notNull(),
   type: cashMovementTypeEnum('type').notNull(),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   description: varchar('description'),

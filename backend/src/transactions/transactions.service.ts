@@ -97,6 +97,7 @@ export class TransactionsService {
         await tx.insert(cashMovements).values({
           shiftId: shift.id,
           recordedBy: actor.id,
+          recordedByEstimated: false,
           type: 'IN',
           amount: transaction.amount,
           description: `Void adjustment for transaction ${id}`,
@@ -106,6 +107,7 @@ export class TransactionsService {
           await tx.insert(cashMovements).values({
             shiftId: shift.id,
             recordedBy: actor.id,
+            recordedByEstimated: false,
             type: 'OUT',
             amount: refund.toFixed(2),
             description: `Cash refund for transaction ${id}`,

@@ -128,6 +128,7 @@ export class ShiftsService {
         .values({
           shiftId: shift.id,
           recordedBy: actor.id,
+          recordedByEstimated: false,
           type: input.type,
           amount: input.amount.toFixed(2),
           description: input.description,

@@ -27,8 +27,8 @@ describe('UsersController authorization', () => {
       UsersController.prototype,
       'findAll',
     )?.value;
-    expect(Reflect.getMetadata(PERMISSIONS_KEY, findAllHandler)).toBe(
+    expect(Reflect.getMetadata(PERMISSIONS_KEY, findAllHandler)).toEqual([
       PERMISSIONS.usersRead,
-    );
+    ]);
   });
 });

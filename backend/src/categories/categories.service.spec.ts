@@ -1,12 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesService } from './categories.service.js';
+import { DatabaseService } from '../drizzle/database/database.service.js';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CategoriesService],
+      providers: [
+        CategoriesService,
+        { provide: DatabaseService, useValue: {} },
+      ],
     }).compile();
 
     service = module.get<CategoriesService>(CategoriesService);
