@@ -60,5 +60,9 @@ describe('ShiftsController authorization', () => {
     expect(methodMetadata(PERMISSIONS_KEY, 'createCashMovement')).toEqual([
       PERMISSIONS.cashMovementsCreate,
     ]);
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'getSummary')).toEqual([
+      PERMISSIONS.shiftsReadOwn,
+      PERMISSIONS.shiftsReadAll,
+    ]);
   });
 });

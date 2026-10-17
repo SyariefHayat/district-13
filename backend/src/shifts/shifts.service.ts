@@ -61,6 +61,77 @@ export class ShiftsService {
     return rows;
   }
 
+  async getSummary(id: string, actor: AuthenticatedUser) {
+    const [summary] = await this.database.db
+      .select({
+        id: shifts.id,
+        userId: shifts.userId,
+        openingCash: shifts.openingCash,
+        expectedCash: shifts.expectedCash,
+        closingCash: shifts.closingCash,
+        cashDifference: shifts.cashDifference,
+        openedAt: shifts.openedAt,
+        closedAt: shifts.closedAt,
+        closedBy: shifts.closedBy,
+        transactionCount: sql<number>`(
+          select count(*)::int from ${transactions}
+          where ${transactions.shiftId} = ${shifts.id}
+            and ${transactions.status} = 'VALID'
+        )`,
+        cashSales: sql<string>`coalesce((
+          select sum(${transactions.amount}) from ${transactions}
+          where ${transactions.shiftId} = ${shifts.id}
+            and ${transactions.status} = 'VALID'
+            and ${transactions.paymentMethod} = 'CASH'
+        ), 0)::numeric(10, 2)`,
+        cashIn: sql<string>`coalesce((
+          select sum(${cashMovements.amount}) from ${cashMovements}
+          where ${cashMovements.shiftId} = ${shifts.id}
+            and ${cashMovements.type} = 'IN'
+        ), 0)::numeric(10, 2)`,
+        cashOut: sql<string>`coalesce((
+          select sum(${cashMovements.amount}) from ${cashMovements}
+          where ${cashMovements.shiftId} = ${shifts.id}
+            and ${cashMovements.type} = 'OUT'
+        ), 0)::numeric(10, 2)`,
+        calculatedExpectedCash: sql<string>`(
+          ${shifts.openingCash}
+          + coalesce((select sum(${transactions.amount}) from ${transactions}
+              where ${transactions.shiftId} = ${shifts.id}
+                and ${transactions.status} = 'VALID'
+                and ${transactions.paymentMethod} = 'CASH'), 0)
+          + coalesce((select sum(case when ${cashMovements.type} = 'IN'
+              then ${cashMovements.amount} else -${cashMovements.amount} end)
+              from ${cashMovements} where ${cashMovements.shiftId} = ${shifts.id}), 0)
+        )::numeric(10, 2)`,
+      })
+      .from(shifts)
+      .where(eq(shifts.id, id));
+
+    if (!summary) throw new NotFoundException('Shift not found');
+    if (actor.role === 'CASHIER' && summary.userId !== actor.id) {
+      throw new ForbiddenException('Cashiers can only view their own shifts');
+    }
+
+    return {
+      shift: {
+        id: summary.id,
+        userId: summary.userId,
+        openingCash: summary.openingCash,
+        expectedCash: summary.expectedCash ?? summary.calculatedExpectedCash,
+        closingCash: summary.closingCash,
+        cashDifference: summary.cashDifference,
+        openedAt: summary.openedAt,
+        closedAt: summary.closedAt,
+        closedBy: summary.closedBy,
+      },
+      transactionCount: Number(summary.transactionCount),
+      cashSales: summary.cashSales,
+      cashIn: summary.cashIn,
+      cashOut: summary.cashOut,
+    };
+  }
+
   async close(id: string, input: CloseShiftDto, actor: AuthenticatedUser) {
     return this.database.db.transaction(async (tx) => {
       const [shift] = await tx

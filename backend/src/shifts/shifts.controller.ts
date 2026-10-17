@@ -35,7 +35,7 @@ import { ShiftsService } from './shifts.service.js';
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 
-  @Post()
+  @Post('open')
   @Permissions(PERMISSIONS.shiftsOpen)
   open(@Body() body: OpenShiftDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.shiftsService.open(body, actor);
@@ -61,6 +61,15 @@ export class ShiftsController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.shiftsService.close(id, body, actor);
+  }
+
+  @Get(':id/summary')
+  @AnyPermissions(PERMISSIONS.shiftsReadOwn, PERMISSIONS.shiftsReadAll)
+  getSummary(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.shiftsService.getSummary(id, actor);
   }
 
   @Post(':id/cash-movements')
