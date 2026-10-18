@@ -37,7 +37,6 @@ export const PERMISSIONS = {
   cashMovementsUpdate: 'cash_movements.update',
   cashMovementsDelete: 'cash_movements.delete',
   transactionsCreate: 'transactions.create',
-  transactionsSyncOffline: 'transactions.sync_offline',
   transactionsReadAll: 'transactions.read_all',
   transactionsReadOwn: 'transactions.read_own',
   transactionsVoid: 'transactions.void',
@@ -46,10 +45,13 @@ export const PERMISSIONS = {
   reportsDiscountsRead: 'reports.discounts.read',
   reportsPaymentMethodsRead: 'reports.payment_methods.read',
   reportsProfitRead: 'reports.profit.read',
+  reportsInventoryRead: 'reports.inventory.read',
+  reportsCashRead: 'reports.cash.read',
   reportsShiftsRead: 'reports.shifts.read',
   reportsCashMovementsRead: 'reports.cash_movements.read',
   reportsCashierPerformanceRead: 'reports.cashier_performance.read',
   auditLogsRead: 'audit_logs.read',
+  auditLogsReadOperational: 'audit_logs.read_operational',
   storeSettingsRead: 'store_settings.read',
   storeSettingsUpdate: 'store_settings.update',
   orderCounterReset: 'order_counter.reset',
@@ -87,9 +89,13 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.cashMovementsCreateAny,
     PERMISSIONS.transactionsVoid,
     PERMISSIONS.transactionsReadAll,
+    PERMISSIONS.reportsSalesRead,
+    PERMISSIONS.reportsInventoryRead,
+    PERMISSIONS.reportsCashRead,
     PERMISSIONS.reportsShiftsRead,
     PERMISSIONS.reportsCashMovementsRead,
     PERMISSIONS.reportsCashierPerformanceRead,
+    PERMISSIONS.auditLogsReadOperational,
     PERMISSIONS.storeSettingsRead,
     PERMISSIONS.storeSettingsUpdate,
   ],
@@ -104,7 +110,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.shiftsCloseOwn,
     PERMISSIONS.cashMovementsCreateOwn,
     PERMISSIONS.transactionsCreate,
-    PERMISSIONS.transactionsSyncOffline,
     PERMISSIONS.transactionsReadOwn,
     PERMISSIONS.storeSettingsRead,
   ],
@@ -114,5 +119,9 @@ export function roleHasPermission(
   role: UserRole,
   permission: Permission,
 ): boolean {
-  return (ROLE_PERMISSIONS[role] as readonly Permission[]).includes(permission);
+  return (
+    (ROLE_PERMISSIONS[role] as readonly Permission[] | undefined)?.includes(
+      permission,
+    ) ?? false
+  );
 }

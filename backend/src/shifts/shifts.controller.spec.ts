@@ -10,13 +10,10 @@ vi.mock('../drizzle/config/env.js', () => ({
   },
 }));
 
-import { GUARDS_METADATA } from '@nestjs/common/constants';
 import {
   ANY_PERMISSIONS_KEY,
   PERMISSIONS_KEY,
 } from '../auth/decorators/permissions.decorator.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import {
   PERMISSIONS,
   roleHasPermission,
@@ -32,13 +29,6 @@ function methodMetadata(key: string, method: keyof ShiftsController) {
 }
 
 describe('ShiftsController authorization', () => {
-  it('requires authentication and permission checks', () => {
-    expect(Reflect.getMetadata(GUARDS_METADATA, ShiftsController)).toEqual([
-      JwtAuthGuard,
-      PermissionsGuard,
-    ]);
-  });
-
   it('requires opening permission and permits only owner/admin to read all shifts', () => {
     expect(methodMetadata(PERMISSIONS_KEY, 'open')).toEqual([
       PERMISSIONS.shiftsOpen,

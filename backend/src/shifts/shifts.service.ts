@@ -18,6 +18,10 @@ import {
   lte,
 } from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
+import {
+  PERMISSIONS,
+  roleHasPermission,
+} from '../auth/permissions/permissions.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
 import {
   cashMovements,
@@ -34,6 +38,9 @@ export class ShiftsService {
   constructor(private readonly database: DatabaseService) {}
 
   async open(input: OpenShiftDto, actor: AuthenticatedUser) {
+    if (!roleHasPermission(actor.role, PERMISSIONS.shiftsOpen)) {
+      throw new ForbiddenException('You cannot open a shift');
+    }
     try {
       const [shift] = await this.database.db
         .insert(shifts)
@@ -72,7 +79,7 @@ export class ShiftsService {
     }
 
     const filters = [];
-    if (actor.role === 'CASHIER') {
+    if (!roleHasPermission(actor.role, PERMISSIONS.shiftsReadAll)) {
       filters.push(eq(shifts.userId, actor.id));
     } else if (query.userId) {
       filters.push(eq(shifts.userId, query.userId));
@@ -154,7 +161,10 @@ export class ShiftsService {
       .where(eq(shifts.id, id));
 
     if (!summary) throw new NotFoundException('Shift not found');
-    if (actor.role === 'CASHIER' && summary.userId !== actor.id) {
+    if (
+      !roleHasPermission(actor.role, PERMISSIONS.shiftsReadAll) &&
+      summary.userId !== actor.id
+    ) {
       throw new ForbiddenException('Cashiers can only view their own shifts');
     }
 
@@ -180,10 +190,19 @@ export class ShiftsService {
         .where(eq(shifts.id, id))
         .for('update');
       if (!shift) throw new NotFoundException('Shift not found');
-      if (actor.role === 'CASHIER' && shift.userId !== actor.id) {
-        throw new ForbiddenException(
-          'Cashiers can only close their own shifts',
-        );
+      const canCloseAny = roleHasPermission(
+        actor.role,
+        PERMISSIONS.shiftsCloseAny,
+      );
+      const canCloseOwn = roleHasPermission(
+        actor.role,
+        PERMISSIONS.shiftsCloseOwn,
+      );
+      if (
+        (!canCloseAny && !canCloseOwn) ||
+        (!canCloseAny && shift.userId !== actor.id)
+      ) {
+        throw new ForbiddenException('You cannot close this shift');
       }
       if (shift.closedAt)
         throw new ConflictException('Shift is already closed');
@@ -232,9 +251,20 @@ export class ShiftsService {
         .where(eq(shifts.id, id))
         .for('update');
       if (!shift) throw new NotFoundException('Shift not found');
-      if (actor.role === 'CASHIER' && shift.userId !== actor.id) {
+      const canCreateAny = roleHasPermission(
+        actor.role,
+        PERMISSIONS.cashMovementsCreateAny,
+      );
+      const canCreateOwn = roleHasPermission(
+        actor.role,
+        PERMISSIONS.cashMovementsCreateOwn,
+      );
+      if (
+        (!canCreateAny && !canCreateOwn) ||
+        (!canCreateAny && shift.userId !== actor.id)
+      ) {
         throw new ForbiddenException(
-          'Cash movements must belong to your own shift',
+          'You cannot record cash movements for this shift',
         );
       }
       if (shift.closedAt)

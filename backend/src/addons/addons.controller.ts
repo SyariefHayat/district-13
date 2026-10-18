@@ -7,7 +7,6 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -16,8 +15,6 @@ import {
   AnyPermissions,
   Permissions,
 } from '../auth/decorators/permissions.decorator.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CreateAddonDto } from './dto/create-addon.dto.js';
@@ -25,7 +22,6 @@ import { UpdateAddonDto } from './dto/update-addon.dto.js';
 import { AddonsService } from './addons.service.js';
 
 @Controller('addons')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AddonsController {
   constructor(private readonly addonsService: AddonsService) {}
 

@@ -9,7 +9,6 @@ import {
   Post,
   Put,
   Query,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -18,8 +17,6 @@ import {
   AnyPermissions,
   Permissions,
 } from '../auth/decorators/permissions.decorator.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
@@ -29,7 +26,6 @@ import { UpdateProductDto } from './dto/update-product.dto.js';
 import { ProductsService } from './products.service.js';
 
 @Controller('products')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
@@ -76,6 +72,7 @@ export class ProductsController {
     PERMISSIONS.productsUpdateDetails,
     PERMISSIONS.productsUpdatePrices,
     PERMISSIONS.productsUpdateAvailability,
+    PERMISSIONS.productsDeactivate,
   )
   @UsePipes(
     new ValidationPipe({

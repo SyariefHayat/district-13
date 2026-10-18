@@ -39,7 +39,9 @@ describe('JwtAuthGuard', () => {
       db: {
         select: () => ({
           from: () => ({
-            where: () => ({ limit: async () => [{ isActive: false }] }),
+            innerJoin: () => ({
+              where: () => ({ limit: async () => [{ isActive: false }] }),
+            }),
           }),
         }),
       },
@@ -58,19 +60,21 @@ describe('JwtAuthGuard', () => {
 
   it('attaches the authenticated user for an active account', async () => {
     const jwtService = {
-      verifyAsync: vi
-        .fn()
-        .mockResolvedValue({
-          sub: 'user-1',
-          role: 'CASHIER',
-          sid: 'session-1',
-        }),
+      verifyAsync: vi.fn().mockResolvedValue({
+        sub: 'user-1',
+        role: 'CASHIER',
+        sid: 'session-1',
+      }),
     };
     const database = {
       db: {
         select: () => ({
           from: () => ({
-            where: () => ({ limit: async () => [{ isActive: true }] }),
+            innerJoin: () => ({
+              where: () => ({
+                limit: async () => [{ isActive: true, role: 'CASHIER' }],
+              }),
+            }),
           }),
         }),
       },

@@ -7,12 +7,9 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import {
   AnyPermissions,
   Permissions,
@@ -26,7 +23,6 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto.js';
 import { UsersService } from './users.service.js';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

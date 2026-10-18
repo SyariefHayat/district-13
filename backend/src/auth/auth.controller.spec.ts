@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 vi.mock('../drizzle/config/env.js', () => ({
-  env: { nodeEnv: 'test' },
+  env: { nodeEnv: 'test', accessTokenTtlSeconds: 900 },
 }));
 
 import { AuthController } from './auth.controller.js';
@@ -16,24 +16,26 @@ describe('AuthController', () => {
         user: { id: 'user-1', username: 'owner', role: 'OWNER' },
       }),
     };
-    const response = { cookie: vi.fn() };
+    const response = { cookie: vi.fn(), clearCookie: vi.fn() };
     const controller = new AuthController(authService as never);
 
     const result = await controller.login(
       { username: ' owner ', password: 'secret' },
+      { ip: '127.0.0.1' } as never,
       response as never,
     );
 
-    expect(authService.login).toHaveBeenCalledWith('owner', 'secret');
+    expect(authService.login).toHaveBeenCalledWith(
+      'owner',
+      'secret',
+      '127.0.0.1',
+    );
     expect(response.cookie).toHaveBeenCalledWith(
       'refresh_token',
       'refresh',
       expect.objectContaining({ httpOnly: true, path: '/auth' }),
     );
-    expect(result).toEqual({
-      accessToken: 'access',
-      user: { id: 'user-1', username: 'owner', role: 'OWNER' },
-    });
+    expect(result).toEqual({ accessToken: 'access', expiresIn: 900 });
   });
 
   it('clears the cookie when logging out', async () => {
@@ -51,7 +53,7 @@ describe('AuthController', () => {
         } as never,
         response as never,
       ),
-    ).resolves.toEqual({ success: true });
+    ).resolves.toBeUndefined();
     expect(authService.logout).toHaveBeenCalledWith('old');
     expect(response.clearCookie).toHaveBeenCalledWith(
       'refresh_token',

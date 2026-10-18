@@ -17,6 +17,10 @@ import {
   sql,
 } from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
+import {
+  PERMISSIONS,
+  roleHasPermission,
+} from '../auth/permissions/permissions.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import {
@@ -27,7 +31,6 @@ import {
   productAddons,
   shifts,
   transactionAuditLogs,
-  transactionCounters,
   transactionItemAddons,
   transactionItems,
   transactions,
@@ -306,8 +309,11 @@ export class TransactionsService {
       throw new BadRequestException('startDate must be before endDate');
     }
     const filters = [];
-    if (actor.role === 'CASHIER')
-      filters.push(eq(transactions.userId, actor.id));
+    const canReadAll = roleHasPermission(
+      actor.role,
+      PERMISSIONS.transactionsReadAll,
+    );
+    if (!canReadAll) filters.push(eq(transactions.userId, actor.id));
     else if (query.userId) filters.push(eq(transactions.userId, query.userId));
     if (query.shiftId) filters.push(eq(transactions.shiftId, query.shiftId));
     if (query.status) filters.push(eq(transactions.status, query.status));
@@ -351,7 +357,10 @@ export class TransactionsService {
       .innerJoin(shifts, eq(transactions.shiftId, shifts.id))
       .where(eq(transactions.id, id));
     if (!transaction) throw new NotFoundException('Transaction not found');
-    if (actor.role === 'CASHIER' && transaction.transaction.userId !== actor.id)
+    if (
+      !roleHasPermission(actor.role, PERMISSIONS.transactionsReadAll) &&
+      transaction.transaction.userId !== actor.id
+    )
       throw new NotFoundException('Transaction not found');
     const items = await this.database.db
       .select()

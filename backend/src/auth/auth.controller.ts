@@ -15,6 +15,7 @@ import { env } from '../drizzle/config/env.js';
 import { AuthService } from './auth.service.js';
 import type { Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { Public } from './decorators/public.decorator.js';
 
 const REFRESH_COOKIE = 'refresh_token';
 const CSRF_COOKIE = 'csrf_token';
@@ -22,6 +23,7 @@ const REFRESH_COOKIE_PATH = '/auth';
 const CSRF_COOKIE_PATH = '/';
 
 @Controller('auth')
+@Public()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

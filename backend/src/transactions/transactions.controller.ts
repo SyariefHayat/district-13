@@ -7,7 +7,6 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  UseGuards,
   UsePipes,
   ValidationPipe,
   BadRequestException,
@@ -17,8 +16,6 @@ import {
   AnyPermissions,
   Permissions,
 } from '../auth/decorators/permissions.decorator.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
@@ -27,7 +24,6 @@ import { VoidTransactionDto } from './dto/void-transaction.dto.js';
 import { TransactionsService } from './transactions.service.js';
 
 @Controller('transactions')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 @UsePipes(
   new ValidationPipe({
     transform: true,

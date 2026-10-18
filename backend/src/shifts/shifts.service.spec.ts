@@ -15,7 +15,10 @@ import { ShiftsService } from './shifts.service.js';
 
 describe('ShiftsService concurrency rules', () => {
   it('maps the database active-shift uniqueness violation to a conflict', async () => {
-    const returning = vi.fn().mockRejectedValue({ code: '23505' });
+    const returning = vi.fn().mockRejectedValue({
+      code: '23505',
+      constraint: 'shifts_one_active_per_user',
+    });
     const database = {
       db: {
         insert: vi.fn(() => ({ values: vi.fn(() => ({ returning })) })),

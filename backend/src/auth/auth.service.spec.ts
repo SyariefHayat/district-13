@@ -2,10 +2,30 @@ import { hash } from 'argon2';
 import { vi } from 'vitest';
 
 vi.mock('../drizzle/config/env.js', () => ({
-  env: { refreshTokenTtlSeconds: 604800 },
+  env: {
+    refreshTokenTtlSeconds: 604800,
+    accessTokenSecret: 'test-only-access-token-secret-32-bytes-minimum',
+  },
 }));
 
 import { AuthService } from './auth.service.js';
+
+function loginAttemptTransaction() {
+  return {
+    execute: vi.fn(),
+    delete: vi.fn(() => ({ where: vi.fn().mockResolvedValue([]) })),
+    select: vi.fn(() => ({
+      from: () => ({ where: async () => [{ total: 0 }] }),
+    })),
+    insert: vi.fn(() => ({
+      values: () => ({ returning: async () => [{ id: 'attempt-1' }] }),
+    })),
+  };
+}
+
+function reserveLoginAttempt(callback: (transaction: unknown) => unknown) {
+  return callback(loginAttemptTransaction());
+}
 
 describe('AuthService', () => {
   it('creates a session and returns tokens for an active user with a valid password', async () => {
@@ -26,6 +46,8 @@ describe('AuthService', () => {
           from: () => ({ where: () => ({ limit: async () => [user] }) }),
         })),
         insert: vi.fn(() => ({ values: insertValues })),
+        transaction: reserveLoginAttempt,
+        delete: vi.fn(() => ({ where: vi.fn().mockResolvedValue([]) })),
       },
     };
     const jwtService = {
@@ -87,6 +109,8 @@ describe('AuthService', () => {
               where: () => ({ limit: async () => result }),
             }),
           })),
+          transaction: reserveLoginAttempt,
+          insert: vi.fn(() => ({ values: vi.fn().mockResolvedValue([]) })),
         },
       };
       const service = new AuthService(
@@ -164,6 +188,7 @@ describe('AuthService', () => {
         select: vi.fn(() => ({
           from: () => ({ where: () => ({ limit: async () => [user] }) }),
         })),
+        transaction: reserveLoginAttempt,
         insert: vi.fn(() => ({
           values: () => ({
             returning: async () => {

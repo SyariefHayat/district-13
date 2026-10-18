@@ -10,6 +10,9 @@ import { AddonsModule } from './addons/addons.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { ShiftsModule } from './shifts/shifts.module.js';
 import { TransactionsModule } from './transactions/transactions.module.js';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
+import { PermissionsGuard } from './auth/guards/permissions.guard.js';
 
 @Module({
   imports: [
@@ -24,6 +27,10 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     TransactionsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useExisting: JwtAuthGuard },
+    { provide: APP_GUARD, useExisting: PermissionsGuard },
+  ],
 })
 export class AppModule {}

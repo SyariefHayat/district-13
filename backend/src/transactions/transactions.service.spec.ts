@@ -34,6 +34,10 @@ describe('TransactionsService void concurrency rules', () => {
       where: vi.fn().mockReturnThis(),
       for: vi.fn().mockResolvedValue([completedTransaction]),
     };
+    const itemsQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockResolvedValue([]),
+    };
     const updateQuery = {
       set: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
@@ -46,17 +50,22 @@ describe('TransactionsService void concurrency rules', () => {
         .fn()
         .mockReturnValueOnce(initialQuery)
         .mockReturnValueOnce(shiftLockQuery)
-        .mockReturnValueOnce(transactionLockQuery),
+        .mockReturnValueOnce(transactionLockQuery)
+        .mockReturnValueOnce(itemsQuery),
       update: vi.fn(() => updateQuery),
+      insert: vi.fn(() => ({ values: vi.fn().mockResolvedValue(undefined) })),
     };
-    const service = new TransactionsService({
-      db: {
-        transaction: (callback: (transaction: unknown) => unknown) =>
-          callback(tx),
-      },
-    } as never);
+    const service = new TransactionsService(
+      {
+        db: {
+          transaction: (callback: (transaction: unknown) => unknown) =>
+            callback(tx),
+        },
+      } as never,
+      { returnForVoid: vi.fn() } as never,
+    );
 
-    await service.void('transaction-id', {
+    await service.void('transaction-id', 'test reason', {
       id: 'owner-id',
       role: 'OWNER',
       sessionId: 'session-id',
@@ -96,7 +105,7 @@ describe('TransactionsService void concurrency rules', () => {
     } as never);
 
     await expect(
-      service.void('transaction-id', {
+      service.void('transaction-id', 'test reason', {
         id: 'owner-id',
         role: 'OWNER',
         sessionId: 'session-id',

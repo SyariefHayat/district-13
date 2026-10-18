@@ -8,7 +8,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -17,8 +16,6 @@ import {
   Permissions,
 } from '../auth/decorators/permissions.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CloseShiftDto } from './dto/close-shift.dto.js';
@@ -28,7 +25,6 @@ import { ListShiftsDto } from './dto/list-shifts.dto.js';
 import { ShiftsService } from './shifts.service.js';
 
 @Controller('shifts')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 @UsePipes(
   new ValidationPipe({
     transform: true,

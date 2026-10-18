@@ -10,19 +10,12 @@ vi.mock('../drizzle/config/env.js', () => ({
   },
 }));
 
-import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { PERMISSIONS_KEY } from '../auth/decorators/permissions.decorator.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import { TransactionsController } from './transactions.controller.js';
 
 describe('TransactionsController authorization', () => {
-  it('protects void operations with owner/admin permission', () => {
-    expect(
-      Reflect.getMetadata(GUARDS_METADATA, TransactionsController),
-    ).toEqual([JwtAuthGuard, PermissionsGuard]);
-
+  it('protects void operations with the declared permission', () => {
     const handler = Object.getOwnPropertyDescriptor(
       TransactionsController.prototype,
       'void',

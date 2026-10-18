@@ -12,6 +12,7 @@ import { sessions, users } from '../drizzle/schema/index.js';
 import {
   PERMISSIONS,
   roleHasPermission,
+  type Permission,
 } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import type { CreateUserDto } from './dto/create-user.dto.js';
@@ -87,7 +88,10 @@ export class UsersService {
           throw new ForbiddenException();
         }
 
-        const allowedFields = this.getAllowedUpdateFields(actor, target);
+        const allowedFields = this.getAllowedUpdateFields(
+          actor.id === target.id,
+          updatePermission,
+        );
         if (suppliedFields.some((field) => !allowedFields.includes(field))) {
           throw new ForbiddenException(
             'You cannot change one or more supplied fields',
@@ -235,30 +239,33 @@ export class UsersService {
     target: { id: string; role: 'OWNER' | 'ADMIN' | 'CASHIER' },
   ) {
     if (actor.id === target.id) return PERMISSIONS.usersUpdateOwnPassword;
-    if (actor.role === 'OWNER' && target.role === 'ADMIN') {
+    if (target.role === 'ADMIN') {
       return PERMISSIONS.usersUpdateAdminProfile;
     }
-    if (actor.role === 'OWNER' && target.role === 'CASHIER') {
+    if (
+      target.role === 'CASHIER' &&
+      roleHasPermission(actor.role, PERMISSIONS.usersUpdateCashierProfile)
+    ) {
       return PERMISSIONS.usersUpdateCashierProfile;
     }
-    if (actor.role === 'ADMIN' && target.role === 'CASHIER') {
+    if (target.role === 'CASHIER') {
       return PERMISSIONS.usersUpdateCashierCredentials;
     }
     throw new ForbiddenException();
   }
 
   private getAllowedUpdateFields(
-    actor: AuthenticatedUser,
-    target: { id: string; role: 'OWNER' | 'ADMIN' | 'CASHIER' },
+    isSelf: boolean,
+    permission: Permission,
   ): (keyof UpdateUserDto)[] {
-    if (actor.id === target.id) return ['password'];
-    if (actor.role === 'OWNER' && target.role === 'ADMIN') {
+    if (isSelf) return ['password'];
+    if (permission === PERMISSIONS.usersUpdateAdminProfile) {
       return ['username', 'password'];
     }
-    if (actor.role === 'OWNER' && target.role === 'CASHIER') {
+    if (permission === PERMISSIONS.usersUpdateCashierProfile) {
       return ['username', 'password', 'role', 'isActive'];
     }
-    if (actor.role === 'ADMIN' && target.role === 'CASHIER') {
+    if (permission === PERMISSIONS.usersUpdateCashierCredentials) {
       return ['username', 'password'];
     }
     throw new ForbiddenException();
