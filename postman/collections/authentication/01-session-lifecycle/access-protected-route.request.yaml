@@ -1,0 +1,15 @@
+$kind: http-request
+name: Access protected products route
+method: GET
+url: '{{base_url}}/products'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{access_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('active access token can reach a protected route', function () {
+        pm.response.to.have.status(200);
+      });

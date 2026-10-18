@@ -41,3 +41,15 @@ Thumbs.db
 AGENTS.md
 .postman/
 postman/
+
+# Keep the authentication API checks in version control; ignore local secrets.
+!postman/
+!postman/collections/
+!postman/collections/authentication/
+!postman/collections/authentication/**
+!postman/collections/authentication-rate-limit/
+!postman/collections/authentication-rate-limit/**
+!postman/environments/
+!postman/environments/local.example.environment.yaml
+postman/skills/
+postman/environments/local.environment.yaml

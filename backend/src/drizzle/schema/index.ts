@@ -9,3 +9,5 @@ export * from './inventory-movements.schema.js';
 export * from './shifts.schema.js';
 export * from './cash-movements.schema.js';
 export * from './transactions.schema.js';
+export * from './auth-login-attempts.schema.js';
+export * from './auth-audit-logs.schema.js';

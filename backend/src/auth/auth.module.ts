@@ -11,7 +11,10 @@ import { PermissionsGuard } from './guards/permissions.guard.js';
   imports: [
     JwtModule.register({
       secret: env.accessTokenSecret,
-      signOptions: { expiresIn: env.accessTokenTtlSeconds },
+      signOptions: {
+        algorithm: 'HS256',
+        expiresIn: env.accessTokenTtlSeconds,
+      },
     }),
   ],
   controllers: [AuthController],

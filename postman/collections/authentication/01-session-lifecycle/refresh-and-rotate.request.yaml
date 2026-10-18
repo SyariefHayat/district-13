@@ -1,0 +1,43 @@
+$kind: http-request
+name: Refresh and rotate token
+method: POST
+url: '{{base_url}}/auth/refresh'
+order: 4000
+headers:
+  - key: Cookie
+    value: 'refresh_token={{original_refresh_token}}; csrf_token={{csrf_token}}'
+  - key: X-CSRF-Token
+    value: '{{csrf_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('valid refresh returns a new access token', function () {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().accessToken).to.be.a('string');
+        pm.expect(pm.response.json().expiresIn).to.eql(900);
+      });
+      const cookies = pm.response.headers.all()
+        .filter((header) => header.key.toLowerCase() === 'set-cookie')
+        .map((header) => header.value);
+      const refreshCookie = cookies.find((cookie) => cookie.startsWith('refresh_token='));
+      const csrfCookie = cookies.find((cookie) => cookie.startsWith('csrf_token=') && /(?:^|;\s*)Path=\/(?:;|$)/i.test(cookie));
+      pm.test('refresh rotates the opaque token and preserves cookie policy', function () {
+        pm.expect(refreshCookie).to.be.a('string');
+        pm.expect(refreshCookie).to.include('HttpOnly');
+        pm.expect(refreshCookie).to.include('SameSite=Lax');
+        pm.expect(refreshCookie).to.include('Path=/auth');
+        const rotated = refreshCookie.split(';')[0].slice('refresh_token='.length);
+        pm.expect(rotated).not.to.eql(pm.environment.get('original_refresh_token'));
+        pm.environment.set('rotated_refresh_token', rotated);
+      });
+      pm.test('refresh issues a readable root-path CSRF cookie', function () {
+        pm.expect(csrfCookie).to.be.a('string');
+        pm.expect(csrfCookie).to.include('Path=/');
+        pm.expect(csrfCookie).not.to.include('Path=/auth');
+        pm.expect(csrfCookie).not.to.include('HttpOnly');
+      });
+      pm.environment.set('access_token', pm.response.json().accessToken);
+      if (csrfCookie) {
+        pm.environment.set('csrf_token', csrfCookie.split(';')[0].slice('csrf_token='.length));
+      }

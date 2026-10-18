@@ -1,0 +1,4 @@
+$kind: collection
+name: Negative cases
+description: Checks generic credential failure and invalid access token behavior.
+order: 2000

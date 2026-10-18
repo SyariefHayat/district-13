@@ -1,0 +1,15 @@
+$kind: http-request
+name: Access protected route after logout
+method: GET
+url: '{{base_url}}/products'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{access_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('revoked session invalidates its existing access token', function () {
+        pm.response.to.have.status(401);
+      });

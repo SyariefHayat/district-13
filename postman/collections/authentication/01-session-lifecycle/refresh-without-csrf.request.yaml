@@ -1,0 +1,15 @@
+$kind: http-request
+name: Refresh without CSRF header
+method: POST
+url: '{{base_url}}/auth/refresh'
+order: 3000
+headers:
+  - key: Cookie
+    value: 'refresh_token={{original_refresh_token}}; csrf_token={{csrf_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('refresh without the CSRF header is rejected', function () {
+        pm.response.to.have.status(403);
+      });

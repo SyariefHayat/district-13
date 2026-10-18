@@ -1,0 +1,4 @@
+$kind: collection
+name: Session lifecycle
+description: Login, check a protected route, verify CSRF and rotation, then logout.
+order: 1000

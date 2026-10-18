@@ -1,0 +1,17 @@
+name: District 13 Local
+values:
+  - key: base_url
+    value: http://localhost:3000
+    enabled: true
+    type: default
+    description: Local NestJS backend URL.
+  - key: username
+    value: owner
+    enabled: true
+    type: default
+    description: Active local test account.
+  - key: password
+    value: ""
+    enabled: true
+    type: secret
+    description: Set this in a private local environment copy; never commit a real password.

@@ -1,0 +1,23 @@
+$kind: collection
+name: District 13 Authentication
+description: >-
+  Reusable Postman checks for login, session validation, refresh rotation,
+  CSRF protection, logout, and generic credential errors.
+variables:
+  - key: base_url
+    value: http://localhost:3000
+    description: Local NestJS API origin.
+  - key: username
+    value: owner
+    description: Active account used by the authentication flow.
+  - key: password
+    value: ''
+    description: Supply a local test account password through the environment.
+  - key: access_token
+    value: ''
+  - key: csrf_token
+    value: ''
+  - key: original_refresh_token
+    value: ''
+  - key: rotated_refresh_token
+    value: ''

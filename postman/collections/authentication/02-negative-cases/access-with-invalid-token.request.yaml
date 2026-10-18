@@ -1,0 +1,15 @@
+$kind: http-request
+name: Access protected route with invalid token
+method: GET
+url: '{{base_url}}/products'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer invalid-token'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('invalid access token is rejected', function () {
+        pm.response.to.have.status(401);
+      });

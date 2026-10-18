@@ -1,0 +1,13 @@
+$kind: collection
+name: District 13 Authentication Rate Limit
+description: >-
+  Deliberately records five failed logins and verifies the sixth request gets
+  HTTP 429. Run only against a disposable local/test account: this also locks
+  the caller IP for 15 minutes.
+variables:
+  - key: base_url
+    value: http://localhost:3000
+  - key: username
+    value: owner
+  - key: wrong_password
+    value: deliberately-invalid-password

@@ -1,0 +1,57 @@
+$kind: http-request
+name: Login
+method: POST
+url: '{{base_url}}/auth/login'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "username": "{{username}}",
+      "password": "{{password}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('login succeeds', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      pm.test('response contains only the access token contract', function () {
+        pm.expect(body).to.have.property('accessToken').that.is.a('string');
+        pm.expect(body.expiresIn).to.eql(900);
+        pm.expect(body).not.to.have.property('user');
+        pm.expect(body).not.to.have.property('refreshToken');
+      });
+      pm.environment.set('access_token', body.accessToken);
+      const cookies = pm.response.headers.all()
+        .filter((header) => header.key.toLowerCase() === 'set-cookie')
+        .map((header) => header.value);
+      const refreshCookie = cookies.find((cookie) => cookie.startsWith('refresh_token='));
+      const csrfCookie = cookies.find((cookie) => cookie.startsWith('csrf_token=') && /(?:^|;\s*)Path=\/(?:;|$)/i.test(cookie));
+      pm.test('refresh cookie is HttpOnly, Lax, and scoped to /auth', function () {
+        pm.expect(refreshCookie).to.be.a('string');
+        pm.expect(refreshCookie).to.include('HttpOnly');
+        pm.expect(refreshCookie).to.include('SameSite=Lax');
+        pm.expect(refreshCookie).to.include('Path=/auth');
+      });
+      pm.test('CSRF cookie is readable and scoped to /', function () {
+        pm.expect(csrfCookie).to.be.a('string');
+        pm.expect(csrfCookie).to.include('SameSite=Lax');
+        pm.expect(csrfCookie).to.include('Path=/');
+        pm.expect(csrfCookie).not.to.include('Path=/auth');
+        pm.expect(csrfCookie).not.to.include('HttpOnly');
+      });
+      if (refreshCookie) {
+        pm.environment.set('original_refresh_token', refreshCookie.split(';')[0].slice('refresh_token='.length));
+      }
+      if (csrfCookie) {
+        pm.environment.set('csrf_token', csrfCookie.split(';')[0].slice('csrf_token='.length));
+        pm.test('CSRF token is available to following requests', function () {
+          pm.expect(pm.environment.get('csrf_token')).to.be.a('string').and.not.empty;
+        });
+      }

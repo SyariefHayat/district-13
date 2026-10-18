@@ -1,0 +1,17 @@
+$kind: http-request
+name: Failed login 3 of 5
+method: POST
+url: '{{base_url}}/auth/login'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    { "username": "{{username}}", "password": "{{wrong_password}}" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('failed attempt 3 is unauthorized', function () { pm.response.to.have.status(401); });

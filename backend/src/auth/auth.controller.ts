@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  HttpCode,
   Post,
   Req,
   Res,
@@ -17,28 +18,37 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 const REFRESH_COOKIE = 'refresh_token';
 const CSRF_COOKIE = 'csrf_token';
-const AUTH_COOKIE_PATH = '/auth';
+const REFRESH_COOKIE_PATH = '/auth';
+const CSRF_COOKIE_PATH = '/';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @HttpCode(200)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async login(
     @Body() body: LoginDto,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.login(
       body.username.trim(),
       body.password,
+      request.ip || 'unknown',
     );
     this.setRefreshCookie(response, result.refreshToken, result.expiresAt);
+    this.clearLegacyCsrfCookie(response);
     this.setCsrfCookie(response);
-    return { accessToken: result.accessToken, user: result.user };
+    return {
+      accessToken: result.accessToken,
+      expiresIn: env.accessTokenTtlSeconds,
+    };
   }
 
   @Post('refresh')
+  @HttpCode(200)
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
@@ -48,41 +58,60 @@ export class AuthController {
       readCookie(request, REFRESH_COOKIE),
     );
     this.setRefreshCookie(response, result.refreshToken, result.expiresAt);
+    this.clearLegacyCsrfCookie(response);
     this.setCsrfCookie(response);
-    return { accessToken: result.accessToken, user: result.user };
+    return {
+      accessToken: result.accessToken,
+      expiresIn: env.accessTokenTtlSeconds,
+    };
   }
 
   @Post('logout')
+  @HttpCode(204)
   async logout(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
     this.assertCsrfToken(request);
     await this.authService.logout(readCookie(request, REFRESH_COOKIE));
-    response.clearCookie(REFRESH_COOKIE, this.cookieOptions());
-    response.clearCookie(CSRF_COOKIE, this.cookieOptions());
-    return { success: true };
+    response.clearCookie(
+      REFRESH_COOKIE,
+      this.cookieOptions(REFRESH_COOKIE_PATH),
+    );
+    response.clearCookie(CSRF_COOKIE, {
+      ...this.cookieOptions(CSRF_COOKIE_PATH),
+      httpOnly: false,
+    });
+    this.clearLegacyCsrfCookie(response);
   }
 
   private setRefreshCookie(response: Response, token: string, expiresAt: Date) {
     response.cookie(REFRESH_COOKIE, token, {
       ...this.cookieOptions(),
-      expires: expiresAt,
+      maxAge: Math.max(0, expiresAt.getTime() - Date.now()),
+      path: REFRESH_COOKIE_PATH,
     });
   }
 
-  private cookieOptions() {
+  private cookieOptions(path = REFRESH_COOKIE_PATH) {
     return {
       httpOnly: true,
       secure: env.nodeEnv === 'production',
       sameSite: 'lax' as const,
-      path: AUTH_COOKIE_PATH,
+      path,
     };
   }
 
   private setCsrfCookie(response: Response) {
     response.cookie(CSRF_COOKIE, randomBytes(32).toString('base64url'), {
-      ...this.cookieOptions(),
+      ...this.cookieOptions(CSRF_COOKIE_PATH),
+      httpOnly: false,
+    });
+  }
+
+  private clearLegacyCsrfCookie(response: Response) {
+    response.clearCookie(CSRF_COOKIE, {
+      ...this.cookieOptions(REFRESH_COOKIE_PATH),
       httpOnly: false,
     });
   }

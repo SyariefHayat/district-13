@@ -22,6 +22,6 @@ export const env = {
     Number(process.env.REFRESH_TOKEN_TTL_SECONDS) || 604800,
 } as const;
 
-if (env.accessTokenSecret.length < 32) {
-  throw new Error('ACCESS_TOKEN_SECRET must be at least 32 characters long.');
+if (Buffer.byteLength(env.accessTokenSecret, 'utf8') < 32) {
+  throw new Error('ACCESS_TOKEN_SECRET must be at least 32 bytes long.');
 }

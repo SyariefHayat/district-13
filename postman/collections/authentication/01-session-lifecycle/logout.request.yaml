@@ -1,0 +1,24 @@
+$kind: http-request
+name: Logout current session
+method: POST
+url: '{{base_url}}/auth/logout'
+order: 6000
+headers:
+  - key: Cookie
+    value: 'refresh_token={{rotated_refresh_token}}; csrf_token={{csrf_token}}'
+  - key: X-CSRF-Token
+    value: '{{csrf_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('logout returns 204', function () {
+        pm.response.to.have.status(204);
+      });
+      const cookies = pm.response.headers.all()
+        .filter((header) => header.key.toLowerCase() === 'set-cookie')
+        .map((header) => header.value);
+      pm.test('logout clears refresh and CSRF cookies', function () {
+        pm.expect(cookies.some((cookie) => cookie.startsWith('refresh_token=') && /Max-Age=0|Expires=/i.test(cookie))).to.eql(true);
+        pm.expect(cookies.some((cookie) => cookie.startsWith('csrf_token=') && /Max-Age=0|Expires=/i.test(cookie))).to.eql(true);
+      });

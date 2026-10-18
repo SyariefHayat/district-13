@@ -1,0 +1,17 @@
+$kind: http-request
+name: Replay refresh token after rotation
+method: POST
+url: '{{base_url}}/auth/refresh'
+order: 5000
+headers:
+  - key: Cookie
+    value: 'refresh_token={{original_refresh_token}}; csrf_token={{csrf_token}}'
+  - key: X-CSRF-Token
+    value: '{{csrf_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('refresh token from before rotation is rejected', function () {
+        pm.response.to.have.status(401);
+      });

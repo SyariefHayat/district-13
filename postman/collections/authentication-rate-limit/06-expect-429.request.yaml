@@ -1,0 +1,17 @@
+$kind: http-request
+name: Sixth attempt is rate limited
+method: POST
+url: '{{base_url}}/auth/login'
+order: 6000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    { "username": "{{username}}", "password": "{{wrong_password}}" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('sixth failed login is rate limited', function () { pm.response.to.have.status(429); });

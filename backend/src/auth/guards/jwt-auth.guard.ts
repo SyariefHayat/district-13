@@ -6,16 +6,16 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
-import { eq } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import type { Request } from 'express';
 import { DatabaseService } from '../../drizzle/database/database.service.js';
-import { users } from '../../drizzle/schema/users.schema.js';
+import { sessions, users } from '../../drizzle/schema/index.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import type { UserRole } from '../types/auth.types.js';
 
 interface AccessTokenClaims {
   sub: string;
-  role: UserRole;
+  role?: UserRole;
   sid: string;
 }
 
@@ -44,28 +44,36 @@ export class JwtAuthGuard implements CanActivate {
     try {
       claims = await this.jwtService.verifyAsync<AccessTokenClaims>(
         authorization.slice(7),
+        { algorithms: ['HS256'] },
       );
     } catch {
       throw new UnauthorizedException();
     }
 
-    if (
-      typeof claims.sub !== 'string' ||
-      typeof claims.sid !== 'string' ||
-      !['OWNER', 'ADMIN', 'CASHIER'].includes(claims.role)
-    )
+    if (typeof claims.sub !== 'string' || typeof claims.sid !== 'string')
       throw new UnauthorizedException();
 
-    const [user] = await this.database.db
-      .select({ isActive: users.isActive })
-      .from(users)
-      .where(eq(users.id, claims.sub))
+    const [identity] = await this.database.db
+      .select({
+        isActive: users.isActive,
+        role: users.role,
+      })
+      .from(sessions)
+      .innerJoin(users, eq(users.id, sessions.userId))
+      .where(
+        and(
+          eq(sessions.id, claims.sid),
+          eq(sessions.userId, claims.sub),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, new Date()),
+        ),
+      )
       .limit(1);
-    if (!user?.isActive) throw new UnauthorizedException();
+    if (!identity?.isActive) throw new UnauthorizedException();
 
     request.user = {
       id: claims.sub,
-      role: claims.role,
+      role: identity.role as UserRole,
       sessionId: claims.sid,
     };
     return true;

@@ -27,9 +27,9 @@
 
 ## Authentication API
 
-- `POST /auth/login` accepts `{ "username": "...", "password": "..." }` and returns an access token plus the public user fields. The refresh token is set in the `HttpOnly` `refresh_token` cookie.
-- `POST /auth/refresh` reads that cookie, rotates it, and returns a new access token.
-- `POST /auth/logout` revokes the session represented by the refresh cookie and clears it. Existing access tokens remain valid until their 15 minute expiry.
+- `POST /auth/login` accepts `{ "username": "...", "password": "..." }` and returns `{ "accessToken": "...", "expiresIn": 900 }`. The opaque refresh token is set in the `HttpOnly` `refresh_token` cookie.
+- `POST /auth/refresh` requires the refresh cookie and a matching `X-CSRF-Token` header, rotates the cookie, and returns a new access token with `expiresIn`.
+- `POST /auth/logout` requires the refresh cookie and a matching `X-CSRF-Token` header, revokes the session represented by the refresh cookie, and returns `204 No Content` after clearing both cookies. Protected requests validate the session on every request, so session revocation immediately invalidates associated access tokens.
 - `GET /users` lists accounts (`users.read`: OWNER, ADMIN). `POST /users` creates `{ "username": "...", "password": "...", "role": "OWNER|ADMIN|CASHIER" }` (`users.create`: OWNER). `PATCH /users/:id` updates account fields under the role rules below. `PATCH /users/:id/status` accepts `{ "isActive": true|false }` and only changes cashier status (`users.update_cashier_profile`: OWNER). `DELETE /users/:id` permanently removes an account (`users.delete`: OWNER).
 
 For `PATCH /users/:id`, OWNER and ADMIN can update only their own password. OWNER can update another ADMIN's username or password, and can fully update a CASHIER's username, password, role, and active status. ADMIN can update only a CASHIER's username and password. CASHIER cannot update accounts. Password changes revoke the target user's refresh sessions. The ACL's “name” field refers to the account username; the database has no separate display-name field.
@@ -49,9 +49,9 @@ Permissions do not replace resource-level checks. Services must still enforce co
 
 Inventory writes require an active product, a positive integer quantity, and sufficient warehouse stock for transfers. Stock changes and their movement records are written atomically. CASHIER has no inventory permissions. Sales movements are recorded when transaction processing is implemented; this API does not create sales or accept direct `SALE` movements.
 
-Access tokens last 15 minutes. Refresh sessions have an absolute seven day lifetime; rotating a refresh token does not extend that deadline. Concurrent refresh requests are single use: only the request that atomically replaces the stored token hash succeeds. Cookies always use `SameSite=Lax` and use `Secure` in production. Refresh and logout also require the readable `csrf_token` cookie to match the `X-CSRF-Token` request header.
+Access tokens last 15 minutes and protected requests load the active session and current user role from PostgreSQL. Refresh sessions have an absolute seven day lifetime; rotating a refresh token does not extend that deadline. Concurrent refresh requests are single use: only the request that atomically replaces the stored token hash succeeds. Cookies use `SameSite=Lax` and `Secure` in production; the refresh cookie uses Path `/auth` and the readable `csrf_token` cookie uses Path `/`. Login failures are limited to five attempts per IP/username within 15 minutes and are recorded as `AUTH_LOGIN_FAILED` without storing the submitted username.
 
-Set `ACCESS_TOKEN_SECRET` to a secret with at least 32 characters, along with `DATABASE_URL`, before starting the backend. Optional token lifetime settings are `ACCESS_TOKEN_TTL_SECONDS` and `REFRESH_TOKEN_TTL_SECONDS`.
+Set `ACCESS_TOKEN_SECRET` to a secret with at least 32 bytes, along with `DATABASE_URL`, before starting the backend. Optional token lifetime settings are `ACCESS_TOKEN_TTL_SECONDS` and `REFRESH_TOKEN_TTL_SECONDS`.
 
 Password hashes use Argon2.
 
