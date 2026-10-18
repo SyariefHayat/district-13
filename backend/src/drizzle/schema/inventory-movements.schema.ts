@@ -1,6 +1,7 @@
 import { integer, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { products } from './products.schema.js';
 import { users } from './users.schema.js';
+import { transactions } from './transactions.schema.js';
 import {
   inventoryLocationEnum,
   inventoryMovementTypeEnum,
@@ -18,7 +19,7 @@ export const inventoryMovements = pgTable('inventory_movements', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
-  transactionId: uuid('transaction_id'),
+  transactionId: uuid('transaction_id').references(() => transactions.id),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

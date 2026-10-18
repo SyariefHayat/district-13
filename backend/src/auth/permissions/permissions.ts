@@ -59,7 +59,9 @@ export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ROLE_PERMISSIONS = {
   OWNER: Object.values(PERMISSIONS).filter(
-    (permission) => permission !== PERMISSIONS.shiftsOpen,
+    (permission) =>
+      permission !== PERMISSIONS.shiftsOpen &&
+      permission !== PERMISSIONS.transactionsCreate,
   ),
   ADMIN: [
     PERMISSIONS.usersRead,
@@ -83,7 +85,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.shiftsReadAll,
     PERMISSIONS.shiftsCloseAny,
     PERMISSIONS.cashMovementsCreateAny,
-    PERMISSIONS.transactionsCreate,
     PERMISSIONS.transactionsVoid,
     PERMISSIONS.transactionsReadAll,
     PERMISSIONS.reportsShiftsRead,

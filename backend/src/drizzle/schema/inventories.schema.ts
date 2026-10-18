@@ -17,6 +17,7 @@ export const inventoryMovementTypeEnum = pgEnum('inventory_movement_type', [
   'STOCK_IN',
   'TRANSFER',
   'SALE',
+  'VOID_RETURN',
 ]);
 
 export const inventories = pgTable(
