@@ -1,0 +1,30 @@
+$kind: http-request
+name: Record cash IN
+method: POST
+url: '{{base_url}}/shifts/{{shift_id}}/cash-movements'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "type": "IN",
+      "amount": "500.00",
+      "description": "Postman shift test cash in"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier records a positive cash IN on own shift', function () {
+        pm.response.to.have.status(201);
+        const body = pm.response.json();
+        pm.expect(body.shiftId).to.eql(pm.collectionVariables.get('shift_id'));
+        pm.expect(body.recordedBy).to.be.a('string').and.not.empty;
+        pm.expect(body.type).to.eql('IN');
+        pm.expect(body.amount).to.eql('500.00');
+      });

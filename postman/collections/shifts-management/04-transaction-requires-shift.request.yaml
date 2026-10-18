@@ -1,0 +1,25 @@
+$kind: http-request
+name: Transaction requires an active shift
+method: POST
+url: '{{base_url}}/transactions'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "paymentMethod": "CASH",
+      "totalAmount": "1000.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('sale is rejected before a shift is opened', function () {
+        pm.response.to.have.status(404);
+        pm.expect(pm.response.text()).to.include('Open a shift before creating a transaction');
+      });

@@ -1,0 +1,25 @@
+$kind: http-request
+name: Create completed QRIS sale
+method: POST
+url: '{{base_url}}/transactions'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "paymentMethod": "QRIS",
+      "totalAmount": "5000.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('QRIS sale is accepted but does not count as drawer cash', function () {
+        pm.response.to.have.status(201);
+        pm.expect(pm.response.json().paymentMethod).to.eql('QRIS');
+      });

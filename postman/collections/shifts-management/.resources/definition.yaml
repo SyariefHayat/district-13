@@ -1,0 +1,15 @@
+$kind: collection
+name: District 13 Shifts Management
+description: >-
+  Exercises shift authorization, active shift lifecycle, cash reconciliation,
+  supervisor close override, and closed-shift protection.
+variables:
+  - key: base_url
+    value: 'http://localhost:3000'
+    description: Local NestJS API origin.
+  - key: cashier_token
+    value: ''
+  - key: owner_token
+    value: ''
+  - key: shift_id
+    value: ''

@@ -1,0 +1,24 @@
+$kind: http-request
+name: Reject second active shift
+method: POST
+url: '{{base_url}}/shifts/open'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "openingCash": "0.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('only one active shift is allowed per cashier', function () {
+        pm.response.to.have.status(409);
+        pm.expect(pm.response.text()).to.include('An active shift already exists for this user');
+      });

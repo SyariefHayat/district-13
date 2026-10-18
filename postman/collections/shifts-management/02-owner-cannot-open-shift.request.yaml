@@ -1,0 +1,23 @@
+$kind: http-request
+name: Owner cannot open a cashier shift
+method: POST
+url: '{{base_url}}/shifts/open'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "openingCash": "200000.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OWNER is forbidden from opening a shift', function () {
+        pm.response.to.have.status(403);
+      });

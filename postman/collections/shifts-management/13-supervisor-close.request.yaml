@@ -1,0 +1,30 @@
+$kind: http-request
+name: Supervisor closes cashier shift
+method: POST
+url: '{{base_url}}/shifts/{{shift_id}}/close'
+order: 13000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "closingCash": "201250.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('supervisor closes the shift and receives the computed difference', function () {
+        pm.response.to.have.status(200);
+        const body = pm.response.json();
+        pm.expect(body.shiftId).to.eql(pm.collectionVariables.get('shift_id'));
+        pm.expect(body.status).to.eql('CLOSED');
+        pm.expect(Number(body.expectedCash)).to.eql(201300);
+        pm.expect(Number(body.closingCash)).to.eql(201250);
+        pm.expect(Number(body.cashDifference)).to.eql(-50);
+        pm.expect(body.closedBy).to.be.a('string').and.not.empty;
+      });

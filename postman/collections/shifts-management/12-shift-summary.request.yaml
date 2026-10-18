@@ -1,0 +1,22 @@
+$kind: http-request
+name: Verify active shift cash summary
+method: GET
+url: '{{base_url}}/shifts/{{shift_id}}/summary'
+order: 12000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('summary uses cash sales and movements, excluding QRIS', function () {
+        pm.response.to.have.status(200);
+        const body = pm.response.json();
+        pm.expect(body.shiftId).to.eql(pm.collectionVariables.get('shift_id'));
+        pm.expect(body.status).to.eql('OPEN');
+        pm.expect(Number(body.cashSales)).to.eql(1000);
+        pm.expect(Number(body.cashIn)).to.eql(500);
+        pm.expect(Number(body.cashOut)).to.eql(200);
+        pm.expect(Number(body.expectedCash)).to.eql(201300);
+      });

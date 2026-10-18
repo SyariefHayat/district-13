@@ -1,0 +1,33 @@
+$kind: http-request
+name: Open shift
+method: POST
+url: '{{base_url}}/shifts/open'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "openingCash": "200000.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier opens a shift', function () {
+        pm.response.to.have.status(201);
+      });
+      const body = pm.response.json();
+      pm.test('new shift starts with no closing figures', function () {
+        pm.expect(body.id).to.be.a('string').and.not.empty;
+        pm.expect(body.openingCash).to.eql('200000.00');
+        pm.expect(body.expectedCash).to.eql(null);
+        pm.expect(body.closingCash).to.eql(null);
+        pm.expect(body.cashDifference).to.eql(null);
+        pm.expect(body.closedAt).to.eql(null);
+      });
+      pm.collectionVariables.set('shift_id', body.id);

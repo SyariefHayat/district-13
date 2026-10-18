@@ -1,0 +1,27 @@
+name: District 13 Local Shifts
+values:
+  - key: base_url
+    value: 'http://localhost:3000'
+    enabled: true
+    type: default
+    description: Local NestJS backend URL.
+  - key: owner_username
+    value: owner
+    enabled: true
+    type: default
+    description: Active local OWNER account.
+  - key: owner_password
+    value: ''
+    enabled: true
+    type: secret
+    description: Set in a private local environment copy; never commit a real password.
+  - key: cashier_username
+    value: cashier
+    enabled: true
+    type: default
+    description: Active local CASHIER account with no open shift.
+  - key: cashier_password
+    value: ''
+    enabled: true
+    type: secret
+    description: Set in a private local environment copy; never commit a real password.

@@ -1,0 +1,26 @@
+$kind: http-request
+name: Reject cash movement after close
+method: POST
+url: '{{base_url}}/shifts/{{shift_id}}/cash-movements'
+order: 14000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "type": "IN",
+      "amount": "1.00",
+      "description": "Must be rejected"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('closed shift rejects cash movements', function () {
+        pm.response.to.have.status(409);
+        pm.expect(pm.response.text()).to.include('Closed shifts cannot accept cash movements');
+      });

@@ -1,0 +1,24 @@
+$kind: http-request
+name: Reject second close
+method: POST
+url: '{{base_url}}/shifts/{{shift_id}}/close'
+order: 15000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "closingCash": "201250.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('closed shift cannot be closed a second time', function () {
+        pm.response.to.have.status(409);
+        pm.expect(pm.response.text()).to.include('Shift is already closed');
+      });
