@@ -1,0 +1,5 @@
+$kind: collection
+name: District 13 Inventory Cashier Catalog
+description: >-
+  Verifies cashier catalog responses expose display stock only and keep
+  inventory management endpoints restricted.

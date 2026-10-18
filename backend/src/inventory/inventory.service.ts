@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { PostgresJsTransaction } from 'drizzle-orm/postgres-js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
@@ -19,6 +19,24 @@ import type { StockOperationDto } from './dto/stock-operation.dto.js';
 @Injectable()
 export class InventoryService {
   constructor(private readonly database: DatabaseService) {}
+
+  async getDisplayStock(productIds: readonly string[]) {
+    if (productIds.length === 0) return new Map<string, number>();
+
+    const balances = await this.database.db
+      .select({
+        productId: inventories.productId,
+        stock: inventories.stock,
+      })
+      .from(inventories)
+      .where(
+        and(
+          inArray(inventories.productId, [...productIds]),
+          eq(inventories.location, 'DISPLAY'),
+        ),
+      );
+    return new Map(balances.map(({ productId, stock }) => [productId, stock]));
+  }
 
   async getDashboard(query: ListInventoryDto) {
     const page = query.page ?? 1;

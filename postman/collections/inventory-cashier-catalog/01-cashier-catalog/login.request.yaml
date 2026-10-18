@@ -1,0 +1,27 @@
+$kind: http-request
+name: Cashier login
+method: POST
+url: '{{base_url}}/auth/login'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "username": "{{cashier_username}}",
+      "password": "{{cashier_password}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier login succeeds', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      pm.test('login returns an access token', function () {
+        pm.expect(body.accessToken).to.be.a('string').and.not.empty;
+      });
+      pm.variables.set('access_token', body.accessToken);

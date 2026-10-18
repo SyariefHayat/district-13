@@ -24,7 +24,6 @@ export const PERMISSIONS = {
   inventoryReadMovements: 'inventory.read_movements',
   inventoryTransferToDisplay: 'inventory.transfer_to_display',
   inventoryRestock: 'inventory.restock',
-  inventoryAdjust: 'inventory.adjust',
   schedulesManage: 'schedules.manage',
   schedulesReadAll: 'schedules.read_all',
   schedulesReadOwn: 'schedules.read_own',

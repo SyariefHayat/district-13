@@ -49,7 +49,10 @@ postman/
 !postman/collections/authentication/**
 !postman/collections/authentication-rate-limit/
 !postman/collections/authentication-rate-limit/**
+!postman/collections/inventory-cashier-catalog/
+!postman/collections/inventory-cashier-catalog/**
 !postman/environments/
 !postman/environments/local.example.environment.yaml
+!postman/environments/local-cashier.example.environment.yaml
 postman/skills/
 postman/environments/local.environment.yaml

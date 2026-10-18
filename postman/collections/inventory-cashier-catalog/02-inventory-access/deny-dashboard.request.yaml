@@ -1,0 +1,15 @@
+$kind: http-request
+name: Cashier cannot access inventory dashboard
+method: GET
+url: '{{base_url}}/inventory/dashboard'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{access_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier is forbidden from inventory dashboard', function () {
+        pm.response.to.have.status(403);
+      });

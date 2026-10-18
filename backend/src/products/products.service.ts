@@ -11,6 +11,7 @@ import {
   roleHasPermission,
 } from '../auth/permissions/permissions.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
+import { InventoryService } from '../inventory/inventory.service.js';
 import {
   addons,
   categories,
@@ -24,7 +25,10 @@ import type { UpdateProductDto } from './dto/update-product.dto.js';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly inventoryService: InventoryService,
+  ) {}
 
   async create(input: CreateProductDto) {
     return this.database.db.transaction(async (tx) => {
@@ -85,7 +89,9 @@ export class ProductsService {
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(where),
     ]);
-    return { data: items, page, limit, total: Number(total.total) };
+    const data =
+      actor.role === 'CASHIER' ? await this.withDisplayStock(items) : items;
+    return { data, page, limit, total: Number(total.total) };
   }
 
   async findOne(id: string, actor: AuthenticatedUser) {
@@ -124,7 +130,15 @@ export class ProductsService {
           ? and(eq(productAddons.productId, id), eq(addons.isActive, true))
           : eq(productAddons.productId, id),
       );
-    return { ...product, addons: activeAddonRows };
+    const displayStock =
+      actor.role === 'CASHIER'
+        ? await this.inventoryService.getDisplayStock([id])
+        : undefined;
+    return {
+      ...product,
+      ...(displayStock && { displayStock: displayStock.get(id) ?? 0 }),
+      addons: activeAddonRows,
+    };
   }
 
   async update(id: string, input: UpdateProductDto, actor: AuthenticatedUser) {
@@ -223,5 +237,17 @@ export class ProductsService {
       }
       return { productId: id, addonIds: ids };
     });
+  }
+
+  private async withDisplayStock<T extends { id: string }>(
+    items: T[],
+  ): Promise<(T & { displayStock: number })[]> {
+    const stockByProduct = await this.inventoryService.getDisplayStock(
+      items.map((item) => item.id),
+    );
+    return items.map((item) => ({
+      ...item,
+      displayStock: stockByProduct.get(item.id) ?? 0,
+    }));
   }
 }

@@ -1,0 +1,30 @@
+$kind: http-request
+name: Cashier product list exposes display stock only
+method: GET
+url: '{{base_url}}/products'
+order: 2000
+headers:
+  - key: Authorization
+    value: 'Bearer {{access_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier can read the product catalog', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      pm.test('catalog has at least one product for the detail check', function () {
+        pm.expect(body.data).to.be.an('array').that.is.not.empty;
+      });
+      pm.test('each catalog product exposes display stock but no warehouse stock', function () {
+        body.data.forEach(function (product) {
+          pm.expect(product.displayStock).to.be.a('number').and.at.least(0);
+          pm.expect(Object.keys(product).some(function (key) {
+            return /warehouse/i.test(key);
+          })).to.eql(false);
+        });
+      });
+      if (body.data && body.data.length > 0) {
+        pm.variables.set('product_id', body.data[0].id);
+      }

@@ -4,6 +4,7 @@ import { ProductsService } from './products.service.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
+import { InventoryService } from '../inventory/inventory.service.js';
 
 describe('ProductsController', () => {
   let controller: ProductsController;
@@ -11,7 +12,11 @@ describe('ProductsController', () => {
   beforeEach(async () => {
     const builder = Test.createTestingModule({
       controllers: [ProductsController],
-      providers: [ProductsService, { provide: DatabaseService, useValue: {} }],
+      providers: [
+        ProductsService,
+        InventoryService,
+        { provide: DatabaseService, useValue: {} },
+      ],
     });
     const module: TestingModule = await builder
       .overrideGuard(JwtAuthGuard)
