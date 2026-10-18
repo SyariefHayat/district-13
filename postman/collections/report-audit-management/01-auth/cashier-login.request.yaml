@@ -1,0 +1,18 @@
+$kind: http-request
+name: CASHIER login
+method: POST
+url: '{{base_url}}/auth/login'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    { "username": "{{cashier_username}}", "password": "{{cashier_password}}" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER can log in', function () { pm.response.to.have.status(200); });
+      pm.collectionVariables.set('cashier_token', pm.response.json().accessToken);

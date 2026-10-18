@@ -1,0 +1,20 @@
+$kind: http-request
+name: ADMIN inventory report
+method: GET
+url: '{{base_url}}/reports/inventory?page=1&limit=20'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('inventory report distinguishes current stock and paginated movements', function () {
+        pm.response.to.have.status(200);
+        const b = pm.response.json();
+        pm.expect(b.balances).to.be.an('array');
+        pm.expect(b.balances.every((x) => ['WAREHOUSE', 'DISPLAY'].includes(x.location))).to.eql(true);
+        pm.expect(b.movements.data).to.be.an('array');
+        pm.expect(b.movements.page).to.eql(1);
+      });

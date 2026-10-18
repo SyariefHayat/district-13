@@ -1,0 +1,18 @@
+$kind: http-request
+name: OWNER login
+method: POST
+url: '{{base_url}}/auth/login'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    { "username": "{{owner_username}}", "password": "{{owner_password}}" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OWNER can log in', function () { pm.response.to.have.status(200); });
+      pm.collectionVariables.set('owner_token', pm.response.json().accessToken);

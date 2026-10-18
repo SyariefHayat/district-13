@@ -1,0 +1,19 @@
+$kind: http-request
+name: OWNER cash report
+method: GET
+url: '{{base_url}}/reports/cash?startDate=2026-01-01&endDate=2026-12-31&page=1&limit=20'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cash report separates tenders, movements and voids', function () {
+        pm.response.to.have.status(200);
+        const b = pm.response.json();
+        ['cashSales','qrisSales','cashIn','cashOut','voidCount','voidValue'].forEach((k) => pm.expect(b).to.have.property(k));
+        pm.expect(b.transactions.data).to.be.an('array');
+        pm.expect(b.transactions.page).to.eql(1);
+      });

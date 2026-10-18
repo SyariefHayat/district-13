@@ -1,0 +1,18 @@
+$kind: http-request
+name: ADMIN login
+method: POST
+url: '{{base_url}}/auth/login'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    { "username": "{{admin_username}}", "password": "{{admin_password}}" }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN can log in', function () { pm.response.to.have.status(200); });
+      pm.collectionVariables.set('admin_token', pm.response.json().accessToken);

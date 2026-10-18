@@ -1,0 +1,13 @@
+$kind: http-request
+name: CASHIER cannot read reports
+method: GET
+url: '{{base_url}}/reports/sales?page=1&limit=20'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER report access is forbidden', function () { pm.response.to.have.status(403); });

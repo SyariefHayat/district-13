@@ -1,0 +1,20 @@
+$kind: http-request
+name: OWNER audit log list
+method: GET
+url: '{{base_url}}/audit-logs?page=1&limit=20'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OWNER receives paginated audit entries', function () {
+        pm.response.to.have.status(200);
+        const b = pm.response.json();
+        pm.expect(b.data).to.be.an('array');
+        pm.expect(b.page).to.eql(1);
+        pm.expect(b.limit).to.eql(20);
+        b.data.forEach((x) => ['id','action','entityType','description','createdAt'].forEach((k) => pm.expect(x).to.have.property(k)));
+      });

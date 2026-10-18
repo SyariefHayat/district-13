@@ -4,6 +4,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   and,
@@ -38,6 +39,7 @@ import {
 } from '../drizzle/schema/index.js';
 import type { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import type { ListTransactionsDto } from './dto/list-transactions.dto.js';
+import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 
 type NormalizedItem = {
   productId: string;
@@ -50,6 +52,7 @@ export class TransactionsService {
   constructor(
     private readonly database: DatabaseService,
     private readonly inventoryService: InventoryService,
+    @Optional() private readonly auditLogs?: AuditLogsService,
   ) {}
 
   async create(
@@ -235,6 +238,17 @@ export class TransactionsService {
         .returning();
       if (!transaction)
         throw new ConflictException('Transaction could not be created');
+      await this.auditLogs?.record(
+        {
+          userId: actor.id,
+          action: 'TRANSACTION_CREATED',
+          entityType: 'TRANSACTION',
+          entityId: transaction.id,
+          description: `Transaction ${transactionNumber} created`,
+          metadata: { paymentMethod, totalAmount: transaction.totalAmount },
+        },
+        tx,
+      );
 
       for (const item of calculated) {
         const [savedItem] = await tx
@@ -433,6 +447,17 @@ export class TransactionsService {
         )
         .returning();
       if (!voided) throw new ConflictException('Transaction is already voided');
+      await this.auditLogs?.record(
+        {
+          userId: actor.id,
+          action: 'TRANSACTION_VOIDED',
+          entityType: 'TRANSACTION',
+          entityId: id,
+          description: `Transaction ${transaction.transactionNumber} voided`,
+          metadata: { reason: normalizedReason },
+        },
+        tx,
+      );
       await this.inventoryService.returnForVoid(
         tx,
         rows.map(({ productId, quantity }) => ({ productId, quantity })),

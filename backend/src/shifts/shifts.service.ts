@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   and,
@@ -32,23 +33,43 @@ import type { CloseShiftDto } from './dto/close-shift.dto.js';
 import type { CreateCashMovementDto } from './dto/create-cash-movement.dto.js';
 import type { OpenShiftDto } from './dto/open-shift.dto.js';
 import type { ListShiftsDto } from './dto/list-shifts.dto.js';
+import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 
 @Injectable()
 export class ShiftsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    @Optional() private readonly auditLogs?: AuditLogsService,
+  ) {}
 
   async open(input: OpenShiftDto, actor: AuthenticatedUser) {
     if (!roleHasPermission(actor.role, PERMISSIONS.shiftsOpen)) {
       throw new ForbiddenException('You cannot open a shift');
     }
     try {
-      const [shift] = await this.database.db
-        .insert(shifts)
-        .values({
-          userId: actor.id,
-          openingCash: input.openingCash,
-        })
-        .returning();
+      const create = async (tx: typeof this.database.db) => {
+        const [created] = await tx
+          .insert(shifts)
+          .values({ userId: actor.id, openingCash: input.openingCash })
+          .returning();
+        if (created)
+          await this.auditLogs?.record(
+            {
+              userId: actor.id,
+              action: 'SHIFT_OPENED',
+              entityType: 'SHIFT',
+              entityId: created.id,
+              description: 'Shift opened',
+              metadata: { openingCash: input.openingCash },
+            },
+            tx,
+          );
+        return created;
+      };
+      const shift =
+        typeof this.database.db.transaction === 'function'
+          ? await this.database.db.transaction(create)
+          : await create(this.database.db);
       return shift;
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -227,6 +248,24 @@ export class ShiftsService {
         .where(and(eq(shifts.id, id), isNull(shifts.closedAt)))
         .returning();
       if (!closedShift) throw new ConflictException('Shift is already closed');
+      await this.auditLogs?.record(
+        {
+          userId: actor.id,
+          action:
+            canCloseAny && shift.userId !== actor.id
+              ? 'SHIFT_CLOSED_BY_SUPERVISOR'
+              : 'SHIFT_CLOSED',
+          entityType: 'SHIFT',
+          entityId: id,
+          description: 'Shift closed',
+          metadata: {
+            expectedCash: totals.expectedCash,
+            closingCash: input.closingCash,
+            cashDifference: closedShift.cashDifference,
+          },
+        },
+        tx,
+      );
       return {
         shiftId: closedShift.id,
         status: 'CLOSED' as const,
@@ -282,6 +321,21 @@ export class ShiftsService {
           description: input.description,
         })
         .returning();
+      if (movement)
+        await this.auditLogs?.record(
+          {
+            userId: actor.id,
+            action:
+              input.type === 'IN'
+                ? 'CASH_MOVEMENT_IN_RECORDED'
+                : 'CASH_MOVEMENT_OUT_RECORDED',
+            entityType: 'CASH_MOVEMENT',
+            entityId: movement.id,
+            description: `Cash movement ${input.type} recorded`,
+            metadata: { shiftId: shift.id, amount: input.amount },
+          },
+          tx,
+        );
       return movement;
     });
   }

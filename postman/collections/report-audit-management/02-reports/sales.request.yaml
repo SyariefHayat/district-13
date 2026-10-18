@@ -1,0 +1,27 @@
+$kind: http-request
+name: OWNER sales report
+method: GET
+url: '{{base_url}}/reports/sales?startDate=2026-01-01&endDate=2026-12-31&page=1&limit=20'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('sales report returns paginated completed sales', function () {
+        pm.response.to.have.status(200);
+        const b = pm.response.json();
+        pm.expect(b).to.have.property('grossSales');
+        pm.expect(b).to.have.property('discountTotal');
+        pm.expect(b).to.have.property('netSales');
+        pm.expect(b).to.have.property('transactionCount');
+        pm.expect(b).to.have.property('averageTransactionValue');
+        pm.expect(b).to.have.property('byPaymentMethod');
+        pm.expect(b.transactions.page).to.eql(1);
+        pm.expect(b.transactions.limit).to.eql(20);
+        pm.expect(b.transactions.data).to.be.an('array');
+        pm.expect(b.transactions.data.every((t) => t.status === 'COMPLETED')).to.eql(true);
+        pm.expect(Number(b.netSales)).to.be.closeTo(Number(b.grossSales) - Number(b.discountTotal), 0.01);
+      });

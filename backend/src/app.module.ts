@@ -13,6 +13,8 @@ import { TransactionsModule } from './transactions/transactions.module.js';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './auth/guards/permissions.guard.js';
+import { ReportsModule } from './reports/reports.module.js';
+import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { PermissionsGuard } from './auth/guards/permissions.guard.js';
     InventoryModule,
     ShiftsModule,
     TransactionsModule,
+    ReportsModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [

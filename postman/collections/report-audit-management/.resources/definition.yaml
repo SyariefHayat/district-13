@@ -1,0 +1,14 @@
+$kind: collection
+name: District 13 Report and Audit Management
+description: >-
+  Checks report calculations, pagination, filtering, and OWNER/ADMIN/CASHIER
+  authorization. Requires seeded local users and operational data.
+variables:
+  - key: base_url
+    value: 'http://localhost:3000'
+  - key: owner_token
+    value: ''
+  - key: admin_token
+    value: ''
+  - key: cashier_token
+    value: ''

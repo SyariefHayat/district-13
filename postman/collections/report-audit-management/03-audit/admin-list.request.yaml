@@ -1,0 +1,21 @@
+$kind: http-request
+name: ADMIN operational audit list
+method: GET
+url: '{{base_url}}/audit-logs?page=1&limit=100'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN sees operational audit entries only', function () {
+        pm.response.to.have.status(200);
+        const allowed = ['PRODUCT','CATEGORY','ADDON','INVENTORY','TRANSACTION','SHIFT','CASH_MOVEMENT'];
+        pm.response.json().data.forEach((x) => {
+          pm.expect(allowed).to.include(x.entityType);
+          pm.expect(x.action).not.to.match(/^AUTH_/);
+          pm.expect(x.entityType).not.to.be.oneOf(['USER','SESSION']);
+        });
+      });
