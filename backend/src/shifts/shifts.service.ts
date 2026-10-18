@@ -1,10 +1,22 @@
 import {
   ConflictException,
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  gte,
+  sql,
+  lte,
+} from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
 import {
@@ -15,6 +27,7 @@ import {
 import type { CloseShiftDto } from './dto/close-shift.dto.js';
 import type { CreateCashMovementDto } from './dto/create-cash-movement.dto.js';
 import type { OpenShiftDto } from './dto/open-shift.dto.js';
+import type { ListShiftsDto } from './dto/list-shifts.dto.js';
 
 @Injectable()
 export class ShiftsService {
@@ -26,8 +39,7 @@ export class ShiftsService {
         .insert(shifts)
         .values({
           userId: actor.id,
-          openingCash: input.openingCash.toFixed(2),
-          openedAt: new Date(),
+          openingCash: input.openingCash,
         })
         .returning();
       return shift;
@@ -50,15 +62,48 @@ export class ShiftsService {
     return shift ?? null;
   }
 
-  async list(actor: AuthenticatedUser) {
-    const query = this.database.db.select().from(shifts);
-    const rows =
-      actor.role === 'CASHIER'
-        ? await query
-            .where(eq(shifts.userId, actor.id))
-            .orderBy(desc(shifts.openedAt))
-        : await query.orderBy(desc(shifts.openedAt));
-    return rows;
+  async list(query: ListShiftsDto, actor: AuthenticatedUser) {
+    if (
+      query.startDate &&
+      query.endDate &&
+      new Date(query.startDate).getTime() > new Date(query.endDate).getTime()
+    ) {
+      throw new BadRequestException('startDate must be before endDate');
+    }
+
+    const filters = [];
+    if (actor.role === 'CASHIER') {
+      filters.push(eq(shifts.userId, actor.id));
+    } else if (query.userId) {
+      filters.push(eq(shifts.userId, query.userId));
+    }
+    if (query.status === 'OPEN') filters.push(isNull(shifts.closedAt));
+    if (query.status === 'CLOSED') filters.push(isNotNull(shifts.closedAt));
+    if (query.startDate)
+      filters.push(gte(shifts.openedAt, new Date(query.startDate)));
+    if (query.endDate) {
+      const end = parseEndDate(query.endDate);
+      filters.push(
+        end.exclusive
+          ? lt(shifts.openedAt, end.date)
+          : lte(shifts.openedAt, end.date),
+      );
+    }
+
+    const filter = filters.length ? and(...filters) : undefined;
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const [data, [total]] = await Promise.all([
+      this.database.db
+        .select()
+        .from(shifts)
+        .where(filter)
+        .orderBy(desc(shifts.openedAt))
+        .limit(limit)
+        .offset((page - 1) * limit),
+      this.database.db.select({ total: count() }).from(shifts).where(filter),
+    ]);
+    return { data, page, limit, total: Number(total.total) };
   }
 
   async getSummary(id: string, actor: AuthenticatedUser) {
@@ -76,12 +121,12 @@ export class ShiftsService {
         transactionCount: sql<number>`(
           select count(*)::int from ${transactions}
           where ${transactions.shiftId} = ${shifts.id}
-            and ${transactions.status} = 'VALID'
+            and ${transactions.status} = 'COMPLETED'
         )`,
         cashSales: sql<string>`coalesce((
-          select sum(${transactions.amount}) from ${transactions}
+          select sum(${transactions.totalAmount}) from ${transactions}
           where ${transactions.shiftId} = ${shifts.id}
-            and ${transactions.status} = 'VALID'
+            and ${transactions.status} = 'COMPLETED'
             and ${transactions.paymentMethod} = 'CASH'
         ), 0)::numeric(10, 2)`,
         cashIn: sql<string>`coalesce((
@@ -96,9 +141,9 @@ export class ShiftsService {
         ), 0)::numeric(10, 2)`,
         calculatedExpectedCash: sql<string>`(
           ${shifts.openingCash}
-          + coalesce((select sum(${transactions.amount}) from ${transactions}
+          + coalesce((select sum(${transactions.totalAmount}) from ${transactions}
               where ${transactions.shiftId} = ${shifts.id}
-                and ${transactions.status} = 'VALID'
+                and ${transactions.status} = 'COMPLETED'
                 and ${transactions.paymentMethod} = 'CASH'), 0)
           + coalesce((select sum(case when ${cashMovements.type} = 'IN'
               then ${cashMovements.amount} else -${cashMovements.amount} end)
@@ -114,17 +159,12 @@ export class ShiftsService {
     }
 
     return {
-      shift: {
-        id: summary.id,
-        userId: summary.userId,
-        openingCash: summary.openingCash,
-        expectedCash: summary.expectedCash ?? summary.calculatedExpectedCash,
-        closingCash: summary.closingCash,
-        cashDifference: summary.cashDifference,
-        openedAt: summary.openedAt,
-        closedAt: summary.closedAt,
-        closedBy: summary.closedBy,
-      },
+      shiftId: summary.id,
+      status: summary.closedAt ? 'CLOSED' : 'OPEN',
+      openingCash: summary.openingCash,
+      expectedCash: summary.expectedCash ?? summary.calculatedExpectedCash,
+      closingCash: summary.closingCash,
+      cashDifference: summary.cashDifference,
       transactionCount: Number(summary.transactionCount),
       cashSales: summary.cashSales,
       cashIn: summary.cashIn,
@@ -150,7 +190,7 @@ export class ShiftsService {
 
       const [totals] = await tx
         .select({
-          expectedCash: sql<string>`(${shifts.openingCash} + coalesce((select sum(${transactions.amount}) from ${transactions} where ${transactions.shiftId} = ${shifts.id} and ${transactions.paymentMethod} = 'CASH' and ${transactions.status} = 'VALID'), 0) + coalesce((select sum(case when ${cashMovements.type} = 'IN' then ${cashMovements.amount} else -${cashMovements.amount} end) from ${cashMovements} where ${cashMovements.shiftId} = ${shifts.id}), 0))::numeric(10, 2)`,
+          expectedCash: sql<string>`(${shifts.openingCash} + coalesce((select sum(${transactions.totalAmount}) from ${transactions} where ${transactions.shiftId} = ${shifts.id} and ${transactions.paymentMethod} = 'CASH' and ${transactions.status} = 'COMPLETED'), 0) + coalesce((select sum(case when ${cashMovements.type} = 'IN' then ${cashMovements.amount} else -${cashMovements.amount} end) from ${cashMovements} where ${cashMovements.shiftId} = ${shifts.id}), 0))::numeric(10, 2)`,
         })
         .from(shifts)
         .where(eq(shifts.id, id))
@@ -160,15 +200,23 @@ export class ShiftsService {
         .update(shifts)
         .set({
           expectedCash: totals.expectedCash,
-          closingCash: input.closingCash.toFixed(2),
-          cashDifference: sql`${input.closingCash.toFixed(2)}::numeric - ${totals.expectedCash}::numeric`,
+          closingCash: input.closingCash,
+          cashDifference: sql`${input.closingCash}::numeric - ${totals.expectedCash}::numeric`,
           closedAt: new Date(),
           closedBy: actor.id,
         })
         .where(and(eq(shifts.id, id), isNull(shifts.closedAt)))
         .returning();
       if (!closedShift) throw new ConflictException('Shift is already closed');
-      return closedShift;
+      return {
+        shiftId: closedShift.id,
+        status: 'CLOSED' as const,
+        expectedCash: closedShift.expectedCash,
+        closingCash: closedShift.closingCash,
+        cashDifference: closedShift.cashDifference,
+        closedAt: closedShift.closedAt,
+        closedBy: closedShift.closedBy,
+      };
     });
   }
 
@@ -184,7 +232,7 @@ export class ShiftsService {
         .where(eq(shifts.id, id))
         .for('update');
       if (!shift) throw new NotFoundException('Shift not found');
-      if (shift.userId !== actor.id) {
+      if (actor.role === 'CASHIER' && shift.userId !== actor.id) {
         throw new ForbiddenException(
           'Cash movements must belong to your own shift',
         );
@@ -199,11 +247,9 @@ export class ShiftsService {
         .values({
           shiftId: shift.id,
           recordedBy: actor.id,
-          recordedByEstimated: false,
           type: input.type,
-          amount: input.amount.toFixed(2),
+          amount: input.amount,
           description: input.description,
-          createdAt: new Date(),
         })
         .returning();
       return movement;
@@ -211,11 +257,20 @@ export class ShiftsService {
   }
 }
 
+function parseEndDate(value: string): { date: Date; exclusive: boolean } {
+  const date = new Date(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return { date, exclusive: false };
+  date.setUTCDate(date.getUTCDate() + 1);
+  return { date, exclusive: true };
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return (
     typeof error === 'object' &&
     error !== null &&
     'code' in error &&
-    error.code === '23505'
+    error.code === '23505' &&
+    'constraint' in error &&
+    error.constraint === 'shifts_one_active_per_user'
   );
 }

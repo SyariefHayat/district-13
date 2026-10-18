@@ -32,7 +32,8 @@ export const PERMISSIONS = {
   shiftsReadAll: 'shifts.read_all',
   shiftsCloseAny: 'shifts.close_any',
   shiftsCloseOwn: 'shifts.close_own',
-  cashMovementsCreate: 'cash_movements.create',
+  cashMovementsCreateOwn: 'cash_movements.create_own',
+  cashMovementsCreateAny: 'cash_movements.create_any',
   cashMovementsUpdate: 'cash_movements.update',
   cashMovementsDelete: 'cash_movements.delete',
   transactionsCreate: 'transactions.create',
@@ -57,7 +58,9 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ROLE_PERMISSIONS = {
-  OWNER: Object.values(PERMISSIONS),
+  OWNER: Object.values(PERMISSIONS).filter(
+    (permission) => permission !== PERMISSIONS.shiftsOpen,
+  ),
   ADMIN: [
     PERMISSIONS.usersRead,
     PERMISSIONS.usersUpdateOwnPassword,
@@ -77,11 +80,11 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.inventoryTransferToDisplay,
     PERMISSIONS.schedulesManage,
     PERMISSIONS.schedulesReadAll,
-    PERMISSIONS.shiftsOpen,
     PERMISSIONS.shiftsReadAll,
     PERMISSIONS.shiftsCloseAny,
-    PERMISSIONS.cashMovementsCreate,
+    PERMISSIONS.cashMovementsCreateAny,
     PERMISSIONS.transactionsCreate,
+    PERMISSIONS.transactionsVoid,
     PERMISSIONS.transactionsReadAll,
     PERMISSIONS.reportsShiftsRead,
     PERMISSIONS.reportsCashMovementsRead,
@@ -98,7 +101,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.shiftsOpen,
     PERMISSIONS.shiftsReadOwn,
     PERMISSIONS.shiftsCloseOwn,
-    PERMISSIONS.cashMovementsCreate,
+    PERMISSIONS.cashMovementsCreateOwn,
     PERMISSIONS.transactionsCreate,
     PERMISSIONS.transactionsSyncOffline,
     PERMISSIONS.transactionsReadOwn,

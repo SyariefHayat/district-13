@@ -1,11 +1,10 @@
-import { IsIn, IsNumber, Max, Min } from 'class-validator';
+import { IsIn, IsString, Matches } from 'class-validator';
 
 export class CreateTransactionDto {
   @IsIn(['CASH', 'QRIS'])
   paymentMethod!: 'CASH' | 'QRIS';
 
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
-  @Max(99999999.99)
-  amount!: number;
+  @IsString()
+  @Matches(/^\d{1,8}(?:\.\d{1,2})?$/)
+  totalAmount!: string;
 }

@@ -10,25 +10,44 @@ vi.mock('../drizzle/config/env.js', () => ({
   },
 }));
 
-import { NotFoundException } from '@nestjs/common';
 import { TransactionsService } from './transactions.service.js';
 
-describe('TransactionsService shift association', () => {
-  it('locks the cashier active shift before inserting a transaction', async () => {
+describe('TransactionsService void concurrency rules', () => {
+  it('locks the owning shift before marking a transaction voided', async () => {
     const shift = { id: 'shift-id', userId: 'cashier-id', closedAt: null };
-    const lockQuery = {
+    const initialQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockResolvedValue([{ shiftId: shift.id }]),
+    };
+    const shiftLockQuery = {
       from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       for: vi.fn().mockResolvedValue([shift]),
     };
-    const transaction = { id: 'transaction-id', shiftId: shift.id };
-    const returning = vi.fn().mockResolvedValue([transaction]);
-    const insertQuery = {
-      values: vi.fn().mockReturnValue({ returning }),
+    const completedTransaction = {
+      id: 'transaction-id',
+      shiftId: shift.id,
+      status: 'COMPLETED',
+    };
+    const transactionLockQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      for: vi.fn().mockResolvedValue([completedTransaction]),
+    };
+    const updateQuery = {
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      returning: vi
+        .fn()
+        .mockResolvedValue([{ ...completedTransaction, status: 'VOIDED' }]),
     };
     const tx = {
-      select: vi.fn(() => lockQuery),
-      insert: vi.fn(() => insertQuery),
+      select: vi
+        .fn()
+        .mockReturnValueOnce(initialQuery)
+        .mockReturnValueOnce(shiftLockQuery)
+        .mockReturnValueOnce(transactionLockQuery),
+      update: vi.fn(() => updateQuery),
     };
     const service = new TransactionsService({
       db: {
@@ -37,24 +56,38 @@ describe('TransactionsService shift association', () => {
       },
     } as never);
 
-    await service.create(
-      { paymentMethod: 'CASH', amount: 12 },
-      { id: 'cashier-id', role: 'CASHIER', sessionId: 'session-id' },
-    );
+    await service.void('transaction-id', {
+      id: 'owner-id',
+      role: 'OWNER',
+      sessionId: 'session-id',
+    });
 
-    expect(lockQuery.for).toHaveBeenCalledWith('update');
-    expect(insertQuery.values).toHaveBeenCalledWith(
-      expect.objectContaining({ shiftId: shift.id, userId: 'cashier-id' }),
+    expect(shiftLockQuery.for).toHaveBeenCalledWith('update');
+    expect(transactionLockQuery.for).toHaveBeenCalledWith('update');
+    expect(updateQuery.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'VOIDED', voidedBy: 'owner-id' }),
     );
   });
 
-  it('rejects transaction creation when the caller has no active shift', async () => {
-    const lockQuery = {
+  it('refuses to void transactions for a closed shift', async () => {
+    const initialQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockResolvedValue([{ shiftId: 'shift-id' }]),
+    };
+    const shiftLockQuery = {
       from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      for: vi.fn().mockResolvedValue([]),
+      for: vi
+        .fn()
+        .mockResolvedValue([{ id: 'shift-id', closedAt: new Date() }]),
     };
-    const tx = { select: vi.fn(() => lockQuery), insert: vi.fn() };
+    const tx = {
+      select: vi
+        .fn()
+        .mockReturnValueOnce(initialQuery)
+        .mockReturnValueOnce(shiftLockQuery),
+      update: vi.fn(),
+    };
     const service = new TransactionsService({
       db: {
         transaction: (callback: (transaction: unknown) => unknown) =>
@@ -63,11 +96,12 @@ describe('TransactionsService shift association', () => {
     } as never);
 
     await expect(
-      service.create(
-        { paymentMethod: 'CASH', amount: 12 },
-        { id: 'cashier-id', role: 'CASHIER', sessionId: 'session-id' },
-      ),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(tx.insert).not.toHaveBeenCalled();
+      service.void('transaction-id', {
+        id: 'owner-id',
+        role: 'OWNER',
+        sessionId: 'session-id',
+      }),
+    ).rejects.toThrow('Transactions on closed shifts cannot be voided');
+    expect(tx.update).not.toHaveBeenCalled();
   });
 });

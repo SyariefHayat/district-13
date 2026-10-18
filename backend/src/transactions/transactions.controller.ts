@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Param,
   ParseUUIDPipe,
@@ -14,9 +13,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
-import { CreateTransactionDto } from './dto/create-transaction.dto.js';
-import { VoidTransactionDto } from './dto/void-transaction.dto.js';
 import { TransactionsService } from './transactions.service.js';
+import { CreateTransactionDto } from './dto/create-transaction.dto.js';
+import { Body } from '@nestjs/common';
 
 @Controller('transactions')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -43,9 +42,8 @@ export class TransactionsController {
   @Permissions(PERMISSIONS.transactionsVoid)
   void(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: VoidTransactionDto,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.transactionsService.void(id, body, actor);
+    return this.transactionsService.void(id, actor);
   }
 }

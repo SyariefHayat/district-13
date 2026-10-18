@@ -25,7 +25,7 @@ describe('ShiftsService concurrency rules', () => {
 
     await expect(
       service.open(
-        { openingCash: 50 },
+        { openingCash: '50.00' },
         { id: 'cashier-id', role: 'CASHIER', sessionId: 'session-id' },
       ),
     ).rejects.toBeInstanceOf(ConflictException);
@@ -70,7 +70,7 @@ describe('ShiftsService concurrency rules', () => {
 
     await service.close(
       'shift-id',
-      { closingCash: 50 },
+      { closingCash: '50.00' },
       { id: 'cashier-id', role: 'CASHIER', sessionId: 'session-id' },
     );
 

@@ -1,20 +1,12 @@
-import {
-  IsIn,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateCashMovementDto {
   @IsIn(['IN', 'OUT'])
   type!: 'IN' | 'OUT';
 
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
-  @Max(99999999.99)
-  amount!: number;
+  @IsString()
+  @Matches(/^(?=.*[1-9])\d{1,8}(?:\.\d{1,2})?$/)
+  amount!: string;
 
   @IsOptional()
   @IsString()

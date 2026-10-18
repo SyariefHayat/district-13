@@ -1,25 +1,33 @@
-import { boolean } from 'drizzle-orm/pg-core';
 import {
+  check,
   numeric,
   pgTable,
   timestamp,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { cashMovementTypeEnum, shifts } from './shifts.schema.js';
 import { users } from './users.schema.js';
 
-export const cashMovements = pgTable('cash_movements', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  shiftId: uuid('shift_id')
-    .notNull()
-    .references(() => shifts.id),
-  recordedBy: uuid('recorded_by')
-    .notNull()
-    .references(() => users.id),
-  recordedByEstimated: boolean('recorded_by_estimated').default(true).notNull(),
-  type: cashMovementTypeEnum('type').notNull(),
-  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
-  description: varchar('description'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
-});
+export const cashMovements = pgTable(
+  'cash_movements',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    shiftId: uuid('shift_id')
+      .notNull()
+      .references(() => shifts.id),
+    recordedBy: uuid('recorded_by')
+      .notNull()
+      .references(() => users.id),
+    type: cashMovementTypeEnum('type').notNull(),
+    amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+    description: varchar('description'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    check('cash_movements_amount_positive', sql`${table.amount} > 0`),
+  ],
+);

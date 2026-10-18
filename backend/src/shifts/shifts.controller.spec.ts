@@ -50,6 +50,9 @@ describe('ShiftsController authorization', () => {
     expect(roleHasPermission('CASHIER', PERMISSIONS.shiftsReadOwn)).toBe(true);
     expect(roleHasPermission('CASHIER', PERMISSIONS.shiftsReadAll)).toBe(false);
     expect(roleHasPermission('ADMIN', PERMISSIONS.shiftsReadAll)).toBe(true);
+    expect(roleHasPermission('CASHIER', PERMISSIONS.shiftsOpen)).toBe(true);
+    expect(roleHasPermission('ADMIN', PERMISSIONS.shiftsOpen)).toBe(false);
+    expect(roleHasPermission('OWNER', PERMISSIONS.shiftsOpen)).toBe(false);
   });
 
   it('restricts close and movement operations to declared permissions', () => {
@@ -57,8 +60,9 @@ describe('ShiftsController authorization', () => {
       PERMISSIONS.shiftsCloseOwn,
       PERMISSIONS.shiftsCloseAny,
     ]);
-    expect(methodMetadata(PERMISSIONS_KEY, 'createCashMovement')).toEqual([
-      PERMISSIONS.cashMovementsCreate,
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'createCashMovement')).toEqual([
+      PERMISSIONS.cashMovementsCreateOwn,
+      PERMISSIONS.cashMovementsCreateAny,
     ]);
     expect(methodMetadata(ANY_PERMISSIONS_KEY, 'getSummary')).toEqual([
       PERMISSIONS.shiftsReadOwn,

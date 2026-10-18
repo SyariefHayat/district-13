@@ -5,6 +5,9 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
+  HttpCode,
+  HttpStatus,
   UseGuards,
   UsePipes,
   ValidationPipe,
@@ -21,6 +24,7 @@ import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CloseShiftDto } from './dto/close-shift.dto.js';
 import { CreateCashMovementDto } from './dto/create-cash-movement.dto.js';
 import { OpenShiftDto } from './dto/open-shift.dto.js';
+import { ListShiftsDto } from './dto/list-shifts.dto.js';
 import { ShiftsService } from './shifts.service.js';
 
 @Controller('shifts')
@@ -49,11 +53,12 @@ export class ShiftsController {
 
   @Get()
   @AnyPermissions(PERMISSIONS.shiftsReadOwn, PERMISSIONS.shiftsReadAll)
-  list(@CurrentUser() actor: AuthenticatedUser) {
-    return this.shiftsService.list(actor);
+  list(@Query() query: ListShiftsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.shiftsService.list(query, actor);
   }
 
   @Post(':id/close')
+  @HttpCode(HttpStatus.OK)
   @AnyPermissions(PERMISSIONS.shiftsCloseOwn, PERMISSIONS.shiftsCloseAny)
   close(
     @Param('id', ParseUUIDPipe) id: string,
@@ -73,7 +78,10 @@ export class ShiftsController {
   }
 
   @Post(':id/cash-movements')
-  @Permissions(PERMISSIONS.cashMovementsCreate)
+  @AnyPermissions(
+    PERMISSIONS.cashMovementsCreateOwn,
+    PERMISSIONS.cashMovementsCreateAny,
+  )
   createCashMovement(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: CreateCashMovementDto,

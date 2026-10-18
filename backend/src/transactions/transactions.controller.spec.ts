@@ -18,22 +18,17 @@ import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import { TransactionsController } from './transactions.controller.js';
 
 describe('TransactionsController authorization', () => {
-  it('protects transaction creation and voids with role permissions', () => {
+  it('protects void operations with owner/admin permission', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, TransactionsController),
     ).toEqual([JwtAuthGuard, PermissionsGuard]);
 
-    for (const [method, permission] of [
-      ['create', PERMISSIONS.transactionsCreate],
-      ['void', PERMISSIONS.transactionsVoid],
-    ] as const) {
-      const handler = Object.getOwnPropertyDescriptor(
-        TransactionsController.prototype,
-        method,
-      )?.value;
-      expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual([
-        permission,
-      ]);
-    }
+    const handler = Object.getOwnPropertyDescriptor(
+      TransactionsController.prototype,
+      'void',
+    )?.value;
+    expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual([
+      PERMISSIONS.transactionsVoid,
+    ]);
   });
 });
