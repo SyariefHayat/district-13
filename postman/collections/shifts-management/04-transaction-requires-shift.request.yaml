@@ -8,18 +8,27 @@ headers:
     value: 'Bearer {{cashier_token}}'
   - key: Content-Type
     value: application/json
+  - key: Idempotency-Key
+    value: a90892be-7fb9-4333-ab02-8e7a11b4b67d
 body:
   type: json
   content: |-
     {
+      "items": [
+        {
+          "productId": "00000000-0000-4000-8000-000000000000",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
       "paymentMethod": "CASH",
-      "totalAmount": "1000.00"
+      "paidAmount": "0.00"
     }
 scripts:
   - type: afterResponse
     language: text/javascript
     code: |-
       pm.test('sale is rejected before a shift is opened', function () {
-        pm.response.to.have.status(404);
+        pm.response.to.have.status(409);
         pm.expect(pm.response.text()).to.include('Open a shift before creating a transaction');
       });

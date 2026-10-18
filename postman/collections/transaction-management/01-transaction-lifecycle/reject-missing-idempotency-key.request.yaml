@@ -1,0 +1,31 @@
+$kind: http-request
+name: Reject missing idempotency key
+method: POST
+url: "{{base_url}}/transactions"
+order: 8000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
+      "paymentMethod": "CASH",
+      "paidAmount": "{{paid_amount}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('missing idempotency key is rejected before creating a transaction', function () {
+        pm.response.to.have.status(400);
+      });

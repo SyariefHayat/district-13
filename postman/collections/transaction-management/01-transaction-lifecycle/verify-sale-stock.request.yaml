@@ -1,0 +1,19 @@
+$kind: http-request
+name: Verify sale reduced DISPLAY stock
+method: GET
+url: "{{base_url}}/products/{{product_id}}"
+order: 9000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier can read the product after sale', function () {
+        pm.response.to.have.status(200);
+      });
+      const product = pm.response.json();
+      pm.test('one sold unit was deducted from DISPLAY stock', function () {
+        pm.expect(product.displayStock).to.eql(Number(pm.collectionVariables.get('expected_display_stock')));
+      });

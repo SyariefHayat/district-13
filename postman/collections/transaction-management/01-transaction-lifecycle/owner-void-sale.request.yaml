@@ -1,0 +1,27 @@
+$kind: http-request
+name: Owner voids sale on open shift
+method: POST
+url: "{{base_url}}/transactions/{{transaction_id}}/void"
+order: 15000
+headers:
+  - key: Authorization
+    value: "Bearer {{owner_token}}"
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "Postman transaction lifecycle check"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OWNER can void a completed sale on an open shift', function () {
+        pm.response.to.have.status(201);
+        const body = pm.response.json();
+        pm.expect(body.id).to.eql(pm.collectionVariables.get('transaction_id'));
+        pm.expect(body.status).to.eql('VOIDED');
+        pm.expect(body.voidReason).to.eql('Postman transaction lifecycle check');
+      });

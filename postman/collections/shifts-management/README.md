@@ -12,8 +12,9 @@ cash.
    `postman/environments/local-shifts.environment.yaml` and import the private
    copy into Postman.
 3. Set the cashier and owner usernames/passwords to active local test accounts.
-   The collection creates persistent transactions, cash movements, and a
-   closed shift. Use a cashier account with no active shift.
+   Ensure an active, available product has at least two units in DISPLAY; the
+   collection creates persistent transactions, cash movements, and a closed
+   shift. Use a cashier account with no active shift.
 4. Run the **District 13 Shifts Management** collection in order.
 
 With Postman CLI:

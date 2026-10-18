@@ -1,0 +1,4 @@
+$kind: collection
+name: Transaction lifecycle
+description: Cashier creates and retries a sale; owner voids it and stock is returned.
+order: 1000

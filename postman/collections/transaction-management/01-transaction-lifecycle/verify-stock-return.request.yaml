@@ -1,0 +1,16 @@
+$kind: http-request
+name: Verify void returned stock to DISPLAY
+method: GET
+url: "{{base_url}}/products/{{product_id}}"
+order: 18000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('void restores the original DISPLAY stock', function () {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().displayStock).to.eql(Number(pm.collectionVariables.get('original_display_stock')));
+      });

@@ -1,0 +1,30 @@
+$kind: http-request
+name: Verify transaction detail snapshots
+method: GET
+url: "{{base_url}}/transactions/{{transaction_id}}"
+order: 16000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier can read own transaction detail after void', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      pm.test('detail includes shift, cashier, snapshot item, and void audit fields', function () {
+        pm.expect(body.id).to.eql(pm.collectionVariables.get('transaction_id'));
+        pm.expect(body.shiftId).to.eql(pm.collectionVariables.get('shift_id'));
+        pm.expect(body.cashier).to.be.a('string');
+        pm.expect(body.status).to.eql('VOIDED');
+        pm.expect(body.voidReason).to.eql('Postman transaction lifecycle check');
+        pm.expect(body.voidedAt).to.be.a('string').and.not.empty;
+        pm.expect(body.voidedBy).to.be.a('string').and.not.empty;
+        pm.expect(body.items).to.have.length(1);
+        pm.expect(body.items[0].productName).to.be.a('string').and.not.empty;
+        pm.expect(body.items[0].unitPrice).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.items[0].subtotalAmount).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.items[0].addons).to.be.an('array').that.is.empty;
+      });

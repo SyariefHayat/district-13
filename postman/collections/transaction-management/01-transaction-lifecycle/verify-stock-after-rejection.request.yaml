@@ -1,0 +1,16 @@
+$kind: http-request
+name: Verify rejected sale did not change stock
+method: GET
+url: "{{base_url}}/products/{{product_id}}"
+order: 11000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('rejected sale leaves DISPLAY stock unchanged', function () {
+        pm.response.to.have.status(200);
+        pm.expect(pm.response.json().displayStock).to.eql(Number(pm.collectionVariables.get('expected_display_stock')));
+      });

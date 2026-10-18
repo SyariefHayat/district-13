@@ -1,0 +1,21 @@
+$kind: http-request
+name: Reuse cashier active shift when available
+method: GET
+url: "{{base_url}}/shifts/current"
+order: 2000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier can check the current shift', function () {
+        pm.response.to.have.status(200);
+      });
+      const responseText = pm.response.text().trim();
+      const shift = responseText ? JSON.parse(responseText) : null;
+      if (shift && shift.id) {
+        pm.collectionVariables.set('shift_id', shift.id);
+        pm.execution.setNextRequest('Select product with DISPLAY stock');
+      }

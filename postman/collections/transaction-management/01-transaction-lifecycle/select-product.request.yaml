@@ -1,0 +1,31 @@
+$kind: http-request
+name: Select product with DISPLAY stock
+method: GET
+url: "{{base_url}}/products?limit=100"
+order: 4000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier can read saleable catalog entries', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      const products = Array.isArray(body.data) ? body.data : [];
+      const product = products.find(function (item) {
+        return item.isAvailable === true && item.displayStock > 0;
+      });
+      pm.test('catalog includes an available product with DISPLAY stock', function () {
+        pm.expect(product, 'seed an available product with DISPLAY stock').to.be.an('object');
+      });
+      if (product) {
+        pm.collectionVariables.set('product_id', product.id);
+        pm.collectionVariables.set('product_price', product.price);
+        pm.collectionVariables.set('original_display_stock', String(product.displayStock));
+        pm.collectionVariables.set('expected_display_stock', String(product.displayStock - 1));
+      } else {
+        pm.execution.setNextRequest(null);
+      }

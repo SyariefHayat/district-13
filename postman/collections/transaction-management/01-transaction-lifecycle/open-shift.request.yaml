@@ -1,0 +1,25 @@
+$kind: http-request
+name: Open cashier shift when needed
+method: POST
+url: "{{base_url}}/shifts/open"
+order: 3000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "openingCash": "0.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier can open a shift for this run', function () {
+        pm.response.to.have.status(201);
+      });
+      const shift = pm.response.json();
+      pm.collectionVariables.set('shift_id', shift.id);

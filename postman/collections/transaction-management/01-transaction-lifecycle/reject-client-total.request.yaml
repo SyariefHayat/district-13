@@ -1,0 +1,34 @@
+$kind: http-request
+name: Reject client-supplied calculated total
+method: POST
+url: "{{base_url}}/transactions"
+order: 8500
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: "3a9c8ac6-5c49-46ee-881e-8beae34cb1f4"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
+      "paymentMethod": "CASH",
+      "paidAmount": "{{paid_amount}}",
+      "totalAmount": "0.01"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('client cannot submit a calculated total', function () {
+        pm.response.to.have.status(400);
+      });

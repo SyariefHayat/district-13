@@ -8,18 +8,35 @@ headers:
     value: 'Bearer {{cashier_token}}'
   - key: Content-Type
     value: application/json
+  - key: Idempotency-Key
+    value: '{{qris_idempotency_key}}'
 body:
   type: json
   content: |-
     {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
       "paymentMethod": "QRIS",
-      "totalAmount": "5000.00"
+      "paidAmount": "{{product_price}}"
     }
 scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set('qris_idempotency_key', pm.variables.replaceIn('{{$guid}}'));
   - type: afterResponse
     language: text/javascript
     code: |-
-      pm.test('QRIS sale is accepted but does not count as drawer cash', function () {
+      pm.test('QRIS sale is accepted but excluded from drawer cash sales', function () {
         pm.response.to.have.status(201);
-        pm.expect(pm.response.json().paymentMethod).to.eql('QRIS');
+        const body = pm.response.json();
+        pm.expect(body.paymentMethod).to.eql('QRIS');
+        pm.expect(body.totalAmount).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.paidAmount).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.changeAmount).to.eql('0.00');
       });

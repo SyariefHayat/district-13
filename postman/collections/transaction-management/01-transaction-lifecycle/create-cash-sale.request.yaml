@@ -1,0 +1,62 @@
+$kind: http-request
+name: Create server-priced cash sale
+method: POST
+url: "{{base_url}}/transactions"
+order: 5000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: "{{idempotency_key}}"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
+      "paymentMethod": "CASH",
+      "paidAmount": "{{paid_amount}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      function cents(value) {
+        const parts = value.split('.');
+        return Number(parts[0]) * 100 + Number((parts[1] || '').padEnd(2, '0').slice(0, 2));
+      }
+      function money(value) {
+        return Math.floor(value / 100) + '.' + String(value % 100).padStart(2, '0');
+      }
+      const total = cents(pm.collectionVariables.get('product_price'));
+      const paid = total + 1000;
+      pm.collectionVariables.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));
+      pm.collectionVariables.set('paid_amount', money(paid));
+      pm.collectionVariables.set('expected_change', '10.00');
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cash transaction is created', function () {
+        pm.response.to.have.status(201);
+      });
+      const body = pm.response.json();
+      pm.test('server calculates the snapshot total and change', function () {
+        pm.expect(body.id).to.be.a('string').and.not.empty;
+        pm.expect(body.transactionNumber).to.match(/^D13-\d{8}-\d{4,}$/);
+        pm.expect(body.subtotalAmount).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.discountAmount).to.eql('0.00');
+        pm.expect(body.totalAmount).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.paymentMethod).to.eql('CASH');
+        pm.expect(body.paidAmount).to.eql(pm.collectionVariables.get('paid_amount'));
+        pm.expect(body.changeAmount).to.eql(pm.collectionVariables.get('expected_change'));
+        pm.expect(body.status).to.eql('COMPLETED');
+      });
+      pm.collectionVariables.set('transaction_id', body.id);
+      pm.collectionVariables.set('transaction_number', body.transactionNumber);

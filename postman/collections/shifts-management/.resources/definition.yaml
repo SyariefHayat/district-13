@@ -13,3 +13,15 @@ variables:
     value: ''
   - key: shift_id
     value: ''
+  - key: product_id
+    value: ""
+  - key: product_price
+    value: ""
+  - key: expected_cash_sales
+    value: ""
+  - key: cash_paid_amount
+    value: ""
+  - key: cash_idempotency_key
+    value: ""
+  - key: qris_idempotency_key
+    value: ""

@@ -1,0 +1,29 @@
+$kind: http-request
+name: Select product with two DISPLAY units
+method: GET
+url: "{{base_url}}/products?limit=100"
+order: 7500
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('sale product is available in DISPLAY stock', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      const product = body.data.find(function (item) {
+        return item.isAvailable === true && item.displayStock >= 2;
+      });
+      pm.test('at least one active, available product has two DISPLAY units', function () {
+        pm.expect(product, 'seed two DISPLAY units for one active product').to.be.an('object');
+      });
+      if (product) {
+        pm.collectionVariables.set('product_id', product.id);
+        pm.collectionVariables.set('product_price', product.price);
+        pm.collectionVariables.set('expected_cash_sales', product.price);
+      } else {
+        pm.execution.setNextRequest(null);
+      }

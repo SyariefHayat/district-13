@@ -8,21 +8,39 @@ headers:
     value: 'Bearer {{cashier_token}}'
   - key: Content-Type
     value: application/json
+  - key: Idempotency-Key
+    value: '{{cash_idempotency_key}}'
 body:
   type: json
   content: |-
     {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
       "paymentMethod": "CASH",
-      "totalAmount": "1000.00"
+      "paidAmount": "{{cash_paid_amount}}"
     }
 scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      const parts = pm.collectionVariables.get('product_price').split('.');
+      const cents = Number(parts[0]) * 100 + Number((parts[1] || '').padEnd(2, '0').slice(0, 2));
+      const paid = cents + 1000;
+      pm.collectionVariables.set('cash_idempotency_key', pm.variables.replaceIn('{{$guid}}'));
+      pm.collectionVariables.set('cash_paid_amount', Math.floor(paid / 100) + '.' + String(paid % 100).padStart(2, '0'));
   - type: afterResponse
     language: text/javascript
     code: |-
-      pm.test('cash sale is associated with the active shift', function () {
+      pm.test('cash sale is associated with the active shift and calculated by the server', function () {
         pm.response.to.have.status(201);
         const body = pm.response.json();
-        pm.expect(body.shiftId).to.eql(pm.collectionVariables.get('shift_id'));
+        pm.expect(body.totalAmount).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.subtotalAmount).to.eql(pm.collectionVariables.get('product_price'));
+        pm.expect(body.changeAmount).to.eql('10.00');
         pm.expect(body.status).to.eql('COMPLETED');
-        pm.expect(body.totalAmount).to.eql('1000.00');
       });

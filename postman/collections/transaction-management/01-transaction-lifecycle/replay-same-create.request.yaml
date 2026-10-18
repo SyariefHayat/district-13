@@ -1,0 +1,36 @@
+$kind: http-request
+name: Retry same request with same idempotency key
+method: POST
+url: "{{base_url}}/transactions"
+order: 6000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: "{{idempotency_key}}"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
+      "paymentMethod": "CASH",
+      "paidAmount": "{{paid_amount}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('retry replays the stored successful response', function () {
+        pm.response.to.have.status(201);
+        const body = pm.response.json();
+        pm.expect(body.id).to.eql(pm.collectionVariables.get('transaction_id'));
+        pm.expect(body.transactionNumber).to.eql(pm.collectionVariables.get('transaction_number'));
+      });

@@ -15,8 +15,8 @@ scripts:
         const body = pm.response.json();
         pm.expect(body.shiftId).to.eql(pm.collectionVariables.get('shift_id'));
         pm.expect(body.status).to.eql('OPEN');
-        pm.expect(Number(body.cashSales)).to.eql(1000);
+        pm.expect(Number(body.cashSales)).to.eql(Number(pm.collectionVariables.get('expected_cash_sales')));
         pm.expect(Number(body.cashIn)).to.eql(500);
         pm.expect(Number(body.cashOut)).to.eql(200);
-        pm.expect(Number(body.expectedCash)).to.eql(201300);
+        pm.expect(Number(body.expectedCash)).to.eql(200000 + Number(pm.collectionVariables.get('expected_cash_sales')) + 300);
       });

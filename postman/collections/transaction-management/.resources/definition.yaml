@@ -1,0 +1,38 @@
+$kind: collection
+name: District 13 Transaction Management
+description: >-
+  Exercises transaction creation, server-calculated cash totals, idempotency,
+  stock rollback, cashier access, and owner void with stock return.
+variables:
+  - key: base_url
+    value: "http://localhost:3000"
+  - key: cashier_token
+    value: ""
+  - key: owner_token
+    value: ""
+  - key: shift_id
+    value: ""
+  - key: product_id
+    value: ""
+  - key: product_price
+    value: ""
+  - key: original_display_stock
+    value: ""
+  - key: expected_display_stock
+    value: ""
+  - key: idempotency_key
+    value: ""
+  - key: transaction_id
+    value: ""
+  - key: transaction_number
+    value: ""
+  - key: paid_amount
+    value: ""
+  - key: expected_change
+    value: ""
+  - key: insufficient_stock_key
+    value: ""
+  - key: insufficient_quantity
+    value: ""
+  - key: insufficient_paid_amount
+    value: ""

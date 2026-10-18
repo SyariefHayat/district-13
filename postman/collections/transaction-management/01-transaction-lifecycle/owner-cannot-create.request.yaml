@@ -1,0 +1,33 @@
+$kind: http-request
+name: Owner cannot create a sale
+method: POST
+url: "{{base_url}}/transactions"
+order: 14000
+headers:
+  - key: Authorization
+    value: "Bearer {{owner_token}}"
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: "4c57201c-8c63-41bc-9d21-e4383c443095"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "00000000-0000-4000-8000-000000000000",
+          "quantity": 1,
+          "addonIds": []
+        }
+      ],
+      "paymentMethod": "CASH",
+      "paidAmount": "0.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OWNER cannot create transactions', function () {
+        pm.response.to.have.status(403);
+      });

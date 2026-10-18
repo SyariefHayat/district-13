@@ -1,0 +1,48 @@
+$kind: http-request
+name: Reject sale above current DISPLAY stock
+method: POST
+url: "{{base_url}}/transactions"
+order: 10000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: "{{insufficient_stock_key}}"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": {{insufficient_quantity}},
+          "addonIds": []
+        }
+      ],
+      "paymentMethod": "CASH",
+      "paidAmount": "{{insufficient_paid_amount}}"
+    }
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      function cents(value) {
+        const parts = value.split('.');
+        return Number(parts[0]) * 100 + Number((parts[1] || '').padEnd(2, '0').slice(0, 2));
+      }
+      function money(value) {
+        return Math.floor(value / 100) + '.' + String(value % 100).padStart(2, '0');
+      }
+      const quantity = Number(pm.collectionVariables.get('expected_display_stock')) + 1;
+      const total = cents(pm.collectionVariables.get('product_price')) * quantity;
+      pm.collectionVariables.set('insufficient_stock_key', pm.variables.replaceIn('{{$guid}}'));
+      pm.collectionVariables.set('insufficient_quantity', String(quantity));
+      pm.collectionVariables.set('insufficient_paid_amount', money(total));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('sale above DISPLAY stock returns conflict', function () {
+        pm.response.to.have.status(409);
+      });

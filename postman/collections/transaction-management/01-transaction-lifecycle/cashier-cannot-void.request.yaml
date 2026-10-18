@@ -1,0 +1,23 @@
+$kind: http-request
+name: Cashier cannot void a transaction
+method: POST
+url: "{{base_url}}/transactions/00000000-0000-4000-8000-000000000001/void"
+order: 12000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "Cashier must not void"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('cashier void is forbidden before transaction lookup', function () {
+        pm.response.to.have.status(403);
+      });

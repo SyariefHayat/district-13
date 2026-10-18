@@ -1,0 +1,33 @@
+$kind: http-request
+name: Reject changed payload for same idempotency key
+method: POST
+url: "{{base_url}}/transactions"
+order: 7000
+headers:
+  - key: Authorization
+    value: "Bearer {{cashier_token}}"
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: "{{idempotency_key}}"
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "productId": "{{product_id}}",
+          "quantity": 2,
+          "addonIds": []
+        }
+      ],
+      "paymentMethod": "CASH",
+      "paidAmount": "{{paid_amount}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('same key with a changed payload returns conflict', function () {
+        pm.response.to.have.status(409);
+      });
