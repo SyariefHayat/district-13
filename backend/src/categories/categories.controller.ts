@@ -27,9 +27,18 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  @Permissions(PERMISSIONS.productsRead)
+  @Permissions(PERMISSIONS.categoriesRead)
   findAll(@CurrentUser() actor: AuthenticatedUser) {
     return this.categoriesService.findAll(actor);
+  }
+
+  @Get(':id')
+  @Permissions(PERMISSIONS.categoriesRead)
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.categoriesService.findOne(id, actor);
   }
 
   @Post()

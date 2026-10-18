@@ -1,0 +1,25 @@
+$kind: http-request
+name: "Create temporary add-on"
+method: POST
+url: '{{base_url}}/addons'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "PM {{run_id}} Add-on",
+      "price": "2500.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('add-on is created', function () { pm.response.to.have.status(201); });
+      const body = pm.response.json();
+      pm.test('add-on has an ID and active status', function () { pm.expect(body.id).to.be.a('string'); pm.expect(body.isActive).to.eql(true); });
+      pm.variables.set('addon_id', body.id);

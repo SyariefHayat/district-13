@@ -1,0 +1,27 @@
+$kind: http-request
+name: "Create temporary product"
+method: POST
+url: '{{base_url}}/products'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "PM {{run_id}} Product",
+      "price": "18000.50",
+      "categoryId": "{{category_id}}"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('product is created', function () { pm.response.to.have.status(201); });
+      const body = pm.response.json();
+      pm.test('product defaults active and available', function () { pm.expect(body.isActive).to.eql(true); pm.expect(body.isAvailable).to.eql(true); });
+      pm.test('product price is returned as a decimal string', function () { pm.expect(body.price).to.eql('18000.50'); });
+      pm.variables.set('product_id', body.id);

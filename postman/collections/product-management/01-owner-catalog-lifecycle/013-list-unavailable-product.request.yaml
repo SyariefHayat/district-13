@@ -1,0 +1,15 @@
+$kind: http-request
+name: "Keep unavailable product visible in catalog data"
+method: GET
+url: '{{base_url}}/products?page=1&limit=100&isActive=true&categoryId={{category_id}}'
+order: 13000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('unavailable product remains in the product list', function () { pm.response.to.have.status(200); });
+      const product = pm.response.json().data.find((item) => item.id === pm.variables.get('product_id'));
+      pm.test('unavailable status is visible in the list', function () { pm.expect(product).to.be.an('object'); pm.expect(product.isAvailable).to.eql(false); });

@@ -1,0 +1,22 @@
+$kind: http-request
+name: "Mark product temporarily unavailable"
+method: PATCH
+url: '{{base_url}}/products/{{product_id}}'
+order: 12000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "isAvailable": false
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('owner can mark the product temporarily unavailable', function () { pm.response.to.have.status(200); });
+      pm.test('isAvailable changes without deactivating the catalog product', function () { const product = pm.response.json(); pm.expect(product.isAvailable).to.eql(false); pm.expect(product.isActive).to.eql(true); });

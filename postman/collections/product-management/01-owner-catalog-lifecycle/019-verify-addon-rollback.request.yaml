@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Verify invalid replacement preserved relation"
+method: GET
+url: '{{base_url}}/products/{{product_id}}'
+order: 19000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('product detail remains available after invalid replacement', function () { pm.response.to.have.status(200); });
+      pm.test('failed replacement preserves the existing relation', function () { const ids = pm.response.json().addons.map((addon) => addon.id); pm.expect(ids).to.include(pm.variables.get('addon_id')); });

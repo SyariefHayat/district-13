@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Soft-deactivate product at end of run"
+method: DELETE
+url: '{{base_url}}/products/{{product_id}}'
+order: 26000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('product can be deactivated without deleting its record', function () { pm.response.to.have.status(200); });
+      pm.test('deactivation preserves the product record', function () { pm.expect(pm.response.json().id).to.eql(pm.variables.get('product_id')); pm.expect(pm.response.json().isActive).to.eql(false); });

@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Soft-deactivate add-on at end of run"
+method: DELETE
+url: '{{base_url}}/addons/{{addon_id}}'
+order: 27000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('add-on can be soft-deactivated', function () { pm.response.to.have.status(200); });
+      pm.test('add-on record remains and becomes inactive', function () { pm.expect(pm.response.json().id).to.eql(pm.variables.get('addon_id')); pm.expect(pm.response.json().isActive).to.eql(false); });

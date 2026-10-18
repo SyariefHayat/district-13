@@ -1,0 +1,22 @@
+$kind: http-request
+name: "Update product price as owner"
+method: PATCH
+url: '{{base_url}}/products/{{product_id}}'
+order: 14000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "price": "20000.25"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('owner can update product price with a decimal string', function () { pm.response.to.have.status(200); });
+      pm.test('updated price preserves decimal precision', function () { pm.expect(pm.response.json().price).to.eql('20000.25'); });

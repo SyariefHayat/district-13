@@ -1,0 +1,22 @@
+$kind: http-request
+name: "Reactivate product"
+method: PATCH
+url: '{{base_url}}/products/{{product_id}}'
+order: 25000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "isActive": true
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('product can be reactivated under an active category', function () { pm.response.to.have.status(200); });
+      pm.test('product is active again', function () { pm.expect(pm.response.json().isActive).to.eql(true); });

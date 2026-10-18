@@ -1,0 +1,24 @@
+$kind: http-request
+name: "Create temporary category"
+method: POST
+url: '{{base_url}}/categories'
+order: 3000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "PM {{run_id}} Category"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('category is created active', function () { pm.response.to.have.status(201); });
+      const body = pm.response.json();
+      pm.test('category has a generated ID and active status', function () { pm.expect(body.id).to.be.a('string'); pm.expect(body.isActive).to.eql(true); });
+      pm.variables.set('category_id', body.id);

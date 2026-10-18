@@ -1,0 +1,13 @@
+$kind: http-request
+name: "Reject category deactivation with active product"
+method: DELETE
+url: '{{base_url}}/categories/{{category_id}}'
+order: 20000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('active product prevents category deactivation with 409', function () { pm.response.to.have.status(409); });

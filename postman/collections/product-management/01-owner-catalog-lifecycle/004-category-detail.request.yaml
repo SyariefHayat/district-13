@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Read category detail"
+method: GET
+url: '{{base_url}}/categories/{{category_id}}'
+order: 4000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('category detail is available', function () { pm.response.to.have.status(200); });
+      pm.test('category detail returns the created category', function () { pm.expect(pm.response.json().id).to.eql(pm.variables.get('category_id')); });

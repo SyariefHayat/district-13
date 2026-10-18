@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsString,
@@ -7,6 +8,7 @@ import {
 } from 'class-validator';
 
 export class CreateCategoryDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @Matches(/\S/)
   @MaxLength(100)

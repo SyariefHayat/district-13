@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Read product detail"
+method: GET
+url: '{{base_url}}/products/{{product_id}}'
+order: 11000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('product detail is available', function () { pm.response.to.have.status(200); });
+      pm.test('detail includes active and availability status', function () { const product = pm.response.json(); pm.expect(product.id).to.eql(pm.variables.get('product_id')); pm.expect(product.isActive).to.eql(true); pm.expect(product.isAvailable).to.eql(true); });

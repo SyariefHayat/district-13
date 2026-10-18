@@ -1,0 +1,21 @@
+$kind: http-request
+name: "Reject negative product price"
+method: PATCH
+url: '{{base_url}}/products/{{product_id}}'
+order: 15000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "price": "-1.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('negative product price is rejected', function () { pm.response.to.have.status(400); });

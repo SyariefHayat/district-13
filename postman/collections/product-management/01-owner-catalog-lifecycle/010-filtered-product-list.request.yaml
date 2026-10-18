@@ -1,0 +1,15 @@
+$kind: http-request
+name: "Read filtered product list"
+method: GET
+url: '{{base_url}}/products?page=1&limit=100&isActive=true&categoryId={{category_id}}'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('filtered product list is available', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('filtered list contains the created product and availability flag', function () { const product = body.data.find((item) => item.id === pm.variables.get('product_id')); pm.expect(product).to.be.an('object'); pm.expect(product.isAvailable).to.eql(true); });

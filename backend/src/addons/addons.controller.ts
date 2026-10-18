@@ -12,7 +12,10 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Permissions } from '../auth/decorators/permissions.decorator.js';
+import {
+  AnyPermissions,
+  Permissions,
+} from '../auth/decorators/permissions.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../auth/guards/permissions.guard.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
@@ -32,6 +35,15 @@ export class AddonsController {
     return this.addonsService.findAll(actor);
   }
 
+  @Get(':id')
+  @Permissions(PERMISSIONS.addonsRead)
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.addonsService.findOne(id, actor);
+  }
+
   @Post()
   @Permissions(PERMISSIONS.addonsManage)
   @UsePipes(
@@ -46,7 +58,7 @@ export class AddonsController {
   }
 
   @Patch(':id')
-  @Permissions(PERMISSIONS.addonsManage)
+  @AnyPermissions(PERMISSIONS.addonsManage, PERMISSIONS.addonsUpdatePrices)
   @UsePipes(
     new ValidationPipe({
       transform: true,
@@ -57,8 +69,9 @@ export class AddonsController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: UpdateAddonDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.addonsService.update(id, body);
+    return this.addonsService.update(id, body, actor);
   }
 
   @Delete(':id')

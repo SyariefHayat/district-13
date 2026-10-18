@@ -1,0 +1,22 @@
+$kind: http-request
+name: "Update add-on price as owner"
+method: PATCH
+url: '{{base_url}}/addons/{{addon_id}}'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "price": "2750.25"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('owner can update add-on price using a decimal string', function () { pm.response.to.have.status(200); });
+      pm.test('add-on price remains a decimal string', function () { pm.expect(pm.response.json().price).to.eql('2750.25'); });

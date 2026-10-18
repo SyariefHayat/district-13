@@ -1,34 +1,26 @@
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
-  IsBoolean,
-  IsNumber,
+  IsDecimal,
   IsString,
   IsUUID,
   Matches,
-  Max,
   MaxLength,
-  Min,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 
 export class CreateProductDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(1)
   @Matches(/\S/)
   @MaxLength(120)
   name!: string;
 
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  @Max(99999999.99)
-  price!: number;
+  @IsString()
+  @IsDecimal({ decimal_digits: '0,2', force_decimal: false })
+  @Matches(/^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/)
+  price!: string;
 
   @IsUUID()
   categoryId!: string;
-
-  @ValidateIf((_object, value) => value !== undefined)
-  @IsBoolean()
-  isActive?: boolean;
 }

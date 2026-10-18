@@ -1,0 +1,24 @@
+$kind: http-request
+name: "Replace product add-ons"
+method: PUT
+url: '{{base_url}}/products/{{product_id}}/addons'
+order: 17000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "addonIds": [
+        "{{addon_id}}"
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('active add-on can be attached to product', function () { pm.response.to.have.status(200); });
+      pm.test('replacement response confirms the relation', function () { pm.expect(pm.response.json().addonIds).to.eql([pm.variables.get('addon_id')]); });

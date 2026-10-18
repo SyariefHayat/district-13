@@ -1,0 +1,21 @@
+$kind: http-request
+name: "Reject product activation in inactive category"
+method: PATCH
+url: '{{base_url}}/products/{{product_id}}'
+order: 23000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "isActive": true
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('product activation is rejected while its category is inactive', function () { pm.response.to.have.status(400); });

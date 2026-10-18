@@ -1,0 +1,14 @@
+$kind: http-request
+name: "Verify invalid price did not persist"
+method: GET
+url: '{{base_url}}/products/{{product_id}}'
+order: 16000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('product detail remains available after invalid update', function () { pm.response.to.have.status(200); });
+      pm.test('failed price update leaves the previous price unchanged', function () { pm.expect(pm.response.json().price).to.eql('20000.25'); });

@@ -1,0 +1,10 @@
+$kind: http-request
+name: "Unauthenticated product read"
+method: GET
+url: '{{base_url}}/products'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('unauthenticated catalog request is rejected', function () { pm.response.to.have.status(401); });

@@ -93,13 +93,13 @@ export class ProductsController {
   }
 
   @Delete(':id')
-  @AnyPermissions(PERMISSIONS.productsDeactivate, PERMISSIONS.productsDelete)
+  @Permissions(PERMISSIONS.productsDeactivate)
   deactivate(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.productsService.deactivate(id);
   }
 
   @Put(':id/addons')
-  @Permissions(PERMISSIONS.productsUpdateAddons)
+  @Permissions(PERMISSIONS.productsUpdateDetails)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   setAddons(
     @Param('id', new ParseUUIDPipe()) id: string,

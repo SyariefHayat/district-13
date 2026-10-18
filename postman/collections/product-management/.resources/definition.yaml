@@ -1,0 +1,22 @@
+$kind: collection
+name: 'District 13 Product Management'
+description: >-
+  Exercises product, category, add-on, availability, permission, and lifecycle
+  behavior against a local backend using temporary API test records.
+variables:
+  - key: base_url
+    value: http://localhost:3000
+  - key: username
+    value: owner
+  - key: password
+    value: ''
+  - key: owner_token
+    value: ''
+  - key: run_id
+    value: ''
+  - key: category_id
+    value: ''
+  - key: addon_id
+    value: ''
+  - key: product_id
+    value: ''

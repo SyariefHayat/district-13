@@ -1,0 +1,24 @@
+$kind: http-request
+name: "Reject duplicate add-on IDs"
+method: PUT
+url: '{{base_url}}/products/{{product_id}}/addons'
+order: 18000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "addonIds": [
+        "{{addon_id}}",
+        "{{addon_id}}"
+      ]
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('duplicate add-on IDs are rejected', function () { pm.response.to.have.status(400); });

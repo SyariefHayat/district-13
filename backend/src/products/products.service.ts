@@ -36,7 +36,7 @@ export class ProductsService {
         .select({ id: categories.id, isActive: categories.isActive })
         .from(categories)
         .where(eq(categories.id, input.categoryId))
-        .for('update');
+        .for('share');
       if (!category) throw new NotFoundException('Category not found');
       if (!category.isActive)
         throw new BadRequestException('Category is inactive');
@@ -44,9 +44,9 @@ export class ProductsService {
         .insert(products)
         .values({
           name: input.name.trim(),
-          price: input.price.toFixed(2),
+          price: normalizePrice(input.price),
           categoryId: input.categoryId,
-          isActive: input.isActive ?? true,
+          isActive: true,
         })
         .returning();
       return product;
@@ -73,6 +73,7 @@ export class ProductsService {
           name: products.name,
           price: products.price,
           isActive: products.isActive,
+          isAvailable: products.isAvailable,
           categoryId: products.categoryId,
           categoryName: categories.name,
           categoryIsActive: categories.isActive,
@@ -101,6 +102,7 @@ export class ProductsService {
         name: products.name,
         price: products.price,
         isActive: products.isActive,
+        isAvailable: products.isAvailable,
         categoryId: products.categoryId,
         categoryName: categories.name,
         categoryIsActive: categories.isActive,
@@ -154,19 +156,27 @@ export class ProductsService {
       throw new ForbiddenException('You cannot change product details');
     if (
       input.isActive !== undefined &&
+      !roleHasPermission(actor.role, PERMISSIONS.productsDeactivate)
+    )
+      throw new ForbiddenException('You cannot change product active status');
+    if (
+      input.isAvailable !== undefined &&
       !roleHasPermission(actor.role, PERMISSIONS.productsUpdateAvailability)
     )
       throw new ForbiddenException('You cannot change product availability');
     const changes: Partial<typeof products.$inferInsert> = {};
     if (input.name !== undefined) changes.name = input.name.trim();
-    if (input.price !== undefined) changes.price = input.price.toFixed(2);
+    if (input.price !== undefined) changes.price = normalizePrice(input.price);
     if (input.isActive !== undefined) changes.isActive = input.isActive;
+    if (input.isAvailable !== undefined)
+      changes.isAvailable = input.isAvailable;
 
     return this.database.db.transaction(async (tx) => {
       const [existing] = await tx
         .select({ id: products.id, categoryId: products.categoryId })
         .from(products)
         .where(eq(products.id, id))
+        .for('update')
         .limit(1);
       if (!existing) throw new NotFoundException('Product not found');
       if (input.categoryId !== undefined || input.isActive === true) {
@@ -175,7 +185,7 @@ export class ProductsService {
           .select({ id: categories.id, isActive: categories.isActive })
           .from(categories)
           .where(eq(categories.id, categoryId))
-          .for('update');
+          .for('share');
         if (!category) throw new NotFoundException('Category not found');
         if (input.isActive === true && !category.isActive) {
           throw new BadRequestException(
@@ -223,7 +233,9 @@ export class ProductsService {
         const available = await tx
           .select({ id: addons.id })
           .from(addons)
-          .where(and(inArray(addons.id, ids), eq(addons.isActive, true)));
+          .where(and(inArray(addons.id, ids), eq(addons.isActive, true)))
+          .orderBy(addons.id)
+          .for('share');
         if (available.length !== ids.length) {
           throw new BadRequestException('All add-ons must exist and be active');
         }
@@ -250,4 +262,9 @@ export class ProductsService {
       displayStock: stockByProduct.get(item.id) ?? 0,
     }));
   }
+}
+
+function normalizePrice(price: string): string {
+  const [whole, fractional = ''] = price.split('.');
+  return `${whole}.${fractional.padEnd(2, '0')}`;
 }
