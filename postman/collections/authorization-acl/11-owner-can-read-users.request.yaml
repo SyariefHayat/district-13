@@ -1,0 +1,15 @@
+$kind: http-request
+name: Owner can read users
+method: GET
+url: '{{base_url}}/users'
+order: 11000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OWNER can read users', function () {
+        pm.response.to.have.status(200);
+      });

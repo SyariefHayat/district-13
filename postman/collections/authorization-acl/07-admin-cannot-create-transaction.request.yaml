@@ -1,0 +1,27 @@
+$kind: http-request
+name: Admin cannot create transaction
+method: POST
+url: '{{base_url}}/transactions'
+order: 7000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: 'dd2a159a-a623-4d39-93c2-cf73071779fd'
+body:
+  type: json
+  content: |-
+    {
+      "items": [],
+      "paymentMethod": "CASH",
+      "paidAmount": "0.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN cannot create transactions', function () {
+        pm.response.to.have.status(403);
+      });

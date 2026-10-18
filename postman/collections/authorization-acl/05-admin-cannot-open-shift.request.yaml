@@ -1,0 +1,23 @@
+$kind: http-request
+name: Admin cannot open shift
+method: POST
+url: '{{base_url}}/shifts/open'
+order: 5000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "openingCash": "0.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN cannot open a shift', function () {
+        pm.response.to.have.status(403);
+      });

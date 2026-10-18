@@ -1,0 +1,16 @@
+$kind: collection
+name: District 13 Authorization ACL
+description: >-
+  Verifies role permissions for currently implemented POS endpoints. Set role
+  credentials in a private Postman environment before running the collection.
+variables:
+  - key: base_url
+    value: 'http://localhost:3000'
+  - key: owner_token
+    value: ''
+  - key: admin_token
+    value: ''
+  - key: cashier_token
+    value: ''
+  - key: forbidden_transaction_id
+    value: '00000000-0000-4000-8000-000000000001'

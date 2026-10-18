@@ -1,0 +1,15 @@
+$kind: http-request
+name: Cashier cannot read users
+method: GET
+url: '{{base_url}}/users'
+order: 13000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER cannot read users', function () {
+        pm.response.to.have.status(403);
+      });

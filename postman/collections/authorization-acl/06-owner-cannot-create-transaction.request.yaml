@@ -1,0 +1,27 @@
+$kind: http-request
+name: Owner cannot create transaction
+method: POST
+url: '{{base_url}}/transactions'
+order: 6000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+  - key: Idempotency-Key
+    value: 'e40e83a9-80d4-4d38-bde4-1bd8db0a9610'
+body:
+  type: json
+  content: |-
+    {
+      "items": [],
+      "paymentMethod": "CASH",
+      "paidAmount": "0.00"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('OWNER cannot create transactions', function () {
+        pm.response.to.have.status(403);
+      });

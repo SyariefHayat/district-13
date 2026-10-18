@@ -1,0 +1,15 @@
+$kind: http-request
+name: Admin can read users
+method: GET
+url: '{{base_url}}/users'
+order: 12000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN can read users', function () {
+        pm.response.to.have.status(200);
+      });

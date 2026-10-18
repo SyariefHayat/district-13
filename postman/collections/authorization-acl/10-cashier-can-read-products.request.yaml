@@ -1,0 +1,15 @@
+$kind: http-request
+name: Cashier can read products
+method: GET
+url: '{{base_url}}/products'
+order: 10000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER can read products for POS', function () {
+        pm.response.to.have.status(200);
+      });

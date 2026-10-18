@@ -1,0 +1,15 @@
+$kind: http-request
+name: Cashier cannot read inventory dashboard
+method: GET
+url: '{{base_url}}/inventory/dashboard'
+order: 9000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER cannot read the inventory dashboard', function () {
+        pm.response.to.have.status(403);
+      });

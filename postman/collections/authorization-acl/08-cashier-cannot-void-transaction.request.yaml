@@ -1,0 +1,23 @@
+$kind: http-request
+name: Cashier cannot void transaction
+method: POST
+url: '{{base_url}}/transactions/{{forbidden_transaction_id}}/void'
+order: 8000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "reason": "ACL test: cashier is not allowed to void"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER cannot void transactions', function () {
+        pm.response.to.have.status(403);
+      });
