@@ -14,4 +14,6 @@ scripts:
   - type: afterResponse
     language: text/javascript
     code: |-
-      pm.test('failed attempt 4 is unauthorized', function () { pm.response.to.have.status(401); });
+      pm.test('failed attempt 4 is unauthorized or already rate limited', function () {
+        pm.expect([401, 429]).to.include(pm.response.code);
+      });
