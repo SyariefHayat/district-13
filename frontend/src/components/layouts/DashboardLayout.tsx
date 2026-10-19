@@ -1,13 +1,12 @@
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Outlet } from "react-router";
+import { useAuth } from "@/context/auth-context";
 
-import data from "./data.json";
 import { AppSidebar } from "../modules/dashboard/AppSidebar";
-import { ChartAreaInteractive } from "../modules/dashboard/ChartAreaInteractive";
-import { DataTable } from "../modules/dashboard/DataTable";
-import { SectionCards } from "../modules/dashboard/SectionCards";
 import { SiteHeader } from "../modules/dashboard/SiteHeader";
 
 export default function DashboardLayout() {
+  const { user, logout } = useAuth();
   return (
     <SidebarProvider
       style={
@@ -17,18 +16,19 @@ export default function DashboardLayout() {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar
+        variant="inset"
+        user={{
+          name: user?.username ?? "Account",
+          role: user?.role ?? "CASHIER",
+          onLogout: () => void logout(),
+        }}
+      />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards />
-              <div className="px-4 lg:px-6">
-                <ChartAreaInteractive />
-              </div>
-              <DataTable data={data} />
-            </div>
+            <Outlet />
           </div>
         </div>
       </SidebarInset>

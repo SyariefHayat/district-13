@@ -1,7 +1,13 @@
 import { GalleryVerticalEnd } from "lucide-react";
+import { Navigate } from "react-router";
 import { LoginForm } from "../components/LoginForm";
+import { useAuth } from "../../../context/auth-context";
 
 export default function LoginPage() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <div className="p-6 text-sm">Restoring session…</div>;
+  if (user) return <Navigate to="/dashboard" replace />;
+
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">

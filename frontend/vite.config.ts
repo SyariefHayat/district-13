@@ -16,4 +16,10 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      "/auth": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/users": process.env.BACKEND_URL ?? "http://localhost:3000",
+    },
+  },
 });
