@@ -1,166 +1,17 @@
-"use client";
-
-import * as React from "react";
 import {
-  IconArrowsSort,
   IconCash,
-  IconChevronLeft,
-  IconChevronRight,
   IconClockHour4,
-  IconDownload,
   IconReceipt2,
   IconAlertTriangle,
 } from "@tabler/icons-react";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-const bestSellingProducts = [
-  { product: "Iced Coffee", sold: 42, sales: 840000 },
-  { product: "Cappuccino", sold: 36, sales: 900000 },
-  { product: "Croissant", sold: 31, sales: 465000 },
-  { product: "Matcha Latte", sold: 28, sales: 700000 },
-  { product: "Americano", sold: 24, sales: 480000 },
-  { product: "Chocolate Cake", sold: 19, sales: 570000 },
-  { product: "Blueberry Muffin", sold: 16, sales: 320000 },
-  { product: "Hot Tea", sold: 12, sales: 180000 },
-];
-
-type ProductSortKey = "sold" | "sales";
+import { BestSellingProducts } from "./BestSellingProducts";
 
 export function OverviewPlaceholderCards() {
-  const [filter, setFilter] = React.useState("");
-  const [sort, setSort] = React.useState<{
-    key: ProductSortKey;
-    direction: "asc" | "desc";
-  }>({ key: "sold", direction: "desc" });
-
-  const filteredProducts = bestSellingProducts
-    .filter((item) => item.product.toLowerCase().includes(filter.toLowerCase()))
-    .sort((a, b) => {
-      const order = a[sort.key] - b[sort.key];
-      return sort.direction === "asc" ? order : -order;
-    });
-
-  const toggleSort = (key: ProductSortKey) => {
-    setSort((current) => ({
-      key,
-      direction:
-        current.key === key && current.direction === "desc" ? "asc" : "desc",
-    }));
-  };
-
   return (
     <div className="grid grid-cols-1 gap-4 px-4 md:grid-cols-2 lg:px-6 xl:grid-cols-4">
-      <Card className="gap-0 py-0 md:col-span-2">
-        <CardHeader className="flex flex-row items-center justify-between border-b py-4">
-          <CardTitle className="text-base">Best Selling Products</CardTitle>
-          <Button variant="outline" size="sm">
-            <IconDownload />
-            Export
-          </Button>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 p-4">
-          <Input
-            aria-label="Filter products"
-            placeholder="Filter products..."
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-          />
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Product</TableHead>
-                  <TableHead>
-                    <button
-                      className="inline-flex items-center gap-1.5 hover:text-foreground"
-                      onClick={() => toggleSort("sold")}
-                      type="button"
-                    >
-                      Sold <IconArrowsSort className="size-3.5" />
-                    </button>
-                  </TableHead>
-                  <TableHead>
-                    <button
-                      className="inline-flex items-center gap-1.5 hover:text-foreground"
-                      onClick={() => toggleSort("sales")}
-                      type="button"
-                    >
-                      Sales <IconArrowsSort className="size-3.5" />
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.map((item, index) => (
-                  <TableRow key={item.product}>
-                    <TableCell className="font-medium">
-                      <span className="mr-2 text-muted-foreground">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      {item.product}
-                    </TableCell>
-                    <TableCell>{item.sold}</TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat("id-ID", {
-                        style: "currency",
-                        currency: "IDR",
-                        maximumFractionDigits: 0,
-                      }).format(item.sales)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {filteredProducts.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      className="h-20 text-center text-muted-foreground"
-                      colSpan={3}
-                    >
-                      No products found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex items-center justify-between border-t pt-3 text-sm text-muted-foreground">
-            <span>
-              {filteredProducts.length === 0
-                ? "0 products"
-                : `1 - ${filteredProducts.length} of ${filteredProducts.length} products`}
-            </span>
-            <div className="flex items-center gap-1">
-              <Button
-                aria-label="Previous page"
-                disabled
-                size="icon-sm"
-                variant="outline"
-              >
-                <IconChevronLeft />
-              </Button>
-              <Button
-                aria-label="Next page"
-                disabled
-                size="icon-sm"
-                variant="outline"
-              >
-                <IconChevronRight />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      <BestSellingProducts />
       <Card className="gap-0 py-0 xl:col-span-1">
         <CardHeader className="border-b py-4">
           <CardTitle className="flex items-center gap-2 text-base">

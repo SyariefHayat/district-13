@@ -1,7 +1,8 @@
 import {
   IconCash,
-  IconChartLine,
+  IconCoin,
   IconReceipt,
+  IconShoppingCart,
   IconTrendingUp,
 } from "@tabler/icons-react";
 
@@ -18,13 +19,13 @@ const kpis = [
   {
     label: "Sales",
     value: "Rp 12.450.000",
-    Icon: IconChartLine,
+    Icon: IconShoppingCart,
     trend: "+8.4%",
   },
   {
     label: "Net Profit",
     value: "Rp 3.240.000",
-    Icon: IconTrendingUp,
+    Icon: IconCoin,
     trend: "+6.2%",
   },
   {

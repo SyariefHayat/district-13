@@ -1,5 +1,5 @@
 import { SectionCards } from "@/features/overview/components/SectionCards";
-import { ChartAreaInteractive } from "@/features/overview/components/ChartAreaInteractive";
+import { ChartBarInteractive } from "@/features/overview/components/ChartBarInteractive";
 import { DataTable } from "@/features/overview/components/DataTable";
 import { OverviewPlaceholderCards } from "@/features/overview/components/OverviewPlaceholderCards";
 import data from "@/components/layouts/data.json";
@@ -11,7 +11,7 @@ export default function OverviewPage() {
       <OverviewHeader />
       <SectionCards />
       <div className="px-4 lg:px-6">
-        <ChartAreaInteractive />
+        <ChartBarInteractive />
       </div>
       <OverviewPlaceholderCards />
       <DataTable data={data} />
