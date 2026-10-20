@@ -13,6 +13,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -22,6 +23,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { dashboardMenu } from "@/constants/dashboard-menu";
 
 import { NavUser } from "./NavUser";
+import { ModeToggle } from "./ModeToggle";
 
 type SiteHeaderProps = {
   user: {
@@ -98,7 +100,9 @@ export function SiteHeader({ user }: SiteHeaderProps) {
               }
             />
             <DropdownMenuContent align="end" className="w-72" sideOffset={8}>
-              <DropdownMenuLabel>Notifikasi</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Notifikasi</DropdownMenuLabel>
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <div className="px-3 py-8 text-center">
                 <p className="text-sm font-medium">Tidak ada notifikasi</p>
@@ -108,6 +112,7 @@ export function SiteHeader({ user }: SiteHeaderProps) {
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+          <ModeToggle />
           <Separator
             orientation="vertical"
             className="h-5 shrink-0 my-auto mr-2"
