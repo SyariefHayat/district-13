@@ -11,21 +11,20 @@ export default function DashboardLayout() {
     <SidebarProvider
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
+          "--sidebar-width": "calc(var(--spacing) * 63)",
+          "--header-height": "calc(var(--spacing) * 13)",
         } as React.CSSProperties
       }
     >
-      <AppSidebar
-        variant="inset"
-        user={{
-          name: user?.username ?? "Account",
-          role: user?.role ?? "CASHIER",
-          onLogout: () => void logout(),
-        }}
-      />
+      <AppSidebar variant="inset" />
       <SidebarInset>
-        <SiteHeader />
+        <SiteHeader
+          user={{
+            name: user?.username ?? "Account",
+            role: user?.role ?? "CASHIER",
+            onLogout: () => void logout(),
+          }}
+        />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <Outlet />

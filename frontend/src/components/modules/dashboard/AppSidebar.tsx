@@ -4,7 +4,6 @@ import { IconInnerShadowTop } from "@tabler/icons-react";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -12,13 +11,8 @@ import {
 } from "@/components/ui/sidebar";
 
 import { NavMain } from "./NavMain";
-import { NavUser } from "./NavUser";
 
-type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
-  user: { name: string; role: string; onLogout: () => void };
-};
-
-export function AppSidebar({ user, ...props }: AppSidebarProps) {
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -39,9 +33,6 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarContent>
         <NavMain />
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={user} />
-      </SidebarFooter>
     </Sidebar>
   );
 }
