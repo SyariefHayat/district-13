@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Permissions } from '../auth/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
+import { OverviewQueryDto } from './dto/overview-query.dto.js';
 import { ReportQueryDto } from './dto/report-query.dto.js';
 import { ReportsService } from './reports.service.js';
 
@@ -20,6 +21,12 @@ import { ReportsService } from './reports.service.js';
 )
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
+
+  @Get('overview')
+  @Permissions(PERMISSIONS.reportsDashboardSummaryRead)
+  overview(@Query() q: OverviewQueryDto) {
+    return this.reports.overview(q);
+  }
 
   @Get('sales')
   @Permissions(PERMISSIONS.reportsSalesRead)

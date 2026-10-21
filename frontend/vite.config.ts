@@ -20,6 +20,7 @@ export default defineConfig({
     proxy: {
       "/auth": process.env.BACKEND_URL ?? "http://localhost:3000",
       "/users": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/reports": process.env.BACKEND_URL ?? "http://localhost:3000",
     },
   },
 });

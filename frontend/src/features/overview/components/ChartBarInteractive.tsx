@@ -16,6 +16,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { type ChartDataPoint, formatIDR } from "../data/overviewData";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const defaultData: ChartDataPoint[] = [];
 
@@ -30,12 +31,14 @@ interface ChartBarInteractiveProps {
   data?: ChartDataPoint[];
   totalSales?: number;
   description?: string;
+  isLoading?: boolean;
 }
 
 export function ChartBarInteractive({
   data = defaultData,
   totalSales,
   description = "Daily sales trend (last 30 days)",
+  isLoading,
 }: ChartBarInteractiveProps) {
   const displayTotal =
     totalSales ??
@@ -71,7 +74,11 @@ export function ChartBarInteractive({
         <div className="flex flex-col justify-center gap-1 border-t px-6 py-4 sm:border-t-0 sm:border-l sm:px-8 sm:py-6">
           <span className="text-xs text-muted-foreground">Total Sales</span>
           <span className="text-lg leading-none font-bold sm:text-3xl">
-            {formatIDR(displayTotal)}
+            {isLoading ? (
+              <Skeleton className="h-8 w-40" />
+            ) : (
+              formatIDR(displayTotal)
+            )}
           </span>
         </div>
       </CardHeader>

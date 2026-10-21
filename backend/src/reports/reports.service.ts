@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, lt, sql, sum } from 'drizzle-orm';
 import { DatabaseService } from '../drizzle/database/database.service.js';
 import {
   cashMovements,
@@ -13,6 +13,7 @@ import {
   users,
 } from '../drizzle/schema/index.js';
 import type { ReportQueryDto } from './dto/report-query.dto.js';
+import type { OverviewQueryDto } from './dto/overview-query.dto.js';
 
 @Injectable()
 export class ReportsService {
@@ -269,5 +270,218 @@ export class ReportsService {
       limit: q.limit,
       total: Number(n.total),
     };
+  }
+
+  async overview(q: OverviewQueryDto) {
+    const start = new Date(q.startDate);
+    const end = new Date(q.endDate);
+    // endDate is inclusive: advance to start of next day
+    if (/^\d{4}-\d{2}-\d{2}$/.test(q.endDate))
+      end.setUTCDate(end.getUTCDate() + 1);
+
+    const completedInRange = and(
+      gte(transactions.createdAt, start),
+      lt(transactions.createdAt, end),
+      eq(transactions.status, 'COMPLETED'),
+    );
+
+    // --- Previous period (same duration, immediately before start) ---
+    const durationMs = end.getTime() - start.getTime();
+    const prevStart = new Date(start.getTime() - durationMs);
+    const prevEnd = start;
+    const completedInPrev = and(
+      gte(transactions.createdAt, prevStart),
+      lt(transactions.createdAt, prevEnd),
+      eq(transactions.status, 'COMPLETED'),
+    );
+
+    // For weekly heatmap: if interval is < 7 days (e.g. Today or Yesterday),
+    // look back 30 days ending at `end` so the Mon-Sun weekly distribution has context,
+    // while the frontend highlights the selected day.
+    const heatmapStart =
+      durationMs < 7 * 24 * 60 * 60 * 1000
+        ? new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000)
+        : start;
+
+    const heatmapWhere = and(
+      gte(transactions.createdAt, heatmapStart),
+      lt(transactions.createdAt, end),
+      eq(transactions.status, 'COMPLETED'),
+    );
+
+    // 1. Summary totals for current and previous period (parallel)
+    const summarySelect = {
+      totalSales: sql<string>`coalesce(sum(${transactions.totalAmount}),0)`,
+      totalDiscount: sql<string>`coalesce(sum(${transactions.discountAmount}),0)`,
+      transactionCount: count(),
+    };
+
+    const [[current], [previous], dailySales, topProducts, hourlyHeatmap] =
+      await Promise.all([
+        this.database.db
+          .select(summarySelect)
+          .from(transactions)
+          .where(completedInRange),
+        this.database.db
+          .select(summarySelect)
+          .from(transactions)
+          .where(completedInPrev),
+
+        // 2. Daily sales (for the chart, extend to cover a rolling window)
+        this.dailySalesForChart(q),
+
+        // 3. Best selling products
+        this.database.db
+          .select({
+            productId: transactionItems.productId,
+            productName: transactionItems.productName,
+            categoryName: categories.name,
+            quantitySold: sql<string>`coalesce(sum(${transactionItems.quantity}),0)`,
+            totalSales: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}),0)`,
+          })
+          .from(transactionItems)
+          .innerJoin(
+            transactions,
+            eq(transactionItems.transactionId, transactions.id),
+          )
+          .innerJoin(products, eq(transactionItems.productId, products.id))
+          .innerJoin(categories, eq(categories.id, products.categoryId))
+          .where(completedInRange)
+          .groupBy(
+            transactionItems.productId,
+            transactionItems.productName,
+            categories.name,
+          )
+          .orderBy(desc(sql`sum(${transactionItems.quantity})`))
+          .limit(50),
+
+        // 4. Hourly heatmap: day-of-week × hour-of-day (Asia/Jakarta timezone)
+        this.database.db
+          .select({
+            dow: sql<number>`extract(dow from ${transactions.createdAt} at time zone 'Asia/Jakarta')`.as(
+              'dow',
+            ),
+            hour: sql<number>`extract(hour from ${transactions.createdAt} at time zone 'Asia/Jakarta')`.as(
+              'hour',
+            ),
+            transactionCount: count(),
+            totalSales: sql<string>`coalesce(sum(${transactions.totalAmount}),0)`,
+          })
+          .from(transactions)
+          .where(heatmapWhere)
+          .groupBy(
+            sql`extract(dow from ${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+            sql`extract(hour from ${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+          )
+          .orderBy(
+            sql`extract(dow from ${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+            sql`extract(hour from ${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+          ),
+      ]);
+
+    const curSales = Number(current.totalSales);
+    const prevSales = Number(previous.totalSales);
+    const curCount = Number(current.transactionCount);
+    const prevCount = Number(previous.transactionCount);
+    const curDiscount = Number(current.totalDiscount);
+    const prevDiscount = Number(previous.totalDiscount);
+    const curNetProfit = curSales - curDiscount;
+    const prevNetProfit = prevSales - prevDiscount;
+
+    const pctChange = (cur: number, prev: number) =>
+      prev === 0 ? (cur > 0 ? 100 : 0) : ((cur - prev) / prev) * 100;
+
+    return {
+      period: { startDate: q.startDate, endDate: q.endDate },
+      kpis: {
+        sales: {
+          value: curSales,
+          previous: prevSales,
+          change: pctChange(curSales, prevSales),
+        },
+        netProfit: {
+          value: curNetProfit,
+          previous: prevNetProfit,
+          change: pctChange(curNetProfit, prevNetProfit),
+        },
+        transactions: {
+          value: curCount,
+          previous: prevCount,
+          change: pctChange(curCount, prevCount),
+        },
+        avgTransaction: {
+          value: curCount > 0 ? curSales / curCount : 0,
+          previous: prevCount > 0 ? prevSales / prevCount : 0,
+          change: pctChange(
+            curCount > 0 ? curSales / curCount : 0,
+            prevCount > 0 ? prevSales / prevCount : 0,
+          ),
+        },
+      },
+      dailySales: dailySales.map((d) => ({
+        date: d.date,
+        totalSales: Number(d.totalSales ?? 0),
+        transactionCount: Number(d.transactionCount ?? 0),
+      })),
+      products: topProducts.map((p) => ({
+        productId: p.productId,
+        productName: p.productName,
+        categoryName: p.categoryName,
+        quantitySold: Number(p.quantitySold ?? 0),
+        totalSales: Number(p.totalSales ?? 0),
+      })),
+      hourlyHeatmap: hourlyHeatmap.map((h) => ({
+        dow: Number(h.dow),
+        hour: Number(h.hour),
+        transactionCount: Number(h.transactionCount),
+        totalSales: Number(h.totalSales ?? 0),
+      })),
+    };
+  }
+
+  /**
+   * Daily sales for the overview chart.
+   * If the requested range is shorter than 30 days, extend backwards so the
+   * chart always has ~30 bars (rolling window). Otherwise use the range as-is.
+   */
+  private async dailySalesForChart(q: OverviewQueryDto) {
+    const from = new Date(q.startDate);
+    const to = new Date(q.endDate);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(q.endDate))
+      to.setUTCDate(to.getUTCDate() + 1);
+
+    const daysDiff = Math.ceil(
+      (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    let chartStart: Date;
+    const chartEnd = to;
+    if (daysDiff < 28) {
+      chartStart = new Date(to);
+      chartStart.setUTCDate(chartStart.getUTCDate() - 30);
+    } else {
+      chartStart = from;
+    }
+
+    return this.database.db
+      .select({
+        date: sql<string>`to_char(DATE(${transactions.createdAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`.as(
+          'date',
+        ),
+        totalSales: sql<string>`coalesce(sum(${transactions.totalAmount}),0)`,
+        transactionCount: count(),
+      })
+      .from(transactions)
+      .where(
+        and(
+          gte(transactions.createdAt, chartStart),
+          lt(transactions.createdAt, chartEnd),
+          eq(transactions.status, 'COMPLETED'),
+        ),
+      )
+      .groupBy(sql`DATE(${transactions.createdAt} at time zone 'Asia/Jakarta')`)
+      .orderBy(
+        sql`DATE(${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+      );
   }
 }

@@ -90,6 +90,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.transactionsVoid,
     PERMISSIONS.transactionsReadAll,
     PERMISSIONS.reportsSalesRead,
+    PERMISSIONS.reportsDashboardSummaryRead,
     PERMISSIONS.reportsInventoryRead,
     PERMISSIONS.reportsCashRead,
     PERMISSIONS.reportsShiftsRead,
@@ -112,6 +113,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.transactionsCreate,
     PERMISSIONS.transactionsReadOwn,
     PERMISSIONS.storeSettingsRead,
+    PERMISSIONS.reportsDashboardSummaryRead,
   ],
 } as const satisfies Record<UserRole, readonly Permission[]>;
 

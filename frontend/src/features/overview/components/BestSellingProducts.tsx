@@ -44,6 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const productSchema = z.object({
   id: z.string().optional(),
@@ -357,10 +358,12 @@ const columns = columnHelper.columns([
 
 interface BestSellingProductsProps {
   data?: Product[];
+  isLoading?: boolean;
 }
 
 export function BestSellingProducts({
   data = bestSellingProducts,
+  isLoading,
 }: BestSellingProductsProps = {}) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
@@ -425,7 +428,21 @@ export function BestSellingProducts({
               ))}
             </TableHeader>
             <TableBody>
-              {table.getRowModel().rows?.length ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <TableRow key={`skeleton-${idx}`}>
+                    <TableCell colSpan={columns.length} className="py-3">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="size-8 rounded-md" />
+                        <div className="flex flex-col gap-1.5 flex-1">
+                          <Skeleton className="h-4 w-1/3" />
+                          <Skeleton className="h-3 w-1/5" />
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <TableRow key={row.id} className="hover:bg-muted/40">
                     {row.getVisibleCells().map((cell) => (
