@@ -372,7 +372,7 @@ export function BestSellingProducts({
   );
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
-    pageSize: 8,
+    pageSize: 5,
   });
 
   const table = useTable({
@@ -404,17 +404,6 @@ export function BestSellingProducts({
       <CardHeader className="flex flex-row items-center justify-between border-b py-4">
         <CardTitle className="text-base">Best Selling Products</CardTitle>
         <div className="flex items-center gap-2">
-          <Input
-            aria-label="Filter products"
-            placeholder="Filter products..."
-            value={
-              (table.getColumn("product")?.getFilterValue() as string) ?? ""
-            }
-            onChange={(event) =>
-              table.getColumn("product")?.setFilterValue(event.target.value)
-            }
-            className="h-8 w-36 text-xs sm:w-48"
-          />
           <Button variant="outline" size="sm">
             <IconDownload className="size-4" />
             <span className="hidden sm:inline">Export</span>
