@@ -1,13 +1,7 @@
+"use client";
+
 import * as React from "react";
-import {
-  endOfMonth,
-  format,
-  startOfMonth,
-  startOfWeek,
-  startOfYear,
-  subDays,
-  subMonths,
-} from "date-fns";
+import { format } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
@@ -20,76 +14,58 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { IconDownload } from "@tabler/icons-react";
 import { CalendarIcon } from "lucide-react";
+import { getPresetRanges } from "../data/overviewData";
 
-export function OverviewHeader() {
-  const today = new Date();
-  const [date, setDate] = React.useState<DateRange | undefined>({
-    from: today,
-    to: today,
-  });
-  const presets = [
-    { label: "Today", range: () => ({ from: today, to: today }) },
-    {
-      label: "Yesterday",
-      range: () => {
-        const yesterday = subDays(today, 1);
-        return { from: yesterday, to: yesterday };
-      },
-    },
-    {
-      label: "This Week",
-      range: () => ({
-        from: startOfWeek(today, { weekStartsOn: 1 }),
-        to: today,
-      }),
-    },
-    {
-      label: "Last 7 Days",
-      range: () => ({ from: subDays(today, 6), to: today }),
-    },
-    {
-      label: "Last 28 Days",
-      range: () => ({ from: subDays(today, 27), to: today }),
-    },
-    {
-      label: "This Month",
-      range: () => ({ from: startOfMonth(today), to: today }),
-    },
-    {
-      label: "Last Month",
-      range: () => {
-        const lastMonth = subMonths(today, 1);
-        return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
-      },
-    },
-    {
-      label: "This Year",
-      range: () => ({ from: startOfYear(today), to: today }),
-    },
-  ];
+interface OverviewHeaderProps {
+  date: DateRange | undefined;
+  onDateChange: (date: DateRange | undefined) => void;
+  preset: string;
+  onPresetChange: (preset: string) => void;
+}
+
+export function OverviewHeader({
+  date,
+  onDateChange,
+  preset,
+  onPresetChange,
+}: OverviewHeaderProps) {
+  const [today] = React.useState(() => new Date());
+  const presets = React.useMemo(() => getPresetRanges(today), [today]);
+
+  const handleSelectPreset = (label: string, rangeFn: () => DateRange) => {
+    onPresetChange(label);
+    onDateChange(rangeFn());
+  };
+
+  const handleCustomDateSelect = (range: DateRange | undefined) => {
+    onPresetChange("Custom");
+    onDateChange(range);
+  };
 
   return (
-    <div className="flex justify-between items-start px-4 md:px-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-xl">
           Overview
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 sm:text-base">
-          Welcome back! Here’s what’s happening with your store today.
+          {preset === "Today"
+            ? "Welcome back! Here’s what’s happening with your store today."
+            : `Viewing store performance for ${preset.toLowerCase()}.`}
         </p>
       </div>
 
-      <div className="flex gap-2">
-        <div className="w-60">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="w-56 sm:w-60">
           <Popover>
             <PopoverTrigger
               render={
                 <Button
                   variant="outline"
                   id="date-picker-range"
-                  className="justify-start px-2.5 font-normal"
+                  className="w-full justify-start px-2.5 font-normal text-xs sm:text-sm"
                 >
-                  <CalendarIcon data-icon="inline-start" />
+                  <CalendarIcon data-icon="inline-start" className="size-4" />
                   {date?.from ? (
                     date.to ? (
                       <>
@@ -108,16 +84,16 @@ export function OverviewHeader() {
             <PopoverContent className="w-auto p-2" align="end">
               <div className="flex items-stretch">
                 <div className="flex w-36 shrink-0 flex-col gap-1 py-1">
-                  {presets.map((preset) => (
+                  {presets.map((item) => (
                     <Button
-                      key={preset.label}
+                      key={item.label}
                       type="button"
-                      variant="ghost"
+                      variant={preset === item.label ? "secondary" : "ghost"}
                       size="sm"
-                      className="justify-start font-normal"
-                      onClick={() => setDate(preset.range())}
+                      className="justify-start font-normal text-xs"
+                      onClick={() => handleSelectPreset(item.label, item.range)}
                     >
-                      {preset.label}
+                      {item.label}
                     </Button>
                   ))}
                 </div>
@@ -126,7 +102,7 @@ export function OverviewHeader() {
                   mode="range"
                   defaultMonth={date?.from}
                   selected={date}
-                  onSelect={setDate}
+                  onSelect={handleCustomDateSelect}
                   numberOfMonths={1}
                 />
               </div>
@@ -134,8 +110,8 @@ export function OverviewHeader() {
           </Popover>
         </div>
 
-        <Button variant="outline">
-          <IconDownload data-icon="inline-start" /> Export
+        <Button variant="outline" size="default">
+          <IconDownload data-icon="inline-start" className="size-4" /> Export
         </Button>
       </div>
     </div>

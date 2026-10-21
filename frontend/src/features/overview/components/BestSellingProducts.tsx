@@ -36,7 +36,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -361,9 +360,8 @@ interface BestSellingProductsProps {
 }
 
 export function BestSellingProducts({
-  data: initialData = bestSellingProducts,
+  data = bestSellingProducts,
 }: BestSellingProductsProps = {}) {
-  const [data] = React.useState<Product[]>(() => initialData);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>({});

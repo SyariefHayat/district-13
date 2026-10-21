@@ -1,7 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
-import { eachDayOfInterval, format, startOfMonth, subMonths } from "date-fns";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis } from "recharts";
 
 import {
   Card,
@@ -16,22 +15,9 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { type ChartDataPoint, formatIDR } from "../data/overviewData";
 
-const today = new Date();
-const chartData = eachDayOfInterval({
-  start: startOfMonth(subMonths(today, 2)),
-  end: today,
-}).map((day, index) => ({
-  date: format(day, "yyyy-MM-dd"),
-  sales:
-    Math.round(
-      (1_000_000 +
-        350_000 * (Math.sin(index / 5) + 1) +
-        ((index * 1543) % 480_000) +
-        (day.getDay() === 0 || day.getDay() === 6 ? 300_000 : 0)) /
-        1000
-    ) * 1000,
-}));
+const defaultData: ChartDataPoint[] = [];
 
 const chartConfig = {
   sales: {
@@ -40,27 +26,52 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value);
+interface ChartBarInteractiveProps {
+  data?: ChartDataPoint[];
+  totalSales?: number;
+  description?: string;
+}
 
-export function ChartBarInteractive() {
-  const totalSales = chartData.reduce((sum, item) => sum + item.sales, 0);
+export function ChartBarInteractive({
+  data = defaultData,
+  totalSales,
+  description = "Daily sales trend (last 30 days)",
+}: ChartBarInteractiveProps) {
+  const displayTotal =
+    totalSales ??
+    data
+      .filter((item) => item.isHighlighted)
+      .reduce((sum, item) => sum + item.sales, 0);
+
+  const formatXAxisTick = (value: string) => {
+    return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatTooltipLabel = (value: unknown) => {
+    const val = String(value);
+    const dateStr = new Date(`${val}T00:00:00`).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return dateStr;
+  };
 
   return (
     <Card className="py-0">
       <CardHeader className="flex flex-col items-stretch border-b p-0! sm:flex-row">
         <div className="flex flex-1 flex-col justify-center gap-1 px-6 pt-4 pb-3 sm:py-0!">
           <CardTitle>Sales Performance</CardTitle>
-          <CardDescription>Daily sales for the last 3 months</CardDescription>
+          <CardDescription>{description}</CardDescription>
         </div>
         <div className="flex flex-col justify-center gap-1 border-t px-6 py-4 sm:border-t-0 sm:border-l sm:px-8 sm:py-6">
           <span className="text-xs text-muted-foreground">Total Sales</span>
           <span className="text-lg leading-none font-bold sm:text-3xl">
-            {formatCurrency(totalSales)}
+            {formatIDR(displayTotal)}
           </span>
         </div>
       </CardHeader>
@@ -71,42 +82,49 @@ export function ChartBarInteractive() {
         >
           <BarChart
             accessibilityLayer
-            data={chartData}
+            data={data}
             margin={{ left: 12, right: 12 }}
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="date"
+              dataKey="label"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              minTickGap={32}
-              tickFormatter={(value: string) =>
-                new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
-              }
+              minTickGap={28}
+              tickFormatter={formatXAxisTick}
             />
             <ChartTooltip
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) =>
-                    new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  }
-                  formatter={(value) => formatCurrency(Number(value))}
+                  labelFormatter={formatTooltipLabel}
+                  formatter={(value, _name, item) => {
+                    const point = item?.payload as ChartDataPoint | undefined;
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold">
+                          {formatIDR(Number(value))}
+                        </span>
+                        {point?.isHighlighted && (
+                          <span className="text-[10px] text-primary font-medium">
+                            (Selected)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }}
                 />
               }
             />
-            <Bar
-              dataKey="sales"
-              fill="var(--color-sales)"
-              radius={[4, 4, 0, 0]}
-            />
+            <Bar dataKey="sales" radius={[4, 4, 0, 0]}>
+              {data.map((entry, index) => (
+                <Cell
+                  key={`cell-${entry.label}-${index}`}
+                  fill="var(--color-sales)"
+                  fillOpacity={entry.isHighlighted ? 1 : 0.35}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       </CardContent>

@@ -90,7 +90,11 @@ function getCellBackground(orders: number): {
   };
 }
 
-export function BusyHour() {
+interface BusyHourProps {
+  highlightDay?: string;
+}
+
+export function BusyHour({ highlightDay }: BusyHourProps = {}) {
   return (
     <Card className="gap-0 py-0 md:col-span-2 xl:col-span-2">
       <CardHeader className="flex flex-col gap-2 border-b py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -152,9 +156,21 @@ export function BusyHour() {
               <div className="flex items-center gap-2 sm:gap-3 pt-1">
                 <span className="w-10 sm:w-12 shrink-0" />
                 <div className="grid grid-cols-7 gap-1.5 sm:gap-2 flex-1 text-center text-[11px] sm:text-xs text-muted-foreground font-medium">
-                  {days.map((day) => (
-                    <span key={day}>{day}</span>
-                  ))}
+                  {days.map((day) => {
+                    const isHighlighted = highlightDay === day;
+                    return (
+                      <span
+                        key={day}
+                        className={
+                          isHighlighted
+                            ? "font-bold text-foreground underline decoration-primary decoration-2 underline-offset-4"
+                            : ""
+                        }
+                      >
+                        {day}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             </div>
