@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { LoginPage } from "./features/auth";
 import { OverviewPage } from "./features/overview";
 import { ProductPage } from "./features/product";
+import { AddonPage } from "./features/addons";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 
@@ -33,7 +34,7 @@ export const router = createBrowserRouter([
           { path: "settings", element: <div>Dashboard Settings</div> },
           { path: "users", element: <div>Dashboard Users</div> },
           { path: "products", Component: ProductPage },
-          { path: "addons", element: <div>Dashboard Add-ons</div> },
+          { path: "addons", Component: AddonPage },
 
           // Schedules & Shifts
           { path: "schedules", element: <div>Dashboard Schedules</div> },
