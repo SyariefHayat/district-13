@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import { LoginPage } from "./features/auth";
 import { OverviewPage } from "./features/overview";
+import { ProductPage } from "./features/product";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 
@@ -31,7 +32,7 @@ export const router = createBrowserRouter([
           // Master Data & Management
           { path: "settings", element: <div>Dashboard Settings</div> },
           { path: "users", element: <div>Dashboard Users</div> },
-          { path: "products", element: <div>Dashboard Products</div> },
+          { path: "products", Component: ProductPage },
           { path: "addons", element: <div>Dashboard Add-ons</div> },
 
           // Schedules & Shifts
