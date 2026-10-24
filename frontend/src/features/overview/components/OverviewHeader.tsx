@@ -111,7 +111,8 @@ export function OverviewHeader({
         </div>
 
         <Button variant="outline" size="default">
-          <IconDownload data-icon="inline-start" className="size-4" /> Export
+          <IconDownload data-icon="inline-start" className="size-4" />{" "}
+          <span>Export</span>
         </Button>
       </div>
     </div>

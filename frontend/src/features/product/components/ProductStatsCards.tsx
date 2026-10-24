@@ -4,14 +4,26 @@ import {
   IconCategory,
   IconPackage,
 } from "@tabler/icons-react";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "cn";
 import { type ProductItem } from "../data/productData";
 
 interface ProductStatsCardsProps {
   products: ProductItem[];
+  isLoading?: boolean;
 }
 
-export function ProductStatsCards({ products }: ProductStatsCardsProps) {
+export function ProductStatsCards({
+  products,
+  isLoading,
+}: ProductStatsCardsProps) {
   const totalProducts = products.length;
   const availableCount = products.filter(
     (p) => p.isActive && p.isAvailable && p.stock > 0
@@ -57,27 +69,29 @@ export function ProductStatsCards({ products }: ProductStatsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 md:px-6 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <Card key={stat.label} className="p-4 sm:p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:text-sm">
+          <Card key={stat.label} className="@container/card">
+            <CardHeader>
+              <CardDescription className="flex items-center gap-2">
+                <Icon className={cn("size-4", stat.color)} />
                 {stat.label}
-              </span>
-              <div className={`rounded-lg p-2 ${stat.bgColor} ${stat.color}`}>
-                <Icon className="size-4" />
-              </div>
-            </div>
-            <div className="mt-3">
-              <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {stat.value}
-              </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {stat.helper}
-              </p>
-            </div>
+              </CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {isLoading ? <Skeleton className="h-8 w-36" /> : stat.value}
+              </CardTitle>
+            </CardHeader>
+            <CardFooter className="text-sm text-muted-foreground">
+              {isLoading ? (
+                <Skeleton className="h-5 w-32" />
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  {stat.helper}
+                </span>
+              )}
+            </CardFooter>
           </Card>
         );
       })}

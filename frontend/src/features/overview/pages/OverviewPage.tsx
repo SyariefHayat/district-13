@@ -12,7 +12,7 @@ import {
 } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
-import { SectionCards } from "@/features/overview/components/SectionCards";
+import { OverviewStatsCards } from "@/features/overview/components/OverviewStatsCards";
 import { ChartBarInteractive } from "@/features/overview/components/ChartBarInteractive";
 import { OverviewHeader } from "../components/OverviewHeader";
 import { BestSellingProducts } from "../components/BestSellingProducts";
@@ -184,7 +184,7 @@ export default function OverviewPage() {
           {error}
         </div>
       )}
-      <SectionCards kpis={overviewData.kpis} isLoading={isLoading} />
+      <OverviewStatsCards kpis={overviewData.kpis} isLoading={isLoading} />
       <div className="px-4 lg:px-6">
         <ChartBarInteractive
           data={overviewData.chartData}
