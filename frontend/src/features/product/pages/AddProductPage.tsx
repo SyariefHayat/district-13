@@ -1,44 +1,22 @@
 import * as React from "react";
 import { useNavigate } from "react-router";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  IconArrowLeft,
-  IconDeviceFloppy,
-  IconSparkles,
-  IconPackage,
-  IconTag,
-  IconBarcode,
+  IconChevronLeft,
+  IconUpload,
   IconPhoto,
-  IconCup,
-  IconCookie,
-  IconShirt,
-  IconTrendingUp,
-  IconInfoCircle,
-  IconCheck,
-  IconExternalLink,
-  IconLayersLinked,
+  IconPlus,
+  IconTrash,
+  IconLink,
+  IconX,
 } from "@tabler/icons-react";
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -46,27 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
 import { toast } from "@/components/ui/toast";
 import {
-  PRODUCT_CATEGORIES,
-  formatIDR,
-  generateSkuForCategory,
   getPresetImageForCategory,
-  coffeeSvg,
-  pastrySvg,
-  mealSvg,
-  hoodieSvg,
-  tshirtSvg,
-  joggersSvg,
-  capSvg,
-  generalItemSvg,
+  generateSkuForCategory,
   type ProductItem,
 } from "../data/productData";
 import {
@@ -74,16 +35,16 @@ import {
   type AddProductFormData,
 } from "../schemas/productFormSchema";
 
-const PRESET_ICONS = [
-  { label: "Coffee", svg: coffeeSvg, icon: IconCup },
-  { label: "Pastry", svg: pastrySvg, icon: IconCookie },
-  { label: "Food", svg: mealSvg, icon: IconPackage },
-  { label: "Hoodie", svg: hoodieSvg, icon: IconShirt },
-  { label: "T-Shirt", svg: tshirtSvg, icon: IconShirt },
-  { label: "Pants", svg: joggersSvg, icon: IconPackage },
-  { label: "Cap", svg: capSvg, icon: IconPackage },
-  { label: "General", svg: generalItemSvg, icon: IconPackage },
-];
+const DEFAULT_CATEGORY_MAP: Record<string, string[]> = {
+  Apparel: ["Hoodies", "T-Shirts", "Pants", "Jackets", "Accessories"],
+  Coffee: ["Espresso", "Latte", "Cappuccino", "Cold Brew", "Manual Brew"],
+  "Non-Coffee": ["Artisan Tea", "Matcha Fusion", "Chocolate", "Fresh Juice"],
+  "Pastry & Bakery": ["Croissant", "Danish", "Cookies", "Cake Slice"],
+  "Main Course": ["Rice Bowl", "Pasta", "Burgers", "Sandwiches"],
+  Snacks: ["French Fries", "Nachos", "Platter", "Churros"],
+};
+
+const VARIANT_OPTIONS = ["Size", "Color", "Flavor", "Material", "Style"];
 
 interface AddProductPageProps {
   onProductCreated?: (product: ProductItem) => void;
@@ -93,420 +54,510 @@ export default function AddProductPage({
   onProductCreated,
 }: AddProductPageProps) {
   const navigate = useNavigate();
-  const [showCustomUrl, setShowCustomUrl] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  const availableCategories = React.useMemo(
-    () => PRODUCT_CATEGORIES.filter((cat) => cat !== "Semua Kategori"),
-    []
-  );
+  const [categoryMap, setCategoryMap] = React.useState(DEFAULT_CATEGORY_MAP);
+  const [showUrlModal, setShowUrlModal] = React.useState(false);
+  const [urlInput, setUrlInput] = React.useState("");
 
-  const defaultCategory = availableCategories[0] || "Coffee";
-  const defaultSku = React.useMemo(
-    () => generateSkuForCategory(defaultCategory),
-    [defaultCategory]
-  );
-  const defaultImage = React.useMemo(
-    () => getPresetImageForCategory(defaultCategory),
-    [defaultCategory]
-  );
+  const categories = Object.keys(categoryMap);
 
   const form = useForm<AddProductFormData>({
     resolver: zodResolver(addProductSchema),
     defaultValues: {
       name: "",
-      sku: defaultSku,
+      sku: "",
       barcode: "",
-      category: defaultCategory,
-      price: 0,
-      costPrice: undefined,
-      trackStock: true,
-      stock: 10,
-      minStock: 5,
-      isAvailable: true,
-      isActive: true,
       description: "",
-      tags: "Menu Baru",
-      image: defaultImage,
+      images: [],
+      basePrice: 0,
+      discountedPrice: undefined,
+      chargeTax: false,
+      inStock: true,
+      status: "draft",
+      category: categories[0] || "Apparel",
+      subCategory: categoryMap[categories[0]]?.[0] || "",
+      variants: [
+        { id: "var-1", option: "Size", value: "Regular", price: 0 },
+        { id: "var-2", option: "Size", value: "Large", price: 5000 },
+      ],
     },
     mode: "onBlur",
   });
 
   const {
-    watch,
-    setValue,
+    control,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = form;
 
+  const {
+    fields: variantFields,
+    append: appendVariant,
+    remove: removeVariant,
+  } = useFieldArray({
+    control,
+    name: "variants",
+  });
+
   const currentCategory = watch("category");
-  const currentPrice = watch("price");
-  const currentCostPrice = watch("costPrice");
-  const currentImage = watch("image");
-  const currentSku = watch("sku");
-  const currentName = watch("name");
-  const currentStock = watch("stock");
-  const currentIsAvailable = watch("isAvailable");
-  const currentIsActive = watch("isActive");
-  const currentTrackStock = watch("trackStock");
+  const currentImages = watch("images");
+  const currentStatus = watch("status");
 
-  // Handle category change to auto-update image and suggest SKU
-  const handleCategoryChange = (newCategory: string | null) => {
-    if (!newCategory) return;
-    setValue("category", newCategory, { shouldValidate: true });
+  const subCategories = categoryMap[currentCategory] || [];
 
-    if (!showCustomUrl) {
-      setValue("image", getPresetImageForCategory(newCategory));
-    }
-
-    if (!currentSku || currentSku.includes("-")) {
-      setValue("sku", generateSkuForCategory(newCategory), {
-        shouldValidate: true,
-      });
-    }
+  const handleCategoryChange = (val: string | null) => {
+    if (!val) return;
+    setValue("category", val, { shouldValidate: true });
+    const nextSubs = categoryMap[val] || [];
+    setValue("subCategory", nextSubs[0] || "");
   };
 
-  const handleGenerateSku = () => {
-    const generated = generateSkuForCategory(currentCategory || "General");
-    setValue("sku", generated, { shouldValidate: true, shouldDirty: true });
-  };
-
-  // Gross Margin live calculation
-  const marginCalculation = React.useMemo(() => {
-    const price = Number(currentPrice) || 0;
-    const cost = Number(currentCostPrice) || 0;
-
-    if (price <= 0 || cost <= 0) {
-      return null;
-    }
-
-    const profit = price - cost;
-    const marginPct = (profit / price) * 100;
-
-    return {
-      profit,
-      marginPct: marginPct.toFixed(1),
-      isHealthy: marginPct >= 30,
-    };
-  }, [currentPrice, currentCostPrice]);
-
-  const onSubmit = (data: AddProductFormData) => {
-    try {
-      const createdItem: ProductItem = {
-        id: `prod-${Date.now()}`,
-        name: data.name.trim(),
-        sku: data.sku.trim().toUpperCase(),
-        category: data.category,
-        price: Number(data.price),
-        stock: Number(data.stock),
-        isAvailable: data.isAvailable,
-        isActive: data.isActive,
-        soldCount: 0,
-        rating: 5.0,
-        image: data.image || getPresetImageForCategory(data.category),
-        costPrice: data.costPrice ? Number(data.costPrice) : undefined,
-        description: data.description?.trim(),
-      };
-
-      if (onProductCreated) {
-        onProductCreated(createdItem);
+  const handleAddCategory = () => {
+    const newCat = window.prompt("Enter new category name:");
+    if (newCat && newCat.trim()) {
+      const trimmed = newCat.trim();
+      if (!categoryMap[trimmed]) {
+        setCategoryMap((prev) => ({ ...prev, [trimmed]: [] }));
       }
-
-      toast.add({
-        title: "Produk Berhasil Dibuat",
-        description: `"${data.name}" telah ditambahkan ke katalog produk.`,
-        type: "success",
-      });
-
-      navigate("/dashboard/products");
-    } catch (error) {
-      toast.add({
-        title: "Gagal Menyimpan",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan saat menyimpan produk.",
-        type: "error",
-      });
+      setValue("category", trimmed, { shouldValidate: true });
+      setValue("subCategory", "");
     }
+  };
+
+  const handleAddSubCategory = () => {
+    if (!currentCategory) {
+      alert("Please select a category first.");
+      return;
+    }
+    const newSub = window.prompt(
+      `Enter new sub category for "${currentCategory}":`
+    );
+    if (newSub && newSub.trim()) {
+      const trimmed = newSub.trim();
+      setCategoryMap((prev) => ({
+        ...prev,
+        [currentCategory]: [...(prev[currentCategory] || []), trimmed],
+      }));
+      setValue("subCategory", trimmed);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setValue("images", [
+            ...form.getValues("images"),
+            event.target.result as string,
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAddUrlImage = () => {
+    if (urlInput.trim()) {
+      setValue("images", [...currentImages, urlInput.trim()]);
+      setUrlInput("");
+      setShowUrlModal(false);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setValue(
+      "images",
+      currentImages.filter((_, i) => i !== index)
+    );
+  };
+
+  const submitWithStatus = (targetStatus: "draft" | "published") => {
+    setValue("status", targetStatus);
+    handleSubmit((data) => {
+      try {
+        const primaryImage =
+          data.images && data.images.length > 0
+            ? data.images[0]
+            : getPresetImageForCategory(data.category);
+
+        const createdItem: ProductItem = {
+          id: `prod-${Date.now()}`,
+          name: data.name.trim(),
+          sku:
+            data.sku?.trim().toUpperCase() ||
+            generateSkuForCategory(data.category),
+          category: data.subCategory || data.category,
+          price:
+            data.discountedPrice !== undefined && data.discountedPrice > 0
+              ? data.discountedPrice
+              : data.basePrice,
+          stock: data.inStock ? 50 : 0,
+          isAvailable: data.inStock,
+          isActive: targetStatus === "published",
+          soldCount: 0,
+          rating: 5.0,
+          image: primaryImage,
+          description: data.description?.trim(),
+        };
+
+        if (onProductCreated) {
+          onProductCreated(createdItem);
+        }
+
+        toast.add({
+          title:
+            targetStatus === "published" ? "Product Published" : "Draft Saved",
+          description: `"${data.name}" has been ${targetStatus === "published" ? "published" : "saved as draft"}.`,
+          type: targetStatus === "published" ? "success" : "info",
+        });
+
+        navigate("/dashboard/products");
+      } catch (err) {
+        toast.add({
+          title: "Save Failed",
+          description:
+            err instanceof Error ? err.message : "Error saving product",
+          type: "error",
+        });
+      }
+    })();
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full">
-      {/* Top Breadcrumb & Page Actions */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-4">
-        <div className="flex flex-col gap-1.5">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  href="/dashboard"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate("/dashboard");
-                  }}
-                >
-                  Dashboard
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  href="/dashboard/products"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate("/dashboard/products");
-                  }}
-                >
-                  Katalog & Produk
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Tambah Produk Baru</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-
-          <div className="flex items-center gap-2 mt-1">
-            <Button
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 p-4 md:p-8 flex justify-center">
+      <div className="w-full max-w-[1240px] space-y-6">
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between pb-2">
+          {/* Back button + Title */}
+          <div className="flex items-center gap-3">
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
               onClick={() => navigate("/dashboard/products")}
-              className="size-8"
-              title="Kembali ke Daftar Produk"
+              className="size-9 rounded-xl border border-zinc-800 bg-[#141416] text-zinc-300 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer"
+              title="Back to products"
             >
-              <IconArrowLeft className="size-4" />
-            </Button>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              Tambah Produk Baru
+              <IconChevronLeft className="size-4" />
+            </button>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
+              Add Products
             </h1>
-            <Badge variant="outline" className="text-xs ml-2 font-normal">
-              Draf Baru
-            </Badge>
+          </div>
+
+          {/* Action Buttons: Discard, Save Draft, Publish */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/products")}
+              className="h-9 px-4 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors cursor-pointer"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => submitWithStatus("draft")}
+              className="h-9 px-4 rounded-xl text-sm font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer"
+            >
+              Save Draft
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => submitWithStatus("published")}
+              className="h-9 px-5 rounded-xl text-sm font-semibold bg-white hover:bg-zinc-200 text-zinc-950 transition-colors shadow-xs cursor-pointer"
+            >
+              Publish
+            </button>
           </div>
         </div>
 
-        {/* Top Action Buttons */}
-        <div className="flex items-center gap-2.5 self-end sm:self-auto">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/dashboard/products")}
-            disabled={isSubmitting}
-          >
-            Batal
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            disabled={isSubmitting}
-            onClick={handleSubmit(onSubmit)}
-            className="gap-1.5"
-          >
-            <IconDeviceFloppy className="size-4" />
-            <span>{isSubmitting ? "Menyimpan..." : "Simpan Produk"}</span>
-          </Button>
-        </div>
-      </div>
+        {/* 2-Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT COLUMN: Details, Images, Variants (7 or 8 cols) */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Card 1: Product Details */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-5">
+              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
+                Product Details
+              </h2>
 
-      {/* Main Form Content (2 Columns Grid) */}
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT 2 COLUMNS: Form Core Data */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Card 1: Informasi Produk */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <IconPackage className="size-4" />
-                  </div>
-                  <div>
-                    <CardTitle>Informasi Dasar Produk</CardTitle>
-                    <CardDescription>
-                      Detail utama nama, kategori, dan deskripsi produk menu
-                      kasir.
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Nama Produk */}
+              {/* Name */}
+              <div className="space-y-2">
+                <label className="text-xs md:text-sm font-medium text-zinc-300">
+                  Name
+                </label>
                 <Controller
                   name="name"
-                  control={form.control}
+                  control={control}
                   render={({ field }) => (
-                    <Field>
-                      <div className="flex items-center justify-between">
-                        <FieldLabel htmlFor="product-name">
-                          Nama Produk{" "}
-                          <span className="text-destructive">*</span>
-                        </FieldLabel>
-                        {errors.name && (
-                          <span className="text-xs text-destructive">
-                            {errors.name.message}
-                          </span>
-                        )}
-                      </div>
-                      <Input
-                        id="product-name"
-                        placeholder="Contoh: Caramel Macchiato atau Vintage Graphic Tee"
-                        autoFocus
-                        {...field}
-                      />
-                      <FieldDescription className="text-xs">
-                        Nama produk akan dicetak pada struk transaksi dan
-                        ditampilkan di layar kasir.
-                      </FieldDescription>
-                    </Field>
+                    <Input
+                      placeholder=""
+                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
+                      {...field}
+                    />
                   )}
                 />
+                {errors.name && (
+                  <p className="text-xs text-red-500">{errors.name.message}</p>
+                )}
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Kategori Dropdown */}
+              {/* SKU & Barcode Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs md:text-sm font-medium text-zinc-300">
+                    SKU
+                  </label>
                   <Controller
-                    name="category"
-                    control={form.control}
+                    name="sku"
+                    control={control}
                     render={({ field }) => (
-                      <Field>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel htmlFor="product-category">
-                            Kategori Produk{" "}
-                            <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          {errors.category && (
-                            <span className="text-xs text-destructive">
-                              {errors.category.message}
-                            </span>
-                          )}
-                        </div>
-                        <Select
-                          value={field.value}
-                          onValueChange={handleCategoryChange}
-                        >
-                          <SelectTrigger
-                            id="product-category"
-                            className="w-full"
-                          >
-                            <SelectValue placeholder="Pilih kategori menu" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableCategories.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    )}
-                  />
-
-                  {/* Tag / Label */}
-                  <Controller
-                    name="tags"
-                    control={form.control}
-                    render={({ field }) => (
-                      <Field>
-                        <FieldLabel htmlFor="product-tags">
-                          Tag / Label Menu
-                        </FieldLabel>
-                        <Input
-                          id="product-tags"
-                          placeholder="Signature, Best Seller, Dingin"
-                          {...field}
-                        />
-                      </Field>
+                      <Input
+                        placeholder=""
+                        className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
+                        {...field}
+                      />
                     )}
                   />
                 </div>
 
-                {/* Deskripsi Singkat */}
+                <div className="space-y-2">
+                  <label className="text-xs md:text-sm font-medium text-zinc-300">
+                    Barcode
+                  </label>
+                  <Controller
+                    name="barcode"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        placeholder=""
+                        className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
+                        {...field}
+                      />
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Description (Optional) */}
+              <div className="space-y-2">
+                <label className="text-xs md:text-sm font-medium text-zinc-300">
+                  Description (Optional)
+                </label>
                 <Controller
                   name="description"
-                  control={form.control}
+                  control={control}
                   render={({ field }) => (
-                    <Field>
-                      <FieldLabel htmlFor="product-description">
-                        Deskripsi & Keterangan Menu (Opsional)
-                      </FieldLabel>
-                      <Textarea
-                        id="product-description"
-                        rows={3}
-                        placeholder="Tuliskan komposisi bahan, takaran, alergen, atau panduan penyajian untuk staf kasir dan barista..."
-                        {...field}
-                      />
-                    </Field>
+                    <Textarea
+                      rows={4}
+                      placeholder=""
+                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl p-3.5 resize-none focus-visible:border-zinc-600 focus-visible:ring-0"
+                      {...field}
+                    />
                   )}
                 />
-              </CardContent>
-            </Card>
+                <p className="text-xs text-zinc-500">
+                  Set a description to the product for better visibility.
+                </p>
+              </div>
+            </div>
 
-            {/* Card 2: Harga & Finansial */}
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                      <IconTrendingUp className="size-4" />
-                    </div>
-                    <div>
-                      <CardTitle>Harga & Profitabilitas</CardTitle>
-                      <CardDescription>
-                        Atur harga jual ke konsumen dan pantau estimasi margin
-                        laba kotor.
-                      </CardDescription>
-                    </div>
-                  </div>
+            {/* Card 2: Product Images */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm md:text-base font-semibold text-zinc-100">
+                  Product Images
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowUrlModal(!showUrlModal)}
+                  className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  Add media from URL
+                </button>
+              </div>
 
-                  {marginCalculation && (
-                    <Badge
-                      variant="outline"
-                      className={`gap-1.5 py-1 px-2.5 text-xs font-medium self-start sm:self-auto ${
-                        marginCalculation.isHealthy
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
-                          : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800"
-                      }`}
-                    >
-                      <IconTrendingUp className="size-3.5" />
-                      <span>Margin: {marginCalculation.marginPct}%</span>
-                      <span className="text-muted-foreground">
-                        (Profit: {formatIDR(marginCalculation.profit)})
-                      </span>
-                    </Badge>
-                  )}
+              {/* URL input modal/toggle */}
+              {showUrlModal && (
+                <div className="flex items-center gap-2 p-3 bg-zinc-900/80 border border-zinc-800 rounded-xl">
+                  <IconLink className="size-4 text-zinc-400 shrink-0" />
+                  <Input
+                    placeholder="https://example.com/image.png"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-200"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddUrlImage}
+                    className="h-8 text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+                  >
+                    Add
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Harga Jual */}
-                  <Controller
-                    name="price"
-                    control={form.control}
-                    render={({ field }) => (
-                      <Field>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel htmlFor="product-price">
-                            Harga Jual Kasir{" "}
-                            <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          {errors.price && (
-                            <span className="text-xs text-destructive">
-                              {errors.price.message}
-                            </span>
-                          )}
-                        </div>
-                        <InputGroup>
-                          <InputGroupAddon align="inline-start">
-                            Rp
-                          </InputGroupAddon>
-                          <InputGroupInput
-                            id="product-price"
+              )}
+
+              {/* Upload Dropzone */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border border-dashed border-zinc-800/90 rounded-2xl bg-[#0d0d0f] p-8 md:p-10 flex flex-col items-center justify-center gap-3 text-center cursor-pointer hover:border-zinc-700 transition-colors"
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  multiple
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                />
+
+                <div className="size-11 rounded-xl bg-[#1c1c20] flex items-center justify-center text-zinc-400">
+                  <IconPhoto className="size-5" />
+                </div>
+
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-zinc-200">
+                    Drop your images here
+                  </p>
+                  <p className="text-xs text-zinc-500">PNG or JPG (max. 5MB)</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl text-xs font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer"
+                >
+                  <IconUpload className="size-3.5" />
+                  <span>Select images</span>
+                </button>
+              </div>
+
+              {/* Uploaded Thumbnails Grid */}
+              {currentImages.length > 0 && (
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 pt-2">
+                  {currentImages.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="group relative size-18 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden"
+                    >
+                      <img
+                        src={img}
+                        alt="Product preview"
+                        className="size-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="absolute top-1 right-1 size-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <IconX className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Card 3: Variants */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm md:text-base font-semibold text-zinc-100">
+                  Variants
+                </h2>
+                <button
+                  type="button"
+                  onClick={() =>
+                    appendVariant({
+                      id: `var-${Date.now()}`,
+                      option: "Size",
+                      value: "",
+                      price: 0,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer"
+                >
+                  <IconPlus className="size-3.5" />
+                  <span>Add Variant</span>
+                </button>
+              </div>
+
+              {/* Variants Table / Grid */}
+              <div className="space-y-3">
+                {/* Headers */}
+                <div className="grid grid-cols-12 gap-3 text-xs font-medium text-zinc-300 px-1">
+                  <div className="col-span-4">Options</div>
+                  <div className="col-span-4">Value</div>
+                  <div className="col-span-3">Price</div>
+                  <div className="col-span-1"></div>
+                </div>
+
+                {/* Rows */}
+                {variantFields.map((fieldItem, index) => (
+                  <div
+                    key={fieldItem.id}
+                    className="grid grid-cols-12 gap-3 items-center"
+                  >
+                    {/* Option Select */}
+                    <div className="col-span-4">
+                      <Controller
+                        name={`variants.${index}.option`}
+                        control={control}
+                        render={({ field }) => (
+                          <Select
+                            value={field.value}
+                            onValueChange={(val) => val && field.onChange(val)}
+                          >
+                            <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3 w-full text-xs">
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
+                              {VARIANT_OPTIONS.map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {opt}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+
+                    {/* Value Input */}
+                    <div className="col-span-4">
+                      <Controller
+                        name={`variants.${index}.value`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            placeholder=""
+                            className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3 text-xs focus-visible:border-zinc-600 focus-visible:ring-0"
+                            {...field}
+                          />
+                        )}
+                      />
+                    </div>
+
+                    {/* Price Input */}
+                    <div className="col-span-3">
+                      <Controller
+                        name={`variants.${index}.price`}
+                        control={control}
+                        render={({ field }) => (
+                          <Input
                             type="number"
                             min="0"
-                            step="500"
-                            placeholder="0"
+                            placeholder=""
                             value={field.value || ""}
                             onChange={(e) =>
                               field.onChange(
@@ -515,513 +566,271 @@ export default function AddProductPage({
                                   : Number(e.target.value)
                               )
                             }
-                            onBlur={field.onBlur}
-                            name={field.name}
+                            className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3 text-xs focus-visible:border-zinc-600 focus-visible:ring-0"
                           />
-                        </InputGroup>
-                        <FieldDescription className="text-xs">
-                          {currentPrice > 0
-                            ? `Format Kasir: ${formatIDR(Number(currentPrice))}`
-                            : "Harga final yang dibayar oleh pelanggan"}
-                        </FieldDescription>
-                      </Field>
-                    )}
-                  />
-
-                  {/* Harga Modal / HPP */}
-                  <Controller
-                    name="costPrice"
-                    control={form.control}
-                    render={({ field }) => (
-                      <Field>
-                        <FieldLabel htmlFor="product-cost-price">
-                          Harga Modal / HPP (Opsional)
-                        </FieldLabel>
-                        <InputGroup>
-                          <InputGroupAddon align="inline-start">
-                            Rp
-                          </InputGroupAddon>
-                          <InputGroupInput
-                            id="product-cost-price"
-                            type="number"
-                            min="0"
-                            step="500"
-                            placeholder="0"
-                            value={field.value ?? ""}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value === ""
-                                  ? undefined
-                                  : Number(e.target.value)
-                              )
-                            }
-                            onBlur={field.onBlur}
-                            name={field.name}
-                          />
-                        </InputGroup>
-                        <FieldDescription className="text-xs">
-                          {currentCostPrice && Number(currentCostPrice) > 0
-                            ? `HPP: ${formatIDR(Number(currentCostPrice))}`
-                            : "Biaya bahan baku per porsi/unit"}
-                        </FieldDescription>
-                      </Field>
-                    )}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card 3: Inventaris & Manajemen Stok */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <IconBarcode className="size-4" />
-                  </div>
-                  <div>
-                    <CardTitle>Inventaris & Stok</CardTitle>
-                    <CardDescription>
-                      Kelola identitas SKU, kode barcode, dan jumlah stok barang
-                      siap jual.
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* SKU with Auto-Generator */}
-                  <Controller
-                    name="sku"
-                    control={form.control}
-                    render={({ field }) => (
-                      <Field>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel htmlFor="product-sku">
-                            Kode SKU <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          {errors.sku && (
-                            <span className="text-xs text-destructive">
-                              {errors.sku.message}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            id="product-sku"
-                            placeholder="Contoh: CFE-1029"
-                            className="font-mono uppercase text-xs tracking-wider"
-                            {...field}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={handleGenerateSku}
-                            title="Generate SKU Otomatis"
-                            className="shrink-0 size-8"
-                          >
-                            <IconSparkles className="size-4 text-amber-500" />
-                          </Button>
-                        </div>
-                      </Field>
-                    )}
-                  />
-
-                  {/* Barcode EAN */}
-                  <Controller
-                    name="barcode"
-                    control={form.control}
-                    render={({ field }) => (
-                      <Field>
-                        <FieldLabel htmlFor="product-barcode">
-                          Barcode Scanner (Opsional)
-                        </FieldLabel>
-                        <Input
-                          id="product-barcode"
-                          placeholder="Scan atau ketik kode barcode"
-                          className="font-mono text-xs"
-                          {...field}
-                        />
-                      </Field>
-                    )}
-                  />
-                </div>
-
-                {/* Track Stock Toggle */}
-                <Controller
-                  name="trackStock"
-                  control={form.control}
-                  render={({ field }) => (
-                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
+                        )}
                       />
-                      <span className="text-xs font-medium text-foreground">
-                        Lacak dan kurangi stok otomatis saat transaksi berhasil
-                      </span>
-                    </label>
-                  )}
-                />
-
-                {currentTrackStock && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/40">
-                    {/* Stok Awal */}
-                    <Controller
-                      name="stock"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field>
-                          <FieldLabel htmlFor="product-stock">
-                            Stok Awal Siap Jual{" "}
-                            <span className="text-destructive">*</span>
-                          </FieldLabel>
-                          <Input
-                            id="product-stock"
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="10"
-                            value={field.value}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value === ""
-                                  ? 0
-                                  : Number(e.target.value)
-                              )
-                            }
-                            onBlur={field.onBlur}
-                            name={field.name}
-                          />
-                          <FieldDescription className="text-xs">
-                            {Number(field.value) === 0
-                              ? "Item langsung ditandai 'Habis'"
-                              : `${field.value} unit tersedia`}
-                          </FieldDescription>
-                        </Field>
-                      )}
-                    />
-
-                    {/* Min Stock Alert */}
-                    <Controller
-                      name="minStock"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field>
-                          <FieldLabel htmlFor="product-min-stock">
-                            Batas Peringatan Stok Menipis
-                          </FieldLabel>
-                          <Input
-                            id="product-min-stock"
-                            type="number"
-                            min="0"
-                            step="1"
-                            placeholder="5"
-                            value={field.value}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value === ""
-                                  ? 0
-                                  : Number(e.target.value)
-                              )
-                            }
-                            onBlur={field.onBlur}
-                            name={field.name}
-                          />
-                          <FieldDescription className="text-xs">
-                            Peringatan notifikasi saat stok ≤ {field.value || 5}{" "}
-                            unit
-                          </FieldDescription>
-                        </Field>
-                      )}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Card 4: Add-ons & Modifiers Quick Banner */}
-            <Card className="border-dashed bg-muted/20">
-              <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <IconLayersLinked className="size-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Varian & Modifikasi Produk (Add-ons)
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Kelola topping tambahan, varian ukuran cup, atau opsi gula
-                      di menu Manajemen Add-on.
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/dashboard/addons")}
-                  className="shrink-0 gap-1.5"
-                >
-                  <span>Atur Add-ons</span>
-                  <IconExternalLink className="size-3.5 text-muted-foreground" />
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* RIGHT 1 COLUMN: Media & POS Preview & Status */}
-          <div className="space-y-6">
-            {/* Card: Gambar & Ikon Produk */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <IconPhoto className="size-4 text-primary" />
-                    <CardTitle className="text-sm">Ikon & Gambar</CardTitle>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 text-[11px] text-muted-foreground"
-                    onClick={() => setShowCustomUrl(!showCustomUrl)}
-                  >
-                    {showCustomUrl ? "Gunakan Preset" : "Custom URL"}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Visual Thumbnail Preview */}
-                <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-border/70 bg-muted/30">
-                  <div className="size-20 rounded-xl border border-border/80 bg-background p-1.5 flex items-center justify-center shadow-xs overflow-hidden">
-                    {currentImage ? (
-                      <img
-                        src={currentImage}
-                        alt="Product preview"
-                        className="size-full rounded-lg object-contain"
-                      />
-                    ) : (
-                      <IconPhoto className="size-10 text-muted-foreground/40" />
-                    )}
-                  </div>
-                  <span className="text-[11px] text-muted-foreground mt-2 font-medium">
-                    Ikon Tampilan Menu
-                  </span>
-                </div>
-
-                {!showCustomUrl ? (
-                  <div>
-                    <span className="text-xs font-medium text-foreground block mb-2">
-                      Pilih template ikon kategori:
-                    </span>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {PRESET_ICONS.map((preset) => {
-                        const isSelected = currentImage === preset.svg;
-                        return (
-                          <button
-                            key={preset.label}
-                            type="button"
-                            onClick={() => setValue("image", preset.svg)}
-                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs transition-all cursor-pointer text-left ${
-                              isSelected
-                                ? "bg-primary text-primary-foreground border-primary font-medium shadow-xs"
-                                : "border-border/60 bg-card hover:bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            <img
-                              src={preset.svg}
-                              alt={preset.label}
-                              className="size-4 rounded-xs shrink-0"
-                            />
-                            <span className="truncate">{preset.label}</span>
-                            {isSelected && (
-                              <IconCheck className="size-3.5 ml-auto shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })}
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <Controller
-                      name="image"
-                      control={form.control}
-                      render={({ field }) => (
-                        <Field>
-                          <FieldLabel htmlFor="image-url">
-                            URL Gambar
-                          </FieldLabel>
-                          <Input
-                            id="image-url"
-                            placeholder="https://images.unsplash.com/..."
-                            {...field}
-                          />
-                          <FieldDescription className="text-[11px]">
-                            Masukkan tautan gambar CDN atau hosting.
-                          </FieldDescription>
-                        </Field>
-                      )}
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* Card: Status & Visibilitas Kasir */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <IconTag className="size-4 text-primary" />
-                  <CardTitle className="text-sm">
-                    Status & Ketersediaan
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Tersedia di Kasir */}
-                <Controller
-                  name="isAvailable"
-                  control={form.control}
-                  render={({ field }) => (
-                    <label className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-card hover:bg-muted/40 transition-colors cursor-pointer select-none">
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        className="mt-0.5"
-                      />
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-semibold text-foreground">
-                          Stok Tersedia di Kasir
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          Item siap dipesan. Jika dinonaktifkan, item ditandai
-                          Habis.
-                        </span>
-                      </div>
-                    </label>
-                  )}
-                />
-
-                {/* Status Publikasi Aktif */}
-                <Controller
-                  name="isActive"
-                  control={form.control}
-                  render={({ field }) => (
-                    <label className="flex items-start gap-3 p-3 rounded-lg border border-border/60 bg-card hover:bg-muted/40 transition-colors cursor-pointer select-none">
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        className="mt-0.5"
-                      />
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs font-semibold text-foreground">
-                          Publikasi Aktif
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          Produk aktif dalam sistem kasir dan laporan
-                          inventaris.
-                        </span>
-                      </div>
-                    </label>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Card: Live POS Terminal Card Preview */}
-            <Card className="bg-gradient-to-b from-card to-muted/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <IconInfoCircle className="size-3.5" />
-                  <span>Pratinjau Kartu POS Kasir</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-border/80 bg-background shadow-xs">
-                  <div className="size-12 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden border border-border/60">
-                    <img
-                      src={currentImage || generalItemSvg}
-                      alt="Thumbnail"
-                      className="size-full object-contain p-1"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono text-muted-foreground uppercase">
-                        {currentSku || "SKU-0000"}
-                      </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {currentCategory}
-                      </span>
-                    </div>
-                    <h4 className="text-xs font-semibold text-foreground truncate mt-0.5">
-                      {currentName || "Nama Produk Baru"}
-                    </h4>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs font-bold text-primary">
-                        {currentPrice > 0
-                          ? formatIDR(Number(currentPrice))
-                          : "Rp 0"}
-                      </span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                          currentIsAvailable && Number(currentStock) > 0
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
+                    {/* Delete action */}
+                    <div className="col-span-1 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => removeVariant(index)}
+                        className="text-zinc-500 hover:text-red-400 transition-colors p-1"
+                        title="Remove variant"
                       >
-                        {currentIsAvailable && Number(currentStock) > 0
-                          ? `${currentStock} pcs`
-                          : "Habis"}
-                      </span>
+                        <IconTrash className="size-4" />
+                      </button>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Bottom Floating Bar */}
-        <div className="sticky bottom-4 z-20 mt-8 flex items-center justify-between rounded-xl border border-border/70 bg-card/90 p-4 shadow-lg backdrop-blur-md">
-          <div className="flex items-center gap-2">
-            <span
-              className={`size-2.5 rounded-full ${
-                currentIsActive ? "bg-emerald-500" : "bg-muted-foreground"
-              }`}
-            />
-            <span className="text-xs text-muted-foreground">
-              Status:{" "}
-              <strong className="text-foreground">
-                {currentIsActive ? "Aktif" : "Non-Aktif (Draf)"}
-              </strong>
-            </span>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/dashboard/products")}
-              disabled={isSubmitting}
-            >
-              Batal
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="gap-1.5 shadow-xs"
-            >
-              <IconDeviceFloppy className="size-4" />
-              <span>{isSubmitting ? "Menyimpan..." : "Simpan Produk"}</span>
-            </Button>
+          {/* RIGHT COLUMN: Pricing, Status, Categories (4 cols) */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Card 4: Pricing */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-5">
+              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
+                Pricing
+              </h2>
+
+              {/* Base Price */}
+              <div className="space-y-2">
+                <label className="text-xs md:text-sm font-medium text-zinc-300">
+                  Base Price
+                </label>
+                <Controller
+                  name="basePrice"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder=""
+                      value={field.value || ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value === "" ? 0 : Number(e.target.value)
+                        )
+                      }
+                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
+                    />
+                  )}
+                />
+                {errors.basePrice && (
+                  <p className="text-xs text-red-500">
+                    {errors.basePrice.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Discounted Price */}
+              <div className="space-y-2">
+                <label className="text-xs md:text-sm font-medium text-zinc-300">
+                  Discounted Price
+                </label>
+                <Controller
+                  name="discountedPrice"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder=""
+                      value={field.value ?? ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value === ""
+                            ? undefined
+                            : Number(e.target.value)
+                        )
+                      }
+                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
+                    />
+                  )}
+                />
+              </div>
+
+              {/* Charge tax on this product */}
+              <Controller
+                name="chargeTax"
+                control={control}
+                render={({ field }) => (
+                  <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="border-zinc-700 data-checked:bg-white data-checked:text-black data-checked:border-white"
+                    />
+                    <span className="text-xs md:text-sm text-zinc-300 font-normal">
+                      Charge tax on this product
+                    </span>
+                  </label>
+                )}
+              />
+
+              {/* In stock Toggle */}
+              <div className="pt-2 border-t border-zinc-850">
+                <Controller
+                  name="inStock"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                      <span className="text-xs md:text-sm text-zinc-200 font-normal">
+                        In stock
+                      </span>
+                    </div>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Card 5: Status */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-4">
+              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
+                Status
+              </h2>
+
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={(val) =>
+                      val &&
+                      field.onChange(val as "draft" | "published" | "archived")
+                    }
+                  >
+                    <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3.5 w-full flex items-center justify-between text-xs md:text-sm">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`size-2 rounded-full ${
+                            currentStatus === "published"
+                              ? "bg-emerald-500"
+                              : currentStatus === "draft"
+                                ? "bg-amber-500"
+                                : "bg-zinc-400"
+                          }`}
+                        />
+                        <span className="capitalize">{field.value}</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
+                      <SelectItem value="draft">
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-amber-500" />
+                          <span>Draft</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="published">
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-emerald-500" />
+                          <span>Published</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="archived">
+                        <div className="flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-zinc-400" />
+                          <span>Archived</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+
+              <p className="text-xs text-zinc-500">Set the product status.</p>
+            </div>
+
+            {/* Card 6: Categories */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-4">
+              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
+                Categories
+              </h2>
+
+              {/* Category Select with (+) button */}
+              <div className="flex items-center gap-2">
+                <Controller
+                  name="category"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={handleCategoryChange}
+                    >
+                      <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3.5 flex-1 flex items-center justify-between text-xs md:text-sm">
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
+                        {categories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  className="size-10 rounded-xl border border-zinc-800 bg-[#18181b] hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                  title="Add category"
+                >
+                  <IconPlus className="size-4" />
+                </button>
+              </div>
+
+              {/* Sub Category Select with (+) button */}
+              <div className="flex items-center gap-2">
+                <Controller
+                  name="subCategory"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      onValueChange={(val) => val && field.onChange(val)}
+                    >
+                      <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3.5 flex-1 flex items-center justify-between text-xs md:text-sm">
+                        <SelectValue placeholder="Select a sub category" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
+                        {subCategories.length === 0 ? (
+                          <div className="p-2 text-xs text-zinc-500 text-center">
+                            No sub categories
+                          </div>
+                        ) : (
+                          subCategories.map((sub) => (
+                            <SelectItem key={sub} value={sub}>
+                              {sub}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddSubCategory}
+                  className="size-10 rounded-xl border border-zinc-800 bg-[#18181b] hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                  title="Add sub category"
+                >
+                  <IconPlus className="size-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
