@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { IconPlus } from "@tabler/icons-react";
 
@@ -8,6 +9,16 @@ interface ProductHeaderProps {
 }
 
 export function ProductHeader({ onAddProduct }: ProductHeaderProps) {
+  const navigate = useNavigate();
+
+  const handleAddClick = () => {
+    if (onAddProduct) {
+      onAddProduct();
+    } else {
+      navigate("/dashboard/products/new");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
       <div className="flex flex-col gap-1">
@@ -21,7 +32,12 @@ export function ProductHeader({ onAddProduct }: ProductHeaderProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" size="default" onClick={onAddProduct}>
+        <Button
+          variant="default"
+          size="default"
+          onClick={handleAddClick}
+          className="gap-1.5 shadow-xs"
+        >
           <IconPlus data-icon="inline-start" className="size-4" />
           <span>Tambah Produk</span>
         </Button>
