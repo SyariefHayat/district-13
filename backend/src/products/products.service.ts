@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, count, eq, inArray } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import {
   PERMISSIONS,
@@ -15,8 +15,11 @@ import { InventoryService } from '../inventory/inventory.service.js';
 import {
   addons,
   categories,
+  inventories,
   productAddons,
   products,
+  transactionItems,
+  transactions,
 } from '../drizzle/schema/index.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
 import type { ListProductsDto } from './dto/list-products.dto.js';
@@ -66,6 +69,34 @@ export class ProductsService {
       filters.push(eq(products.categoryId, query.categoryId));
     const where = filters.length ? and(...filters) : undefined;
 
+    const invSubquery = this.database.db
+      .select({
+        productId: inventories.productId,
+        stock: sql<number>`coalesce(sum(${inventories.stock}), 0)::int`.as(
+          'stock',
+        ),
+      })
+      .from(inventories)
+      .groupBy(inventories.productId)
+      .as('inv');
+
+    const salesSubquery = this.database.db
+      .select({
+        productId: transactionItems.productId,
+        soldCount:
+          sql<number>`coalesce(sum(${transactionItems.quantity}), 0)::int`.as(
+            'sold_count',
+          ),
+      })
+      .from(transactionItems)
+      .innerJoin(
+        transactions,
+        eq(transactionItems.transactionId, transactions.id),
+      )
+      .where(eq(transactions.status, 'COMPLETED'))
+      .groupBy(transactionItems.productId)
+      .as('sales');
+
     const [items, [total]] = await Promise.all([
       this.database.db
         .select({
@@ -77,9 +108,13 @@ export class ProductsService {
           categoryId: products.categoryId,
           categoryName: categories.name,
           categoryIsActive: categories.isActive,
+          stock: sql<number>`coalesce(${invSubquery.stock}, 0)::int`,
+          soldCount: sql<number>`coalesce(${salesSubquery.soldCount}, 0)::int`,
         })
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(invSubquery, eq(products.id, invSubquery.productId))
+        .leftJoin(salesSubquery, eq(products.id, salesSubquery.productId))
         .where(where)
         .orderBy(products.name)
         .limit(limit)

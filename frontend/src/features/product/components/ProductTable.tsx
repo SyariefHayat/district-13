@@ -8,6 +8,7 @@ import {
   IconDots,
   IconDownload,
   IconLayoutColumns,
+  IconLoader2,
   IconPackage,
   IconTrash,
 } from "@tabler/icons-react";
@@ -83,6 +84,8 @@ function getProductStatus(
 
 interface ProductTableProps {
   products: ProductItem[];
+  categories?: string[];
+  isLoading?: boolean;
   onToggleStatus?: (productId: string) => void;
   onEditProduct?: (product: ProductItem) => void;
   onDeleteProduct?: (productId: string) => void;
@@ -93,6 +96,8 @@ interface ProductTableProps {
 
 export function ProductTable({
   products,
+  categories,
+  isLoading,
   onToggleStatus,
   onEditProduct,
   onDeleteProduct,
@@ -536,7 +541,11 @@ export function ProductTable({
               </Button>
             </div>
           ) : (
-            <ProductFilterBar filters={filters} onFiltersChange={setFilters} />
+            <ProductFilterBar
+              filters={filters}
+              onFiltersChange={setFilters}
+              categories={categories}
+            />
           )}
 
           <div className="flex items-center gap-2 ml-auto">
@@ -632,7 +641,21 @@ export function ProductTable({
               ))}
             </TableHeader>
             <TableBody>
-              {table.getRowModel().rows?.length ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-32 text-center text-muted-foreground"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <IconLoader2 className="size-6 animate-spin text-muted-foreground" />
+                      <p className="text-sm font-medium">
+                        Memuat data produk...
+                      </p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}

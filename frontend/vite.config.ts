@@ -21,6 +21,12 @@ export default defineConfig({
       "/auth": process.env.BACKEND_URL ?? "http://localhost:3000",
       "/users": process.env.BACKEND_URL ?? "http://localhost:3000",
       "/reports": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/products": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/categories": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/addons": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/inventory": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/transactions": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/shifts": process.env.BACKEND_URL ?? "http://localhost:3000",
     },
   },
 });
