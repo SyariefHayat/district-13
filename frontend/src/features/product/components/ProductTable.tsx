@@ -9,7 +9,6 @@ import {
   IconDownload,
   IconLayoutColumns,
   IconPackage,
-  IconStarFilled,
   IconTrash,
 } from "@tabler/icons-react";
 import {
@@ -130,10 +129,16 @@ export function ProductTable({
         }
 
         if (filter.id === "price") {
-          const p = product.price < 500 ? product.price : product.price / 1000;
-          if (filter.value === "under-25" && p >= 25) return false;
-          if (filter.value === "25-50" && (p < 25 || p > 50)) return false;
-          if (filter.value === "over-50" && p <= 50) return false;
+          if (filter.value === "under-50k" && product.price >= 50000)
+            return false;
+          if (
+            filter.value === "50k-150k" &&
+            (product.price < 50000 || product.price > 150000)
+          ) {
+            return false;
+          }
+          if (filter.value === "over-150k" && product.price <= 150000)
+            return false;
         }
 
         if (filter.id === "stock") {
@@ -157,12 +162,6 @@ export function ProductTable({
             return false;
           }
         }
-
-        if (filter.id === "rating") {
-          const r = product.rating ?? 4.5;
-          const min = Number(filter.value);
-          if (r < min) return false;
-        }
       }
       return true;
     });
@@ -174,7 +173,9 @@ export function ProductTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "revenue", desc: true },
+  ]);
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
@@ -285,6 +286,46 @@ export function ProductTable({
             </span>
           ),
         }),
+        columnHelper.accessor("soldCount", {
+          id: "soldCount",
+          header: ({ column }) => (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
+              onClick={() => column.toggleSorting()}
+            >
+              <span>Sold</span>
+              <IconArrowsSort className="size-3.5 text-muted-foreground" />
+            </Button>
+          ),
+          cell: ({ row }) => (
+            <span className="text-sm font-medium text-foreground tabular-nums">
+              {(row.original.soldCount ?? 0).toLocaleString("id-ID")}
+            </span>
+          ),
+        }),
+        columnHelper.accessor((row) => row.price * (row.soldCount || 0), {
+          id: "revenue",
+          header: ({ column }) => (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
+              onClick={() => column.toggleSorting()}
+            >
+              <span>Revenue</span>
+              <IconArrowsSort className="size-3.5 text-muted-foreground" />
+            </Button>
+          ),
+          cell: ({ row }) => (
+            <span className="text-sm font-medium text-foreground tabular-nums">
+              {formatProductPrice(
+                row.original.price * (row.original.soldCount || 0)
+              )}
+            </span>
+          ),
+        }),
         columnHelper.accessor("stock", {
           id: "stock",
           header: ({ column }) => (
@@ -302,28 +343,6 @@ export function ProductTable({
             <span className="text-sm text-foreground tabular-nums">
               {row.original.stock}
             </span>
-          ),
-        }),
-        columnHelper.accessor((row) => row.rating ?? 4.5, {
-          id: "rating",
-          header: ({ column }) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
-              onClick={() => column.toggleSorting()}
-            >
-              <span>Rating</span>
-              <IconArrowsSort className="size-3.5 text-muted-foreground" />
-            </Button>
-          ),
-          cell: ({ row }) => (
-            <div className="flex items-center gap-1.5 text-sm font-medium">
-              <IconStarFilled className="size-4 text-amber-500 fill-amber-500" />
-              <span className="tabular-nums">
-                {(row.original.rating ?? 4.5).toFixed(1)}
-              </span>
-            </div>
           ),
         }),
         columnHelper.accessor((row) => getProductStatus(row), {
@@ -558,18 +577,29 @@ export function ProductTable({
                       typeof column.accessorFn !== "undefined" &&
                       column.getCanHide()
                   )
-                  .map((column) => (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  ))}
+                  .map((column) => {
+                    const columnLabels: Record<string, string> = {
+                      product: "Product",
+                      category: "Category",
+                      price: "Price",
+                      soldCount: "Sold",
+                      revenue: "Revenue",
+                      stock: "Stock",
+                      status: "Status",
+                    };
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {columnLabels[column.id] || column.id}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

@@ -28,9 +28,6 @@ export const formatIDR = (value: number) =>
   }).format(value);
 
 export const formatProductPrice = (value: number) => {
-  if (value < 500) {
-    return `$${value.toFixed(2)}`;
-  }
   return formatIDR(value);
 };
 
@@ -114,7 +111,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     name: "Heavyweight Pullover Hoodie",
     sku: "HDX-4821",
     category: "Hoodies",
-    price: 64.9,
+    price: 450000,
     stock: 12,
     rating: 4.8,
     isAvailable: true,
@@ -127,7 +124,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     name: "Classic Crew Neck T-Shirt",
     sku: "TSH-1174",
     category: "T-Shirts",
-    price: 24.5,
+    price: 150000,
     stock: 34,
     rating: 4.6,
     isAvailable: true,
@@ -140,7 +137,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     name: "Tapered Fleece Joggers",
     sku: "PNT-3308",
     category: "Pants",
-    price: 49.9,
+    price: 320000,
     stock: 0,
     rating: 4.4,
     isAvailable: false,
@@ -153,7 +150,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     name: "Six-Panel Baseball Cap",
     sku: "ACC-2296",
     category: "Accessories",
-    price: 19.99,
+    price: 125000,
     stock: 48,
     rating: 4.7,
     isAvailable: true,
@@ -166,7 +163,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     name: "Fleece Sweatpants",
     sku: "PNT-7712",
     category: "Pants",
-    price: 44.5,
+    price: 280000,
     stock: 7,
     rating: 4.2,
     isAvailable: true,

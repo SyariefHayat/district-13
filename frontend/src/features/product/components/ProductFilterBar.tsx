@@ -7,7 +7,6 @@ import {
   IconCurrencyDollar,
   IconDotsVertical,
   IconSearch,
-  IconStar,
   IconTag,
   IconX,
 } from "@tabler/icons-react";
@@ -27,7 +26,7 @@ import {
 import { PRODUCT_CATEGORIES } from "../data/productData";
 
 export type FilterAttributeId =
-  "search" | "status" | "category" | "price" | "stock" | "rating";
+  "search" | "status" | "category" | "price" | "stock";
 
 export interface FilterItem {
   id: FilterAttributeId;
@@ -47,7 +46,6 @@ const ATTRIBUTES: AttributeDef[] = [
   { id: "category", label: "Category", icon: IconTag },
   { id: "price", label: "Price", icon: IconCurrencyDollar },
   { id: "stock", label: "Stock", icon: IconBox },
-  { id: "rating", label: "Rating", icon: IconStar },
 ];
 
 export interface ProductFilterBarProps {
@@ -393,9 +391,9 @@ function ConditionPopover({
               Price range
             </div>
             {[
-              { label: "Under $25", value: "under-25" },
-              { label: "$25 - $50", value: "25-50" },
-              { label: "Over $50", value: "over-50" },
+              { label: "< Rp 50.000", value: "under-50k" },
+              { label: "Rp 50.000 - Rp 150.000", value: "50k-150k" },
+              { label: "> Rp 150.000", value: "over-150k" },
             ].map((option) => (
               <button
                 key={option.value}
@@ -424,34 +422,6 @@ function ConditionPopover({
               { label: "In stock (> 0)", value: "in-stock" },
               { label: "Out of stock (= 0)", value: "out-of-stock" },
               { label: "Low stock (≤ 10)", value: "low-stock" },
-            ].map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onSelect(option.value, option.label);
-                  onOpenChange(false);
-                }}
-                className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
-              >
-                <span>{option.label}</span>
-                {filter.value === option.value && (
-                  <IconCheck className="size-3.5 text-primary" />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {filter.id === "rating" && (
-          <div className="space-y-1">
-            <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
-              Minimum rating
-            </div>
-            {[
-              { label: "★ 4.5 and up", value: "4.5" },
-              { label: "★ 4.0 and up", value: "4.0" },
-              { label: "★ 3.5 and up", value: "3.5" },
             ].map((option) => (
               <button
                 key={option.value}

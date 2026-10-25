@@ -77,7 +77,7 @@ export function ProductStatsCards({
       icon: IconCoin,
     },
     {
-      label: "Units Sold",
+      label: "Sold",
       value: `${metrics.totalUnitsSold.toLocaleString("id-ID")} pcs`,
       description: "Total kuantitas item terjual di kasir",
       icon: IconShoppingCart,
