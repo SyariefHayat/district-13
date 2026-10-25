@@ -1,8 +1,9 @@
+import * as React from "react";
 import {
-  IconAlertCircle,
-  IconCheck,
-  IconCategory,
-  IconPackage,
+  IconCoin,
+  IconShoppingCart,
+  IconFlame,
+  IconChartPie,
 } from "@tabler/icons-react";
 import {
   Card,
@@ -12,8 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "cn";
-import { type ProductItem } from "../data/productData";
+import { formatProductPrice, type ProductItem } from "../data/productData";
 
 interface ProductStatsCardsProps {
   products: ProductItem[];
@@ -24,63 +24,91 @@ export function ProductStatsCards({
   products,
   isLoading,
 }: ProductStatsCardsProps) {
-  const totalProducts = products.length;
-  const availableCount = products.filter(
-    (p) => p.isActive && p.isAvailable && p.stock > 0
-  ).length;
-  const outOfStockCount = products.filter(
-    (p) => p.stock === 0 || !p.isAvailable
-  ).length;
-  const categoriesCount = new Set(products.map((p) => p.category)).size;
+  const metrics = React.useMemo(() => {
+    const totalProducts = products.length;
 
-  const stats = [
+    // 1. Gross Product Sales (Σ price * soldCount)
+    const totalRevenue = products.reduce(
+      (sum, p) => sum + p.price * (p.soldCount || 0),
+      0
+    );
+
+    // 2. Units Sold (Σ soldCount)
+    const totalUnitsSold = products.reduce(
+      (sum, p) => sum + (p.soldCount || 0),
+      0
+    );
+
+    // 3. Top Performer (Highest soldCount)
+    const sortedBySales = [...products].sort(
+      (a, b) => (b.soldCount || 0) - (a.soldCount || 0)
+    );
+    const topProduct = sortedBySales[0];
+    const topProductShare =
+      totalUnitsSold > 0 && topProduct?.soldCount
+        ? ((topProduct.soldCount / totalUnitsSold) * 100).toFixed(1)
+        : "0";
+
+    // 4. Rasio Produk Laku (SKU with soldCount > 0 vs Total SKU)
+    const activeSoldProducts = products.filter(
+      (p) => (p.soldCount || 0) > 0
+    ).length;
+    const sellThroughRatio =
+      totalProducts > 0
+        ? ((activeSoldProducts / totalProducts) * 100).toFixed(1)
+        : "0";
+
+    return {
+      totalRevenue,
+      totalUnitsSold,
+      topProduct,
+      topProductShare,
+      activeSoldProducts,
+      totalProducts,
+      sellThroughRatio,
+    };
+  }, [products]);
+
+  const kpis = [
     {
-      label: "Total Produk",
-      value: totalProducts.toString(),
-      helper: "Item terdaftar dalam katalog",
-      icon: IconPackage,
-      color: "text-blue-600 dark:text-blue-400",
-      bgColor: "bg-blue-50 dark:bg-blue-950/40",
+      label: "Gross Product Sales",
+      value: formatProductPrice(metrics.totalRevenue),
+      description: "Total akumulasi omzet seluruh katalog",
+      icon: IconCoin,
     },
     {
-      label: "Produk Siap Jual",
-      value: availableCount.toString(),
-      helper: "Tersedia & stok mencukupi",
-      icon: IconCheck,
-      color: "text-emerald-600 dark:text-emerald-400",
-      bgColor: "bg-emerald-50 dark:bg-emerald-950/40",
+      label: "Units Sold",
+      value: `${metrics.totalUnitsSold.toLocaleString("id-ID")} pcs`,
+      description: "Total kuantitas item terjual di kasir",
+      icon: IconShoppingCart,
     },
     {
-      label: "Stok Habis / Nonaktif",
-      value: outOfStockCount.toString(),
-      helper: "Perlu restock atau aktivasi",
-      icon: IconAlertCircle,
-      color: "text-amber-600 dark:text-amber-400",
-      bgColor: "bg-amber-50 dark:bg-amber-950/40",
+      label: "Top Performer",
+      value: metrics.topProduct?.name || "Belum ada data",
+      description: `${metrics.topProduct?.soldCount || 0} pcs terjual (${metrics.topProductShare}% porsi)`,
+      icon: IconFlame,
     },
     {
-      label: "Total Kategori",
-      value: categoriesCount.toString(),
-      helper: "Kelompok menu aktif",
-      icon: IconCategory,
-      color: "text-purple-600 dark:text-purple-400",
-      bgColor: "bg-purple-50 dark:bg-purple-950/40",
+      label: "Rasio Produk Laku",
+      value: `${metrics.sellThroughRatio}%`,
+      description: `${metrics.activeSoldProducts} dari ${metrics.totalProducts} SKU aktif menghasilkan`,
+      icon: IconChartPie,
     },
   ];
 
   return (
     <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-      {stats.map((stat) => {
-        const Icon = stat.icon;
+      {kpis.map((kpi) => {
+        const Icon = kpi.icon;
         return (
-          <Card key={stat.label} className="@container/card">
+          <Card key={kpi.label} className="@container/card">
             <CardHeader>
               <CardDescription className="flex items-center gap-2">
-                <Icon className={cn("size-4", stat.color)} />
-                {stat.label}
+                <Icon className="size-4" />
+                {kpi.label}
               </CardDescription>
               <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                {isLoading ? <Skeleton className="h-8 w-36" /> : stat.value}
+                {isLoading ? <Skeleton className="h-8 w-36" /> : kpi.value}
               </CardTitle>
             </CardHeader>
             <CardFooter className="text-sm text-muted-foreground">
@@ -88,7 +116,7 @@ export function ProductStatsCards({
                 <Skeleton className="h-5 w-32" />
               ) : (
                 <span className="text-xs text-muted-foreground">
-                  {stat.helper}
+                  {kpi.description}
                 </span>
               )}
             </CardFooter>
