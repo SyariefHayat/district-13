@@ -1,50 +1,102 @@
 import * as React from "react";
 import { useNavigate } from "react-router";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  IconChevronLeft,
-  IconUpload,
-  IconPhoto,
-  IconPlus,
-  IconTrash,
-  IconLink,
-  IconX,
-} from "@tabler/icons-react";
+import { IconChevronLeft } from "@tabler/icons-react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/auth-context";
 import {
   getPresetImageForCategory,
   generateSkuForCategory,
   type ProductItem,
 } from "../data/productData";
+import type { BackendCategory } from "../hooks/useProductData";
 import {
   addProductSchema,
   type AddProductFormData,
 } from "../schemas/productFormSchema";
+import {
+  DetailProduct,
+  ProductImage,
+  ProductVariant,
+  ProductPrice,
+  ProductStock,
+  ProductStatus,
+  ProductCategory,
+} from "../components/form";
+
+const DEFAULT_CATEGORY_OPTIONS = [
+  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00101", name: "Kopi" },
+  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00102", name: "Minuman Sachet" },
+  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00103", name: "Makanan" },
+  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00104", name: "Gorengan & Snack" },
+  {
+    id: "c1b07384-d113-4c92-a1f9-4d6d03d00105",
+    name: "Minuman Dingin & Kaleng",
+  },
+];
 
 const DEFAULT_CATEGORY_MAP: Record<string, string[]> = {
-  Apparel: ["Hoodies", "T-Shirts", "Pants", "Jackets", "Accessories"],
-  Coffee: ["Espresso", "Latte", "Cappuccino", "Cold Brew", "Manual Brew"],
-  "Non-Coffee": ["Artisan Tea", "Matcha Fusion", "Chocolate", "Fresh Juice"],
-  "Pastry & Bakery": ["Croissant", "Danish", "Cookies", "Cake Slice"],
-  "Main Course": ["Rice Bowl", "Pasta", "Burgers", "Sandwiches"],
-  Snacks: ["French Fries", "Nachos", "Platter", "Churros"],
+  Kopi: [
+    "Kopi Hitam",
+    "Kopi Susu Racik",
+    "Top Cappucino",
+    "Torabika Moka",
+    "Good Day Vanilla Latte",
+    "Good Day Freeze",
+    "Good Day Mocacino",
+    "Good Day Cappucino",
+    "Good Day Carrabian Nut",
+    "Luwak White Coffee",
+    "Kopi Tubruk",
+  ],
+  "Minuman Sachet": [
+    "Nutrisari (Jeruk, Lemon, Leci, Cocopandan)",
+    "Pop Ice (Coklat, Mangga, Strawberry, dll.)",
+    "Chocolatos",
+    "Milo",
+    "Bengbeng Drink",
+    "Tea Jus",
+    "SKM Putih",
+    "Air Mineral AKEO",
+  ],
+  Makanan: [
+    "Indomie Goreng + Telur",
+    "Indomie Kuah + Telur",
+    "Indomie Rawon Pedas Mercon + Telur",
+    "Indomie BAWA SENDIRI",
+    "Mie Sedaap + Telur",
+    "Sego Sambel Telur",
+    "Sego Sambel Ayam",
+    "Sego Sambel Tahu Tempe",
+    "Nasi Bungkus",
+  ],
+  "Gorengan & Snack": [
+    "Tempe Mendoan",
+    "Tahu Bakso",
+    "Tahu Goreng / Crispy",
+    "Risol",
+    "Gorengan",
+    "Mix Platter (Sosis, Nugget, Kentang)",
+    "Cireng",
+    "Siomay Goreng",
+    "Usus Krispi",
+    "Kacang",
+    "Kerupuk",
+  ],
+  "Minuman Dingin & Kaleng": [
+    "Teh Tarik RACIK",
+    "Teh Manis",
+    "Zenlatte Thai Tea",
+    "Zenlatte Matcha",
+    "Extrajoss (Kaleng / Susu)",
+    "Kukubima Susu",
+    "Coca Cola / Sprite / Fanta",
+    "Energen",
+    "Lemon Tea",
+  ],
 };
-
-const VARIANT_OPTIONS = ["Size", "Color", "Flavor", "Material", "Style"];
 
 interface AddProductPageProps {
   onProductCreated?: (product: ProductItem) => void;
@@ -54,13 +106,31 @@ export default function AddProductPage({
   onProductCreated,
 }: AddProductPageProps) {
   const navigate = useNavigate();
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const { authorizedFetch } = useAuth();
 
+  const [backendCategories, setBackendCategories] = React.useState<
+    BackendCategory[]
+  >([]);
   const [categoryMap, setCategoryMap] = React.useState(DEFAULT_CATEGORY_MAP);
-  const [showUrlModal, setShowUrlModal] = React.useState(false);
-  const [urlInput, setUrlInput] = React.useState("");
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeletingCategory, setIsDeletingCategory] = React.useState(false);
 
-  const categories = Object.keys(categoryMap);
+  const categoriesList = React.useMemo(() => {
+    if (backendCategories.length > 0) {
+      return backendCategories.map((c) => ({
+        id: c.id,
+        name: c.name,
+      }));
+    }
+    return DEFAULT_CATEGORY_OPTIONS;
+  }, [backendCategories]);
+
+  const categoryItems = React.useMemo(() => {
+    return categoriesList.reduce<Record<string, string>>((acc, cat) => {
+      acc[cat.id] = cat.name;
+      return acc;
+    }, {});
+  }, [categoriesList]);
 
   const form = useForm<AddProductFormData>({
     resolver: zodResolver(addProductSchema),
@@ -70,16 +140,23 @@ export default function AddProductPage({
       barcode: "",
       description: "",
       images: [],
-      basePrice: 0,
-      discountedPrice: undefined,
+      price: 0,
+      costPrice: undefined,
       chargeTax: false,
       inStock: true,
-      status: "draft",
-      category: categories[0] || "Apparel",
-      subCategory: categoryMap[categories[0]]?.[0] || "",
+      warehouseStock: 50,
+      displayStock: 20,
+      status: "published",
+      category: DEFAULT_CATEGORY_OPTIONS[0].id,
+      subCategory: DEFAULT_CATEGORY_MAP["Kopi"]?.[0] || "",
       variants: [
-        { id: "var-1", option: "Size", value: "Regular", price: 0 },
-        { id: "var-2", option: "Size", value: "Large", price: 5000 },
+        { id: "var-1", option: "Suhu / Penyajian", value: "Panas", price: 0 },
+        {
+          id: "var-2",
+          option: "Suhu / Penyajian",
+          value: "Dingin / Es",
+          price: 2000,
+        },
       ],
     },
     mode: "onBlur",
@@ -93,32 +170,112 @@ export default function AddProductPage({
     formState: { errors, isSubmitting },
   } = form;
 
-  const {
-    fields: variantFields,
-    append: appendVariant,
-    remove: removeVariant,
-  } = useFieldArray({
-    control,
-    name: "variants",
-  });
-
   const currentCategory = watch("category");
+  const currentSubCategory = watch("subCategory");
   const currentImages = watch("images");
   const currentStatus = watch("status");
+  const currentPrice = watch("price") || 0;
+  const currentCostPrice = watch("costPrice");
+  const currentChargeTax = watch("chargeTax");
+  const currentWarehouseStock = watch("warehouseStock") || 0;
+  const currentDisplayStock = watch("displayStock") || 0;
 
-  const subCategories = categoryMap[currentCategory] || [];
+  // Load real categories from backend API on mount
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadCategories() {
+      try {
+        const res = await authorizedFetch("/categories");
+        if (res.ok) {
+          const data = await res.json();
+          const list: BackendCategory[] = Array.isArray(data)
+            ? data
+            : data.data || [];
+          const activeList = list.filter((c) => c.isActive);
+          if (isMounted && activeList.length > 0) {
+            setBackendCategories(activeList);
+
+            // Synchronize selected category to matching backend UUID
+            const currentVal = form.getValues("category");
+            const matchedById = activeList.find((c) => c.id === currentVal);
+            const matchedByName = activeList.find(
+              (c) => c.name.toLowerCase() === currentVal.toLowerCase()
+            );
+
+            if (matchedById) {
+              setValue("category", matchedById.id, { shouldValidate: true });
+            } else if (matchedByName) {
+              setValue("category", matchedByName.id, { shouldValidate: true });
+            } else {
+              const firstCat = activeList[0];
+              setValue("category", firstCat.id, { shouldValidate: true });
+              const subs = categoryMap[firstCat.name] || [];
+              setValue("subCategory", subs[0] || "");
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load backend categories:", err);
+      }
+    }
+    void loadCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, [authorizedFetch, categoryMap, form, setValue]);
+
+  const selectedCategory = categoriesList.find(
+    (c) => c.id === currentCategory || c.name === currentCategory
+  );
+  const selectedCategoryName =
+    selectedCategory?.name || categoriesList[0]?.name || "";
+
+  const subCategories = categoryMap[selectedCategoryName] || [];
 
   const handleCategoryChange = (val: string | null) => {
     if (!val) return;
     setValue("category", val, { shouldValidate: true });
-    const nextSubs = categoryMap[val] || [];
+    const matched = categoriesList.find((c) => c.id === val || c.name === val);
+    const catName = matched ? matched.name : val;
+    const nextSubs = categoryMap[catName] || [];
     setValue("subCategory", nextSubs[0] || "");
   };
 
-  const handleAddCategory = () => {
-    const newCat = window.prompt("Enter new category name:");
-    if (newCat && newCat.trim()) {
-      const trimmed = newCat.trim();
+  const handleAddCategory = async () => {
+    const newCat = window.prompt("Masukkan nama kategori baru:");
+    if (!newCat || !newCat.trim()) return;
+    const trimmed = newCat.trim();
+
+    try {
+      const res = await authorizedFetch("/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (res.ok) {
+        const createdCat = (await res.json()) as BackendCategory;
+        setBackendCategories((prev) => [...prev, createdCat]);
+        setCategoryMap((prev) => ({ ...prev, [trimmed]: [] }));
+        setValue("category", createdCat.id, { shouldValidate: true });
+        setValue("subCategory", "");
+        toast.add({
+          title: "Kategori Berhasil Dibuat",
+          description: `Kategori "${trimmed}" berhasil ditambahkan.`,
+          type: "success",
+        });
+        return;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.add({
+          title: "Gagal Membuat Kategori",
+          description:
+            typeof body.message === "string"
+              ? body.message
+              : "Tidak dapat membuat kategori di server.",
+          type: "error",
+        });
+      }
+    } catch {
       if (!categoryMap[trimmed]) {
         setCategoryMap((prev) => ({ ...prev, [trimmed]: [] }));
       }
@@ -128,79 +285,272 @@ export default function AddProductPage({
   };
 
   const handleAddSubCategory = () => {
-    if (!currentCategory) {
-      alert("Please select a category first.");
+    if (!selectedCategoryName) {
+      alert("Silakan pilih kategori terlebih dahulu.");
       return;
     }
     const newSub = window.prompt(
-      `Enter new sub category for "${currentCategory}":`
+      `Masukkan sub-kategori baru untuk "${selectedCategoryName}":`
     );
     if (newSub && newSub.trim()) {
       const trimmed = newSub.trim();
       setCategoryMap((prev) => ({
         ...prev,
-        [currentCategory]: [...(prev[currentCategory] || []), trimmed],
+        [selectedCategoryName]: [
+          ...(prev[selectedCategoryName] || []),
+          trimmed,
+        ],
       }));
       setValue("subCategory", trimmed);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleDeleteCategory = async () => {
+    const targetCategory = categoriesList.find(
+      (c) => c.id === currentCategory || c.name === currentCategory
+    );
+    if (!targetCategory) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setValue("images", [
-            ...form.getValues("images"),
-            event.target.result as string,
-          ]);
+    const confirmDelete = window.confirm(
+      `Apakah Anda yakin ingin menghapus kategori "${targetCategory.name}"?`
+    );
+    if (!confirmDelete) return;
+
+    const isBackendCat = backendCategories.some(
+      (c) => c.id === targetCategory.id
+    );
+
+    if (isBackendCat) {
+      setIsDeletingCategory(true);
+      try {
+        const res = await authorizedFetch(`/categories/${targetCategory.id}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          const remaining = backendCategories.filter(
+            (c) => c.id !== targetCategory.id
+          );
+          setBackendCategories(remaining);
+          setCategoryMap((prev) => {
+            const next = { ...prev };
+            delete next[targetCategory.name];
+            return next;
+          });
+          const nextCat = remaining[0];
+          if (nextCat) {
+            setValue("category", nextCat.id, { shouldValidate: true });
+            const nextSubs = categoryMap[nextCat.name] || [];
+            setValue("subCategory", nextSubs[0] || "");
+          } else {
+            setValue("category", "", { shouldValidate: true });
+            setValue("subCategory", "");
+          }
+          toast.add({
+            title: "Kategori Berhasil Dihapus",
+            description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
+            type: "success",
+          });
+        } else {
+          const body = await res.json().catch(() => ({}));
+          toast.add({
+            title: "Gagal Menghapus Kategori",
+            description:
+              typeof body.message === "string"
+                ? body.message
+                : "Kategori tidak dapat dihapus (mungkin masih terdapat produk aktif).",
+            type: "error",
+          });
         }
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleAddUrlImage = () => {
-    if (urlInput.trim()) {
-      setValue("images", [...currentImages, urlInput.trim()]);
-      setUrlInput("");
-      setShowUrlModal(false);
+      } catch {
+        toast.add({
+          title: "Gagal Menghapus Kategori",
+          description: "Terjadi kesalahan jaringan saat menghapus kategori.",
+          type: "error",
+        });
+      } finally {
+        setIsDeletingCategory(false);
+      }
+    } else {
+      setCategoryMap((prev) => {
+        const next = { ...prev };
+        delete next[targetCategory.name];
+        return next;
+      });
+      const remainingDefaults = categoriesList.filter(
+        (c) => c.id !== targetCategory.id
+      );
+      const nextCat = remainingDefaults[0];
+      if (nextCat) {
+        setValue("category", nextCat.id, { shouldValidate: true });
+        setValue("subCategory", categoryMap[nextCat.name]?.[0] || "");
+      } else {
+        setValue("category", "", { shouldValidate: true });
+        setValue("subCategory", "");
+      }
+      toast.add({
+        title: "Kategori Berhasil Dihapus",
+        description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
+        type: "success",
+      });
     }
   };
 
-  const handleRemoveImage = (index: number) => {
-    setValue(
-      "images",
-      currentImages.filter((_, i) => i !== index)
+  const handleDeleteSubCategory = () => {
+    if (!selectedCategoryName || !currentSubCategory) return;
+    const confirmDelete = window.confirm(
+      `Hapus sub-kategori "${currentSubCategory}" dari "${selectedCategoryName}"?`
     );
+    if (!confirmDelete) return;
+
+    setCategoryMap((prev) => {
+      const existing = prev[selectedCategoryName] || [];
+      const updated = existing.filter((s) => s !== currentSubCategory);
+      return {
+        ...prev,
+        [selectedCategoryName]: updated,
+      };
+    });
+    setValue("subCategory", "");
+    toast.add({
+      title: "Sub-kategori Berhasil Dihapus",
+      description: `Sub-kategori "${currentSubCategory}" telah dihapus.`,
+      type: "success",
+    });
   };
 
   const submitWithStatus = (targetStatus: "draft" | "published") => {
     setValue("status", targetStatus);
-    handleSubmit((data) => {
+    handleSubmit(async (data) => {
+      setIsSaving(true);
       try {
+        const catName = selectedCategoryName;
         const primaryImage =
           data.images && data.images.length > 0
             ? data.images[0]
-            : getPresetImageForCategory(data.category);
+            : getPresetImageForCategory(catName);
 
+        const sellingPrice = data.price;
+
+        // Resolve or create valid UUID categoryId on backend
+        let targetCategoryId = selectedCategory?.id;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+        if (!targetCategoryId || !uuidRegex.test(targetCategoryId)) {
+          const matchedFromBackend = backendCategories.find(
+            (c) =>
+              c.name.toLowerCase() === catName.toLowerCase() &&
+              uuidRegex.test(c.id)
+          );
+          if (matchedFromBackend) {
+            targetCategoryId = matchedFromBackend.id;
+          } else {
+            const createCatRes = await authorizedFetch("/categories", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: catName }),
+            });
+            if (createCatRes.ok) {
+              const newCat = (await createCatRes.json()) as BackendCategory;
+              targetCategoryId = newCat.id;
+              setBackendCategories((prev) => [...prev, newCat]);
+            } else {
+              throw new Error(
+                `Tidak dapat menetapkan kategori "${catName}". Silakan pilih atau buat kategori yang valid.`
+              );
+            }
+          }
+        }
+
+        // 1. Create real product in backend database
+        const productRes = await authorizedFetch("/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: data.name.trim(),
+            price: Number(sellingPrice).toFixed(2),
+            categoryId: targetCategoryId,
+          }),
+        });
+
+        if (!productRes.ok) {
+          const body = await productRes.json().catch(() => ({}));
+          const errMsg =
+            typeof body.message === "string"
+              ? body.message
+              : Array.isArray(body.message)
+                ? body.message.join(", ")
+                : `Gagal membuat produk (${productRes.status})`;
+          throw new Error(errMsg);
+        }
+
+        const createdProduct = await productRes.json();
+
+        // 2. Compute initial stock & adjust active / availability status
+        const warehouseQty = Math.max(0, Number(data.warehouseStock || 0));
+        const displayQty = Math.max(0, Number(data.displayStock || 0));
+        const totalInitialStock = warehouseQty + displayQty;
+
+        const shouldBeActive = targetStatus === "published";
+        const shouldBeAvailable = totalInitialStock > 0;
+
+        if (!shouldBeActive || !shouldBeAvailable) {
+          try {
+            await authorizedFetch(`/products/${createdProduct.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                isActive: shouldBeActive,
+                isAvailable: shouldBeAvailable,
+              }),
+            });
+          } catch (patchErr) {
+            console.warn(
+              "Could not update product status/availability:",
+              patchErr
+            );
+          }
+        }
+
+        // 3. Provision stock into Warehouse and Display locations
+        if (shouldBeAvailable && totalInitialStock > 0) {
+          try {
+            await authorizedFetch("/inventory/restock", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                productId: createdProduct.id,
+                quantity: totalInitialStock,
+              }),
+            });
+
+            if (displayQty > 0) {
+              await authorizedFetch("/inventory/transfer-to-display", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  productId: createdProduct.id,
+                  quantity: displayQty,
+                }),
+              });
+            }
+          } catch (invErr) {
+            console.warn("Could not provision initial inventory:", invErr);
+          }
+        }
+
+        // 4. Callback for local consumers if provided
         const createdItem: ProductItem = {
-          id: `prod-${Date.now()}`,
-          name: data.name.trim(),
+          id: createdProduct.id,
+          name: createdProduct.name,
           sku:
-            data.sku?.trim().toUpperCase() ||
-            generateSkuForCategory(data.category),
-          category: data.subCategory || data.category,
-          price:
-            data.discountedPrice !== undefined && data.discountedPrice > 0
-              ? data.discountedPrice
-              : data.basePrice,
-          stock: data.inStock ? 50 : 0,
-          isAvailable: data.inStock,
-          isActive: targetStatus === "published",
+            data.sku?.trim().toUpperCase() || generateSkuForCategory(catName),
+          category: catName,
+          price: Number(createdProduct.price) || sellingPrice,
+          costPrice: data.costPrice,
+          stock: shouldBeAvailable ? totalInitialStock : 0,
+          isAvailable: shouldBeAvailable,
+          isActive: shouldBeActive,
           soldCount: 0,
           rating: 5.0,
           image: primaryImage,
@@ -213,19 +563,29 @@ export default function AddProductPage({
 
         toast.add({
           title:
-            targetStatus === "published" ? "Product Published" : "Draft Saved",
-          description: `"${data.name}" has been ${targetStatus === "published" ? "published" : "saved as draft"}.`,
+            targetStatus === "published"
+              ? "Produk Berhasil Diterbitkan"
+              : "Draf Berhasil Disimpan",
+          description: `"${data.name}" telah ${
+            targetStatus === "published"
+              ? "berhasil diterbitkan ke sistem"
+              : "disimpan sebagai draf"
+          }.`,
           type: targetStatus === "published" ? "success" : "info",
         });
 
         navigate("/dashboard/products");
       } catch (err) {
         toast.add({
-          title: "Save Failed",
+          title: "Gagal Menyimpan",
           description:
-            err instanceof Error ? err.message : "Error saving product",
+            err instanceof Error
+              ? err.message
+              : "Terjadi kesalahan saat menyimpan produk",
           type: "error",
         });
+      } finally {
+        setIsSaving(false);
       }
     })();
   };
@@ -241,593 +601,98 @@ export default function AddProductPage({
               type="button"
               onClick={() => navigate("/dashboard/products")}
               className="size-9 rounded-xl border border-zinc-800 bg-[#141416] text-zinc-300 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer"
-              title="Back to products"
+              title="Kembali ke daftar produk"
             >
               <IconChevronLeft className="size-4" />
             </button>
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
-              Add Products
-            </h1>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
+                Tambah Produk
+              </h1>
+              <p className="text-xs text-zinc-400">
+                Lengkapi rincian produk, harga, stok, dan kategori katalog.
+              </p>
+            </div>
           </div>
 
           {/* Action Buttons: Discard, Save Draft, Publish */}
           <div className="flex items-center gap-2">
             <button
               type="button"
+              disabled={isSubmitting || isSaving}
               onClick={() => navigate("/dashboard/products")}
-              className="h-9 px-4 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors cursor-pointer"
+              className="h-9 px-4 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors cursor-pointer disabled:opacity-50"
             >
-              Discard
+              Batal
             </button>
             <button
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isSaving}
               onClick={() => submitWithStatus("draft")}
-              className="h-9 px-4 rounded-xl text-sm font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer"
+              className="h-9 px-4 rounded-xl text-sm font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Draft
+              {isSaving ? "Menyimpan..." : "Simpan Draf"}
             </button>
             <button
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isSaving}
               onClick={() => submitWithStatus("published")}
-              className="h-9 px-5 rounded-xl text-sm font-semibold bg-white hover:bg-zinc-200 text-zinc-950 transition-colors shadow-xs cursor-pointer"
+              className="h-9 px-5 rounded-xl text-sm font-semibold bg-white hover:bg-zinc-200 text-zinc-950 transition-colors shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Publish
+              {isSaving ? "Menerbitkan..." : "Terbitkan"}
             </button>
           </div>
         </div>
 
         {/* 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: Details, Images, Variants (7 or 8 cols) */}
+          {/* LEFT COLUMN: Details, Images, Variants (8 cols) */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Card 1: Product Details */}
-            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-5">
-              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
-                Product Details
-              </h2>
+            <DetailProduct control={control} errors={errors} />
 
-              {/* Name */}
-              <div className="space-y-2">
-                <label className="text-xs md:text-sm font-medium text-zinc-300">
-                  Name
-                </label>
-                <Controller
-                  name="name"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      placeholder=""
-                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
-                      {...field}
-                    />
-                  )}
-                />
-                {errors.name && (
-                  <p className="text-xs text-red-500">{errors.name.message}</p>
-                )}
-              </div>
+            <ProductImage
+              images={currentImages}
+              onChange={(imgs) =>
+                setValue("images", imgs, { shouldValidate: true })
+              }
+            />
 
-              {/* SKU & Barcode Row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs md:text-sm font-medium text-zinc-300">
-                    SKU
-                  </label>
-                  <Controller
-                    name="sku"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        placeholder=""
-                        className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
-                        {...field}
-                      />
-                    )}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs md:text-sm font-medium text-zinc-300">
-                    Barcode
-                  </label>
-                  <Controller
-                    name="barcode"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        placeholder=""
-                        className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
-                        {...field}
-                      />
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Description (Optional) */}
-              <div className="space-y-2">
-                <label className="text-xs md:text-sm font-medium text-zinc-300">
-                  Description (Optional)
-                </label>
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => (
-                    <Textarea
-                      rows={4}
-                      placeholder=""
-                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl p-3.5 resize-none focus-visible:border-zinc-600 focus-visible:ring-0"
-                      {...field}
-                    />
-                  )}
-                />
-                <p className="text-xs text-zinc-500">
-                  Set a description to the product for better visibility.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 2: Product Images */}
-            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm md:text-base font-semibold text-zinc-100">
-                  Product Images
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setShowUrlModal(!showUrlModal)}
-                  className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  Add media from URL
-                </button>
-              </div>
-
-              {/* URL input modal/toggle */}
-              {showUrlModal && (
-                <div className="flex items-center gap-2 p-3 bg-zinc-900/80 border border-zinc-800 rounded-xl">
-                  <IconLink className="size-4 text-zinc-400 shrink-0" />
-                  <Input
-                    placeholder="https://example.com/image.png"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    className="h-8 bg-zinc-950 border-zinc-800 text-xs text-zinc-200"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleAddUrlImage}
-                    className="h-8 text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
-                  >
-                    Add
-                  </Button>
-                </div>
-              )}
-
-              {/* Upload Dropzone */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border border-dashed border-zinc-800/90 rounded-2xl bg-[#0d0d0f] p-8 md:p-10 flex flex-col items-center justify-center gap-3 text-center cursor-pointer hover:border-zinc-700 transition-colors"
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  multiple
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                />
-
-                <div className="size-11 rounded-xl bg-[#1c1c20] flex items-center justify-center text-zinc-400">
-                  <IconPhoto className="size-5" />
-                </div>
-
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium text-zinc-200">
-                    Drop your images here
-                  </p>
-                  <p className="text-xs text-zinc-500">PNG or JPG (max. 5MB)</p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="mt-2 inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl text-xs font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer"
-                >
-                  <IconUpload className="size-3.5" />
-                  <span>Select images</span>
-                </button>
-              </div>
-
-              {/* Uploaded Thumbnails Grid */}
-              {currentImages.length > 0 && (
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-3 pt-2">
-                  {currentImages.map((img, idx) => (
-                    <div
-                      key={idx}
-                      className="group relative size-18 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden"
-                    >
-                      <img
-                        src={img}
-                        alt="Product preview"
-                        className="size-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        className="absolute top-1 right-1 size-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <IconX className="size-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Card 3: Variants */}
-            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm md:text-base font-semibold text-zinc-100">
-                  Variants
-                </h2>
-                <button
-                  type="button"
-                  onClick={() =>
-                    appendVariant({
-                      id: `var-${Date.now()}`,
-                      option: "Size",
-                      value: "",
-                      price: 0,
-                    })
-                  }
-                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer"
-                >
-                  <IconPlus className="size-3.5" />
-                  <span>Add Variant</span>
-                </button>
-              </div>
-
-              {/* Variants Table / Grid */}
-              <div className="space-y-3">
-                {/* Headers */}
-                <div className="grid grid-cols-12 gap-3 text-xs font-medium text-zinc-300 px-1">
-                  <div className="col-span-4">Options</div>
-                  <div className="col-span-4">Value</div>
-                  <div className="col-span-3">Price</div>
-                  <div className="col-span-1"></div>
-                </div>
-
-                {/* Rows */}
-                {variantFields.map((fieldItem, index) => (
-                  <div
-                    key={fieldItem.id}
-                    className="grid grid-cols-12 gap-3 items-center"
-                  >
-                    {/* Option Select */}
-                    <div className="col-span-4">
-                      <Controller
-                        name={`variants.${index}.option`}
-                        control={control}
-                        render={({ field }) => (
-                          <Select
-                            value={field.value}
-                            onValueChange={(val) => val && field.onChange(val)}
-                          >
-                            <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3 w-full text-xs">
-                              <SelectValue placeholder="Select a status" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                              {VARIANT_OPTIONS.map((opt) => (
-                                <SelectItem key={opt} value={opt}>
-                                  {opt}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </div>
-
-                    {/* Value Input */}
-                    <div className="col-span-4">
-                      <Controller
-                        name={`variants.${index}.value`}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            placeholder=""
-                            className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3 text-xs focus-visible:border-zinc-600 focus-visible:ring-0"
-                            {...field}
-                          />
-                        )}
-                      />
-                    </div>
-
-                    {/* Price Input */}
-                    <div className="col-span-3">
-                      <Controller
-                        name={`variants.${index}.price`}
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            type="number"
-                            min="0"
-                            placeholder=""
-                            value={field.value || ""}
-                            onChange={(e) =>
-                              field.onChange(
-                                e.target.value === ""
-                                  ? 0
-                                  : Number(e.target.value)
-                              )
-                            }
-                            className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3 text-xs focus-visible:border-zinc-600 focus-visible:ring-0"
-                          />
-                        )}
-                      />
-                    </div>
-
-                    {/* Delete action */}
-                    <div className="col-span-1 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => removeVariant(index)}
-                        className="text-zinc-500 hover:text-red-400 transition-colors p-1"
-                        title="Remove variant"
-                      >
-                        <IconTrash className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ProductVariant control={control} />
           </div>
 
-          {/* RIGHT COLUMN: Pricing, Status, Categories (4 cols) */}
+          {/* RIGHT COLUMN: Pricing, Stock, Status, Categories (4 cols) */}
           <div className="lg:col-span-4 space-y-6">
-            {/* Card 4: Pricing */}
-            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-5">
-              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
-                Pricing
-              </h2>
+            <ProductPrice
+              control={control}
+              errors={errors}
+              price={currentPrice}
+              costPrice={currentCostPrice}
+              chargeTax={currentChargeTax}
+            />
 
-              {/* Base Price */}
-              <div className="space-y-2">
-                <label className="text-xs md:text-sm font-medium text-zinc-300">
-                  Base Price
-                </label>
-                <Controller
-                  name="basePrice"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      type="number"
-                      min="0"
-                      placeholder=""
-                      value={field.value || ""}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === "" ? 0 : Number(e.target.value)
-                        )
-                      }
-                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
-                    />
-                  )}
-                />
-                {errors.basePrice && (
-                  <p className="text-xs text-red-500">
-                    {errors.basePrice.message}
-                  </p>
-                )}
-              </div>
+            <ProductStock
+              control={control}
+              errors={errors}
+              warehouseStock={currentWarehouseStock}
+              displayStock={currentDisplayStock}
+            />
 
-              {/* Discounted Price */}
-              <div className="space-y-2">
-                <label className="text-xs md:text-sm font-medium text-zinc-300">
-                  Discounted Price
-                </label>
-                <Controller
-                  name="discountedPrice"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      type="number"
-                      min="0"
-                      placeholder=""
-                      value={field.value ?? ""}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === ""
-                            ? undefined
-                            : Number(e.target.value)
-                        )
-                      }
-                      className="bg-[#18181b] border-zinc-800 text-zinc-100 placeholder:text-zinc-600 rounded-xl h-10 px-3.5 focus-visible:border-zinc-600 focus-visible:ring-0"
-                    />
-                  )}
-                />
-              </div>
+            <ProductStatus control={control} currentStatus={currentStatus} />
 
-              {/* Charge tax on this product */}
-              <Controller
-                name="chargeTax"
-                control={control}
-                render={({ field }) => (
-                  <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      className="border-zinc-700 data-checked:bg-white data-checked:text-black data-checked:border-white"
-                    />
-                    <span className="text-xs md:text-sm text-zinc-300 font-normal">
-                      Charge tax on this product
-                    </span>
-                  </label>
-                )}
-              />
-
-              {/* In stock Toggle */}
-              <div className="pt-2 border-t border-zinc-850">
-                <Controller
-                  name="inStock"
-                  control={control}
-                  render={({ field }) => (
-                    <div className="flex items-center gap-3">
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                      <span className="text-xs md:text-sm text-zinc-200 font-normal">
-                        In stock
-                      </span>
-                    </div>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Card 5: Status */}
-            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-4">
-              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
-                Status
-              </h2>
-
-              <Controller
-                name="status"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={(val) =>
-                      val &&
-                      field.onChange(val as "draft" | "published" | "archived")
-                    }
-                  >
-                    <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3.5 w-full flex items-center justify-between text-xs md:text-sm">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`size-2 rounded-full ${
-                            currentStatus === "published"
-                              ? "bg-emerald-500"
-                              : currentStatus === "draft"
-                                ? "bg-amber-500"
-                                : "bg-zinc-400"
-                          }`}
-                        />
-                        <span className="capitalize">{field.value}</span>
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                      <SelectItem value="draft">
-                        <div className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-amber-500" />
-                          <span>Draft</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="published">
-                        <div className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-emerald-500" />
-                          <span>Published</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="archived">
-                        <div className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-zinc-400" />
-                          <span>Archived</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-
-              <p className="text-xs text-zinc-500">Set the product status.</p>
-            </div>
-
-            {/* Card 6: Categories */}
-            <div className="rounded-2xl border border-zinc-800/80 bg-[#121215] p-6 space-y-4">
-              <h2 className="text-sm md:text-base font-semibold text-zinc-100">
-                Categories
-              </h2>
-
-              {/* Category Select with (+) button */}
-              <div className="flex items-center gap-2">
-                <Controller
-                  name="category"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={handleCategoryChange}
-                    >
-                      <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3.5 flex-1 flex items-center justify-between text-xs md:text-sm">
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                        {categories.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCategory}
-                  className="size-10 rounded-xl border border-zinc-800 bg-[#18181b] hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                  title="Add category"
-                >
-                  <IconPlus className="size-4" />
-                </button>
-              </div>
-
-              {/* Sub Category Select with (+) button */}
-              <div className="flex items-center gap-2">
-                <Controller
-                  name="subCategory"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={(val) => val && field.onChange(val)}
-                    >
-                      <SelectTrigger className="bg-[#18181b] border-zinc-800 text-zinc-100 rounded-xl h-10 px-3.5 flex-1 flex items-center justify-between text-xs md:text-sm">
-                        <SelectValue placeholder="Select a sub category" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                        {subCategories.length === 0 ? (
-                          <div className="p-2 text-xs text-zinc-500 text-center">
-                            No sub categories
-                          </div>
-                        ) : (
-                          subCategories.map((sub) => (
-                            <SelectItem key={sub} value={sub}>
-                              {sub}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddSubCategory}
-                  className="size-10 rounded-xl border border-zinc-800 bg-[#18181b] hover:bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                  title="Add sub category"
-                >
-                  <IconPlus className="size-4" />
-                </button>
-              </div>
-            </div>
+            <ProductCategory
+              control={control}
+              categoriesList={categoriesList}
+              categoryItems={categoryItems}
+              subCategories={subCategories}
+              currentCategory={currentCategory}
+              currentSubCategory={currentSubCategory}
+              isDeletingCategory={isDeletingCategory}
+              onCategoryChange={handleCategoryChange}
+              onAddCategory={handleAddCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onAddSubCategory={handleAddSubCategory}
+              onDeleteSubCategory={handleDeleteSubCategory}
+            />
           </div>
         </div>
       </div>

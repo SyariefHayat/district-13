@@ -33,15 +33,13 @@ export const formatProductPrice = (value: number) => {
 
 export const PRODUCT_CATEGORIES = [
   "Semua Kategori",
-  "Hoodies",
-  "T-Shirts",
-  "Pants",
-  "Accessories",
+  "Kopi",
+  "Minuman Sachet",
+  "Makanan",
+  "Gorengan & Snack",
+  "Minuman Dingin & Kaleng",
   "Coffee",
   "Non-Coffee",
-  "Pastry & Bakery",
-  "Main Course",
-  "Snacks",
 ];
 
 export const hoodieSvg =
@@ -66,23 +64,19 @@ export const generalItemSvg =
 
 export const getPresetImageForCategory = (category: string): string => {
   switch (category) {
+    case "Kopi":
     case "Coffee":
-      return coffeeSvg;
+    case "Minuman Sachet":
     case "Non-Coffee":
+    case "Minuman Dingin & Kaleng":
       return coffeeSvg;
-    case "Pastry & Bakery":
-      return pastrySvg;
+    case "Makanan":
     case "Main Course":
+    case "Gorengan & Snack":
     case "Snacks":
       return mealSvg;
-    case "Hoodies":
-      return hoodieSvg;
-    case "T-Shirts":
-      return tshirtSvg;
-    case "Pants":
-      return joggersSvg;
-    case "Accessories":
-      return capSvg;
+    case "Pastry & Bakery":
+      return pastrySvg;
     default:
       return generalItemSvg;
   }
@@ -90,15 +84,16 @@ export const getPresetImageForCategory = (category: string): string => {
 
 export const generateSkuForCategory = (category: string): string => {
   const prefixMap: Record<string, string> = {
+    Kopi: "KOP",
+    "Minuman Sachet": "SCT",
+    Makanan: "MKN",
+    "Gorengan & Snack": "GRG",
+    "Minuman Dingin & Kaleng": "DNG",
     Coffee: "CFE",
     "Non-Coffee": "NCF",
     "Pastry & Bakery": "PST",
     "Main Course": "MNC",
     Snacks: "SNK",
-    Hoodies: "HDX",
-    "T-Shirts": "TSH",
-    Pants: "PNT",
-    Accessories: "ACC",
   };
   const prefix = prefixMap[category] || "PRD";
   const randomNum = Math.floor(1000 + Math.random() * 9000);
