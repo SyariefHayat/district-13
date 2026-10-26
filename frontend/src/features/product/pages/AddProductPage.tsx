@@ -25,6 +25,7 @@ import {
   ProductStatus,
   ProductCategory,
 } from "../components/form";
+import { Button } from "@/components/ui/button";
 
 const DEFAULT_CATEGORY_OPTIONS = [
   { id: "c1b07384-d113-4c92-a1f9-4d6d03d00101", name: "Kopi" },
@@ -592,55 +593,53 @@ export default function AddProductPage({
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 p-4 md:p-8 flex justify-center">
-      <div className="w-full max-w-[1240px] space-y-6">
+      <div className="w-full max-w-310 space-y-6">
         {/* Top Header Bar */}
         <div className="flex items-center justify-between pb-2">
           {/* Back button + Title */}
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={() => navigate("/dashboard/products")}
-              className="size-9 rounded-xl border border-zinc-800 bg-[#141416] text-zinc-300 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer"
               title="Kembali ke daftar produk"
             >
               <IconChevronLeft className="size-4" />
-            </button>
+            </Button>
             <div>
               <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
                 Tambah Produk
               </h1>
-              <p className="text-xs text-zinc-400">
-                Lengkapi rincian produk, harga, stok, dan kategori katalog.
-              </p>
             </div>
           </div>
 
           {/* Action Buttons: Discard, Save Draft, Publish */}
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               disabled={isSubmitting || isSaving}
               onClick={() => navigate("/dashboard/products")}
-              className="h-9 px-4 rounded-xl text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800/60 transition-colors cursor-pointer disabled:opacity-50"
             >
               Batal
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               disabled={isSubmitting || isSaving}
               onClick={() => submitWithStatus("draft")}
-              className="h-9 px-4 rounded-xl text-sm font-medium bg-[#1c1c20] hover:bg-zinc-800 text-zinc-200 border border-zinc-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? "Menyimpan..." : "Simpan Draf"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="default"
               disabled={isSubmitting || isSaving}
               onClick={() => submitWithStatus("published")}
-              className="h-9 px-5 rounded-xl text-sm font-semibold bg-white hover:bg-zinc-200 text-zinc-950 transition-colors shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? "Menerbitkan..." : "Terbitkan"}
-            </button>
+            </Button>
           </div>
         </div>
 
