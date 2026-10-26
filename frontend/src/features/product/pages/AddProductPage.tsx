@@ -242,10 +242,9 @@ export default function AddProductPage({
     setValue("subCategory", nextSubs[0] || "");
   };
 
-  const handleAddCategory = async () => {
-    const newCat = window.prompt("Masukkan nama kategori baru:");
-    if (!newCat || !newCat.trim()) return;
-    const trimmed = newCat.trim();
+  const handleAddCategory = async (name: string): Promise<boolean> => {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
 
     try {
       const res = await authorizedFetch("/categories", {
@@ -264,7 +263,7 @@ export default function AddProductPage({
           description: `Kategori "${trimmed}" berhasil ditambahkan.`,
           type: "success",
         });
-        return;
+        return true;
       } else {
         const body = await res.json().catch(() => ({}));
         toast.add({
@@ -275,6 +274,7 @@ export default function AddProductPage({
               : "Tidak dapat membuat kategori di server.",
           type: "error",
         });
+        return false;
       }
     } catch {
       if (!categoryMap[trimmed]) {
@@ -282,19 +282,21 @@ export default function AddProductPage({
       }
       setValue("category", trimmed, { shouldValidate: true });
       setValue("subCategory", "");
+      return true;
     }
   };
 
-  const handleAddSubCategory = () => {
+  const handleAddSubCategory = (name: string) => {
     if (!selectedCategoryName) {
-      alert("Silakan pilih kategori terlebih dahulu.");
+      toast.add({
+        title: "Pilih Kategori",
+        description: "Silakan pilih kategori terlebih dahulu.",
+        type: "error",
+      });
       return;
     }
-    const newSub = window.prompt(
-      `Masukkan sub-kategori baru untuk "${selectedCategoryName}":`
-    );
-    if (newSub && newSub.trim()) {
-      const trimmed = newSub.trim();
+    const trimmed = name.trim();
+    if (trimmed) {
       setCategoryMap((prev) => ({
         ...prev,
         [selectedCategoryName]: [
@@ -311,11 +313,6 @@ export default function AddProductPage({
       (c) => c.id === currentCategory || c.name === currentCategory
     );
     if (!targetCategory) return;
-
-    const confirmDelete = window.confirm(
-      `Apakah Anda yakin ingin menghapus kategori "${targetCategory.name}"?`
-    );
-    if (!confirmDelete) return;
 
     const isBackendCat = backendCategories.some(
       (c) => c.id === targetCategory.id
@@ -398,10 +395,6 @@ export default function AddProductPage({
 
   const handleDeleteSubCategory = () => {
     if (!selectedCategoryName || !currentSubCategory) return;
-    const confirmDelete = window.confirm(
-      `Hapus sub-kategori "${currentSubCategory}" dari "${selectedCategoryName}"?`
-    );
-    if (!confirmDelete) return;
 
     setCategoryMap((prev) => {
       const existing = prev[selectedCategoryName] || [];

@@ -14,6 +14,16 @@ interface ProductPriceProps {
   chargeTax: boolean;
 }
 
+function formatRupiah(value?: number): string {
+  if (value === undefined || value === null || value === 0) return "";
+  return `Rp ${value.toLocaleString("id-ID")}`;
+}
+
+function parseRupiah(raw: string): number {
+  const clean = raw.replace(/\D/g, "");
+  return clean ? parseInt(clean, 10) : 0;
+}
+
 export function ProductPrice({
   control,
   errors,
@@ -42,7 +52,7 @@ export function ProductPrice({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs md:text-sm font-medium text-zinc-300">
-              Harga Jual (Rp) <span className="text-red-400">*</span>
+              Harga Jual <span className="text-red-400">*</span>
             </Label>
             {chargeTax && price > 0 && (
               <span className="text-xs text-amber-400">
@@ -55,15 +65,11 @@ export function ProductPrice({
             control={control}
             render={({ field }) => (
               <Input
-                type="number"
-                min="0"
-                placeholder="Contoh: 28000"
-                value={field.value || ""}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === "" ? 0 : Number(e.target.value)
-                  )
-                }
+                type="text"
+                inputMode="numeric"
+                placeholder="Rp"
+                value={formatRupiah(field.value)}
+                onChange={(e) => field.onChange(parseRupiah(e.target.value))}
               />
             )}
           />
@@ -78,22 +84,21 @@ export function ProductPrice({
         {/* Harga HPP / Modal */}
         <div className="space-y-2">
           <Label className="text-xs md:text-sm font-medium text-zinc-300">
-            Harga HPP / Modal (Rp)
+            Harga HPP / Modal
           </Label>
           <Controller
             name="costPrice"
             control={control}
             render={({ field }) => (
               <Input
-                type="number"
-                min="0"
-                placeholder="Contoh: 15000"
-                value={field.value ?? ""}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === "" ? undefined : Number(e.target.value)
-                  )
-                }
+                type="text"
+                inputMode="numeric"
+                placeholder="Rp"
+                value={formatRupiah(field.value)}
+                onChange={(e) => {
+                  const clean = e.target.value.replace(/\D/g, "");
+                  field.onChange(clean ? parseInt(clean, 10) : undefined);
+                }}
               />
             )}
           />

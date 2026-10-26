@@ -12,6 +12,16 @@ interface ProductStockProps {
   displayStock: number;
 }
 
+function formatStock(value?: number): string {
+  if (value === undefined || value === null || value === 0) return "";
+  return value.toLocaleString("id-ID");
+}
+
+function parseStock(raw: string): number {
+  const clean = raw.replace(/\D/g, "");
+  return clean ? parseInt(clean, 10) : 0;
+}
+
 export function ProductStock({
   control,
   errors,
@@ -37,15 +47,11 @@ export function ProductStock({
             control={control}
             render={({ field }) => (
               <Input
-                type="number"
-                min="0"
-                placeholder="Contoh: 50"
-                value={field.value ?? ""}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === "" ? 0 : Number(e.target.value)
-                  )
-                }
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={formatStock(field.value)}
+                onChange={(e) => field.onChange(parseStock(e.target.value))}
               />
             )}
           />
@@ -69,15 +75,11 @@ export function ProductStock({
             control={control}
             render={({ field }) => (
               <Input
-                type="number"
-                min="0"
-                placeholder="Contoh: 20"
-                value={field.value ?? ""}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value === "" ? 0 : Number(e.target.value)
-                  )
-                }
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={formatStock(field.value)}
+                onChange={(e) => field.onChange(parseStock(e.target.value))}
               />
             )}
           />
@@ -95,7 +97,9 @@ export function ProductStock({
         {/* Summary Pill: Total Stok */}
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs flex items-center justify-between">
           <span className="text-zinc-400">Total Stok Masuk:</span>
-          <span className="font-semibold text-zinc-100">{totalStock} Unit</span>
+          <span className="font-semibold text-zinc-100">
+            {totalStock.toLocaleString("id-ID")} Unit
+          </span>
         </div>
       </CardContent>
     </Card>
