@@ -37,6 +37,13 @@ import {
 } from "../components/form";
 import { Button } from "@/components/ui/button";
 
+export interface BackendSubcategory {
+  id: string;
+  name: string;
+  categoryId: string;
+  isActive: boolean;
+}
+
 const DEFAULT_CATEGORY_OPTIONS = [
   { id: "c1b07384-d113-4c92-a1f9-4d6d03d00101", name: "Kopi" },
   { id: "c1b07384-d113-4c92-a1f9-4d6d03d00102", name: "Minuman Sachet" },
@@ -47,67 +54,6 @@ const DEFAULT_CATEGORY_OPTIONS = [
     name: "Minuman Dingin & Kaleng",
   },
 ];
-
-const DEFAULT_CATEGORY_MAP: Record<string, string[]> = {
-  Kopi: [
-    "Kopi Hitam",
-    "Kopi Susu Racik",
-    "Top Cappucino",
-    "Torabika Moka",
-    "Good Day Vanilla Latte",
-    "Good Day Freeze",
-    "Good Day Mocacino",
-    "Good Day Cappucino",
-    "Good Day Carrabian Nut",
-    "Luwak White Coffee",
-    "Kopi Tubruk",
-  ],
-  "Minuman Sachet": [
-    "Nutrisari (Jeruk, Lemon, Leci, Cocopandan)",
-    "Pop Ice (Coklat, Mangga, Strawberry, dll.)",
-    "Chocolatos",
-    "Milo",
-    "Bengbeng Drink",
-    "Tea Jus",
-    "SKM Putih",
-    "Air Mineral AKEO",
-  ],
-  Makanan: [
-    "Indomie Goreng + Telur",
-    "Indomie Kuah + Telur",
-    "Indomie Rawon Pedas Mercon + Telur",
-    "Indomie BAWA SENDIRI",
-    "Mie Sedaap + Telur",
-    "Sego Sambel Telur",
-    "Sego Sambel Ayam",
-    "Sego Sambel Tahu Tempe",
-    "Nasi Bungkus",
-  ],
-  "Gorengan & Snack": [
-    "Tempe Mendoan",
-    "Tahu Bakso",
-    "Tahu Goreng / Crispy",
-    "Risol",
-    "Gorengan",
-    "Mix Platter (Sosis, Nugget, Kentang)",
-    "Cireng",
-    "Siomay Goreng",
-    "Usus Krispi",
-    "Kacang",
-    "Kerupuk",
-  ],
-  "Minuman Dingin & Kaleng": [
-    "Teh Tarik RACIK",
-    "Teh Manis",
-    "Zenlatte Thai Tea",
-    "Zenlatte Matcha",
-    "Extrajoss (Kaleng / Susu)",
-    "Kukubima Susu",
-    "Coca Cola / Sprite / Fanta",
-    "Energen",
-    "Lemon Tea",
-  ],
-};
 
 interface AddProductPageProps {
   onProductCreated?: (product: ProductItem) => void;
@@ -122,9 +68,15 @@ export default function AddProductPage({
   const [backendCategories, setBackendCategories] = React.useState<
     BackendCategory[]
   >([]);
+  const [subCategories, setSubCategories] = React.useState<
+    BackendSubcategory[]
+  >([]);
+  const [isLoadingSubCategories, setIsLoadingSubCategories] =
+    React.useState(false);
+  const [isDeletingSubCategory, setIsDeletingSubCategory] =
+    React.useState(false);
   const [addons, setAddons] = React.useState<BackendAddon[]>([]);
   const [isLoadingAddons, setIsLoadingAddons] = React.useState(false);
-  const [categoryMap, setCategoryMap] = React.useState(DEFAULT_CATEGORY_MAP);
   const [savingStatus, setSavingStatus] = React.useState<
     "draft" | "published" | null
   >(null);
@@ -227,7 +179,58 @@ export default function AddProductPage({
     return () => {
       isMounted = false;
     };
-  }, [authorizedFetch, categoryMap, form, setValue]);
+  }, [authorizedFetch, form, setValue]);
+
+  // Load subcategories whenever selected category changes
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadSubcategories() {
+      if (!currentCategory) {
+        setSubCategories([]);
+        return;
+      }
+
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const targetCatId = uuidRegex.test(currentCategory)
+        ? currentCategory
+        : backendCategories.find(
+            (c) => c.name.toLowerCase() === currentCategory.toLowerCase()
+          )?.id;
+
+      if (!targetCatId) {
+        setSubCategories([]);
+        return;
+      }
+
+      setIsLoadingSubCategories(true);
+      try {
+        const res = await authorizedFetch(
+          `/categories/${targetCatId}/subcategories`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const list: BackendSubcategory[] = Array.isArray(data)
+            ? data
+            : data.data || [];
+          if (isMounted) {
+            setSubCategories(list.filter((s) => s.isActive));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load backend subcategories:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingSubCategories(false);
+        }
+      }
+    }
+
+    void loadSubcategories();
+    return () => {
+      isMounted = false;
+    };
+  }, [authorizedFetch, currentCategory, backendCategories]);
 
   // Load real addons from backend API on mount
   React.useEffect(() => {
@@ -264,21 +267,15 @@ export default function AddProductPage({
   );
   const selectedCategoryName = selectedCategory?.name || "";
 
-  const subCategories = selectedCategoryName
-    ? categoryMap[selectedCategoryName] || []
-    : [];
-
   const handleCategoryChange = (val: string | null) => {
     if (!val) {
       setValue("category", "", { shouldValidate: true });
       setValue("subCategory", "");
+      setSubCategories([]);
       return;
     }
     setValue("category", val, { shouldValidate: true });
-    const matched = categoriesList.find((c) => c.id === val || c.name === val);
-    const catName = matched ? matched.name : val;
-    const nextSubs = categoryMap[catName] || [];
-    setValue("subCategory", nextSubs[0] || "");
+    setValue("subCategory", "");
   };
 
   const handleAddCategory = async (name: string): Promise<boolean> => {
@@ -294,9 +291,9 @@ export default function AddProductPage({
       if (res.ok) {
         const createdCat = (await res.json()) as BackendCategory;
         setBackendCategories((prev) => [...prev, createdCat]);
-        setCategoryMap((prev) => ({ ...prev, [trimmed]: [] }));
         setValue("category", createdCat.id, { shouldValidate: true });
         setValue("subCategory", "");
+        setSubCategories([]);
         toast.add({
           title: "Kategori Berhasil Dibuat",
           description: `Kategori "${trimmed}" berhasil ditambahkan.`,
@@ -316,34 +313,89 @@ export default function AddProductPage({
         return false;
       }
     } catch {
-      if (!categoryMap[trimmed]) {
-        setCategoryMap((prev) => ({ ...prev, [trimmed]: [] }));
-      }
       setValue("category", trimmed, { shouldValidate: true });
       setValue("subCategory", "");
+      setSubCategories([]);
       return true;
     }
   };
 
-  const handleAddSubCategory = (name: string) => {
-    if (!selectedCategoryName) {
+  const handleAddSubCategory = async (name: string): Promise<boolean> => {
+    const trimmed = name.trim();
+    if (!trimmed) return false;
+
+    if (!currentCategory) {
       toast.add({
         title: "Pilih Kategori",
-        description: "Silakan pilih kategori terlebih dahulu.",
+        description:
+          "Silakan pilih kategori terlebih dahulu sebelum menambah sub-kategori.",
         type: "error",
       });
-      return;
+      return false;
     }
-    const trimmed = name.trim();
-    if (trimmed) {
-      setCategoryMap((prev) => ({
-        ...prev,
-        [selectedCategoryName]: [
-          ...(prev[selectedCategoryName] || []),
-          trimmed,
-        ],
-      }));
-      setValue("subCategory", trimmed);
+
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    let targetCatId = uuidRegex.test(currentCategory)
+      ? currentCategory
+      : backendCategories.find(
+          (c) => c.name.toLowerCase() === currentCategory.toLowerCase()
+        )?.id;
+
+    if (!targetCatId) {
+      toast.add({
+        title: "Kategori Belum Tersimpan",
+        description: "Silakan pilih kategori yang valid terlebih dahulu.",
+        type: "error",
+      });
+      return false;
+    }
+
+    try {
+      const res = await authorizedFetch(
+        `/categories/${targetCatId}/subcategories`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed }),
+        }
+      );
+
+      if (res.ok) {
+        const createdSub = (await res.json()) as BackendSubcategory;
+        setSubCategories((prev) => {
+          const filtered = prev.filter((s) => s.id !== createdSub.id);
+          return [...filtered, createdSub].sort((a, b) =>
+            a.name.localeCompare(b.name)
+          );
+        });
+        setValue("subCategory", createdSub.id, { shouldValidate: true });
+        toast.add({
+          title: "Sub-kategori Berhasil Dibuat",
+          description: `Sub-kategori "${trimmed}" berhasil ditambahkan dan disimpan ke database.`,
+          type: "success",
+        });
+        return true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.add({
+          title: "Gagal Membuat Sub-kategori",
+          description:
+            typeof body.message === "string"
+              ? body.message
+              : "Tidak dapat membuat sub-kategori di server.",
+          type: "error",
+        });
+        return false;
+      }
+    } catch {
+      toast.add({
+        title: "Gagal Membuat Sub-kategori",
+        description:
+          "Terjadi kesalahan jaringan saat menambahkan sub-kategori.",
+        type: "error",
+      });
+      return false;
     }
   };
 
@@ -368,19 +420,14 @@ export default function AddProductPage({
             (c) => c.id !== targetCategory.id
           );
           setBackendCategories(remaining);
-          setCategoryMap((prev) => {
-            const next = { ...prev };
-            delete next[targetCategory.name];
-            return next;
-          });
           const nextCat = remaining[0];
           if (nextCat) {
             setValue("category", nextCat.id, { shouldValidate: true });
-            const nextSubs = categoryMap[nextCat.name] || [];
-            setValue("subCategory", nextSubs[0] || "");
+            setValue("subCategory", "");
           } else {
             setValue("category", "", { shouldValidate: true });
             setValue("subCategory", "");
+            setSubCategories([]);
           }
           toast.add({
             title: "Kategori Berhasil Dihapus",
@@ -408,21 +455,17 @@ export default function AddProductPage({
         setIsDeletingCategory(false);
       }
     } else {
-      setCategoryMap((prev) => {
-        const next = { ...prev };
-        delete next[targetCategory.name];
-        return next;
-      });
       const remainingDefaults = categoriesList.filter(
         (c) => c.id !== targetCategory.id
       );
       const nextCat = remainingDefaults[0];
       if (nextCat) {
         setValue("category", nextCat.id, { shouldValidate: true });
-        setValue("subCategory", categoryMap[nextCat.name]?.[0] || "");
+        setValue("subCategory", "");
       } else {
         setValue("category", "", { shouldValidate: true });
         setValue("subCategory", "");
+        setSubCategories([]);
       }
       toast.add({
         title: "Kategori Berhasil Dihapus",
@@ -432,23 +475,54 @@ export default function AddProductPage({
     }
   };
 
-  const handleDeleteSubCategory = () => {
-    if (!selectedCategoryName || !currentSubCategory) return;
+  const handleDeleteSubCategory = async (): Promise<boolean> => {
+    if (!currentSubCategory) return false;
 
-    setCategoryMap((prev) => {
-      const existing = prev[selectedCategoryName] || [];
-      const updated = existing.filter((s) => s !== currentSubCategory);
-      return {
-        ...prev,
-        [selectedCategoryName]: updated,
-      };
-    });
-    setValue("subCategory", "");
-    toast.add({
-      title: "Sub-kategori Berhasil Dihapus",
-      description: `Sub-kategori "${currentSubCategory}" telah dihapus.`,
-      type: "success",
-    });
+    const targetSub = subCategories.find(
+      (s) => s.id === currentSubCategory || s.name === currentSubCategory
+    );
+    if (!targetSub) return false;
+
+    setIsDeletingSubCategory(true);
+    try {
+      const res = await authorizedFetch(
+        `/categories/subcategories/${targetSub.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (res.ok) {
+        setSubCategories((prev) => prev.filter((s) => s.id !== targetSub.id));
+        setValue("subCategory", "");
+        toast.add({
+          title: "Sub-kategori Berhasil Dihapus",
+          description: `Sub-kategori "${targetSub.name}" telah dihapus.`,
+          type: "success",
+        });
+        return true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.add({
+          title: "Gagal Menghapus Sub-kategori",
+          description:
+            typeof body.message === "string"
+              ? body.message
+              : "Sub-kategori tidak dapat dihapus (mungkin masih digunakan oleh produk aktif).",
+          type: "error",
+        });
+        return false;
+      }
+    } catch {
+      toast.add({
+        title: "Gagal Menghapus Sub-kategori",
+        description: "Terjadi kesalahan jaringan saat menghapus sub-kategori.",
+        type: "error",
+      });
+      return false;
+    } finally {
+      setIsDeletingSubCategory(false);
+    }
   };
 
   const handleToggleAddon = (id: string) => {
@@ -568,14 +642,29 @@ export default function AddProductPage({
         }
 
         // 1. Create real product in backend database
+        let validSubCategoryId: string | undefined = undefined;
+        if (data.subCategory && uuidRegex.test(data.subCategory)) {
+          validSubCategoryId = data.subCategory;
+        }
+
+        const productPayload: {
+          name: string;
+          price: string;
+          categoryId: string;
+          subCategoryId?: string;
+        } = {
+          name: data.name.trim(),
+          price: Number(sellingPrice).toFixed(2),
+          categoryId: targetCategoryId,
+        };
+        if (validSubCategoryId) {
+          productPayload.subCategoryId = validSubCategoryId;
+        }
+
         const productRes = await authorizedFetch("/products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: data.name.trim(),
-            price: Number(sellingPrice).toFixed(2),
-            categoryId: targetCategoryId,
-          }),
+          body: JSON.stringify(productPayload),
         });
 
         if (!productRes.ok) {
@@ -895,6 +984,8 @@ export default function AddProductPage({
               currentCategory={currentCategory}
               currentSubCategory={currentSubCategory}
               isDeletingCategory={isDeletingCategory}
+              isDeletingSubCategory={isDeletingSubCategory}
+              isLoadingSubCategories={isLoadingSubCategories}
               onCategoryChange={handleCategoryChange}
               onAddCategory={handleAddCategory}
               onDeleteCategory={handleDeleteCategory}

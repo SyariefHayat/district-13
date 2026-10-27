@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsDecimal,
+  IsOptional,
   IsString,
   IsUUID,
   Matches,
@@ -23,4 +24,8 @@ export class CreateProductDto {
 
   @IsUUID()
   categoryId!: string;
+
+  @IsOptional()
+  @IsUUID()
+  subCategoryId?: string;
 }

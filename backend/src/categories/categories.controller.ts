@@ -15,6 +15,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { CreateCategoryDto } from './dto/create-category.dto.js';
+import { CreateSubcategoryDto } from './dto/create-subcategory.dto.js';
 import { UpdateCategoryDto } from './dto/update-category.dto.js';
 import { CategoriesService } from './categories.service.js';
 
@@ -70,5 +71,45 @@ export class CategoriesController {
   @Permissions(PERMISSIONS.categoriesManage)
   deactivate(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.categoriesService.deactivate(id);
+  }
+
+  @Get(':id/subcategories')
+  @Permissions(PERMISSIONS.categoriesRead)
+  findSubcategories(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.categoriesService.findSubcategories(id, actor);
+  }
+
+  @Post(':id/subcategories')
+  @Permissions(PERMISSIONS.categoriesManage)
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
+  createSubcategory(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: CreateSubcategoryDto,
+  ) {
+    return this.categoriesService.createSubcategory(id, body);
+  }
+
+  @Delete(':categoryId/subcategories/:subId')
+  @Permissions(PERMISSIONS.categoriesManage)
+  deactivateSubcategory(
+    @Param('categoryId', new ParseUUIDPipe()) categoryId: string,
+    @Param('subId', new ParseUUIDPipe()) subId: string,
+  ) {
+    return this.categoriesService.deactivateSubcategory(subId, categoryId);
+  }
+
+  @Delete('subcategories/:id')
+  @Permissions(PERMISSIONS.categoriesManage)
+  deactivateSubcategoryDirect(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.categoriesService.deactivateSubcategory(id);
   }
 }

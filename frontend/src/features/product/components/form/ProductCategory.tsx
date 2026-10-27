@@ -27,18 +27,25 @@ import {
 } from "@/components/ui/select";
 import type { AddProductFormData } from "../../schemas/productFormSchema";
 
+export interface SubCategoryItem {
+  id: string;
+  name: string;
+}
+
 interface ProductCategoryProps {
   control: Control<AddProductFormData>;
   categoriesList: { id: string; name: string }[];
-  subCategories: string[];
+  subCategories: SubCategoryItem[];
   currentCategory: string;
   currentSubCategory?: string;
   isDeletingCategory: boolean;
+  isDeletingSubCategory?: boolean;
+  isLoadingSubCategories?: boolean;
   onCategoryChange: (val: string | null) => void;
   onAddCategory: (name: string) => Promise<boolean | void> | void;
   onDeleteCategory: () => Promise<boolean | void> | void;
-  onAddSubCategory: (name: string) => void;
-  onDeleteSubCategory: () => void;
+  onAddSubCategory: (name: string) => Promise<boolean | void> | void;
+  onDeleteSubCategory: () => Promise<boolean | void> | void;
 }
 
 export function ProductCategory({
@@ -48,6 +55,8 @@ export function ProductCategory({
   currentCategory,
   currentSubCategory,
   isDeletingCategory,
+  isDeletingSubCategory = false,
+  isLoadingSubCategories = false,
   onCategoryChange,
   onAddCategory,
   onDeleteCategory,
@@ -60,6 +69,7 @@ export function ProductCategory({
 
   const [isAddSubOpen, setIsAddSubOpen] = React.useState(false);
   const [newSubName, setNewSubName] = React.useState("");
+  const [isSubmittingSub, setIsSubmittingSub] = React.useState(false);
 
   const [isDeleteCatAlertOpen, setIsDeleteCatAlertOpen] = React.useState(false);
   const [isDeleteSubAlertOpen, setIsDeleteSubAlertOpen] = React.useState(false);
@@ -71,6 +81,13 @@ export function ProductCategory({
     ? selectedCatObj.name
     : "kategori";
 
+  const selectedSubObj = subCategories.find(
+    (s) => s.id === currentSubCategory || s.name === currentSubCategory
+  );
+  const selectedSubCategoryName = selectedSubObj
+    ? selectedSubObj.name
+    : "sub-kategori";
+
   const categorySelectItems = React.useMemo(
     () => [
       { label: "Pilih kategori", value: null },
@@ -81,10 +98,15 @@ export function ProductCategory({
 
   const subCategorySelectItems = React.useMemo(
     () => [
-      { label: "Pilih sub-kategori", value: null },
-      ...subCategories.map((sub) => ({ label: sub, value: sub })),
+      {
+        label: isLoadingSubCategories
+          ? "Memuat sub-kategori..."
+          : "Pilih sub-kategori",
+        value: null,
+      },
+      ...subCategories.map((sub) => ({ label: sub.name, value: sub.id })),
     ],
-    [subCategories]
+    [subCategories, isLoadingSubCategories]
   );
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
@@ -104,13 +126,21 @@ export function ProductCategory({
     }
   };
 
-  const handleSubCategorySubmit = (e: React.FormEvent) => {
+  const handleSubCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newSubName.trim();
-    if (!trimmed) return;
-    onAddSubCategory(trimmed);
-    setNewSubName("");
-    setIsAddSubOpen(false);
+    if (!trimmed || isSubmittingSub) return;
+
+    setIsSubmittingSub(true);
+    try {
+      const res = await onAddSubCategory(trimmed);
+      if (res !== false) {
+        setNewSubName("");
+        setIsAddSubOpen(false);
+      }
+    } finally {
+      setIsSubmittingSub(false);
+    }
   };
 
   return (
@@ -212,6 +242,7 @@ export function ProductCategory({
               variant="outline"
               size="icon"
               onClick={() => setIsAddSubOpen(true)}
+              disabled={!currentCategory}
               title="Tambah sub-kategori baru"
             >
               <IconPlus className="size-4" />
@@ -221,7 +252,7 @@ export function ProductCategory({
               variant="outline"
               size="icon"
               onClick={() => setIsDeleteSubAlertOpen(true)}
-              disabled={!currentSubCategory}
+              disabled={!currentSubCategory || isDeletingSubCategory}
               title="Hapus sub-kategori terpilih"
               className="hover:text-red-400"
             >
@@ -280,8 +311,14 @@ export function ProductCategory({
               autoFocus
               className="flex-1"
             />
-            <Button type="submit" size="default" disabled={!newSubName.trim()}>
-              Tambah
+            <Button
+              type="submit"
+              size="default"
+              disabled={!newSubName.trim() || isSubmittingSub}
+              className="gap-1.5"
+            >
+              {isSubmittingSub && <Spinner className="size-3.5" />}
+              <span>{isSubmittingSub ? "Menyimpan..." : "Tambah"}</span>
             </Button>
           </form>
         </DialogContent>
@@ -330,19 +367,24 @@ export function ProductCategory({
             <AlertDialogTitle>Hapus Sub-kategori</AlertDialogTitle>
             <AlertDialogDescription>
               Apakah Anda yakin ingin menghapus sub-kategori &ldquo;
-              {currentSubCategory}&rdquo;?
+              {selectedSubCategoryName}&rdquo;?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeletingSubCategory}>
+              Batal
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={() => {
-                onDeleteSubCategory();
+              disabled={isDeletingSubCategory}
+              onClick={async () => {
+                await onDeleteSubCategory();
                 setIsDeleteSubAlertOpen(false);
               }}
+              className="gap-1.5"
             >
-              Hapus
+              {isDeletingSubCategory && <Spinner className="size-3.5" />}
+              <span>{isDeletingSubCategory ? "Menghapus..." : "Hapus"}</span>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

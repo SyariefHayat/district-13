@@ -4,11 +4,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
-import { categories, products } from '../drizzle/schema/index.js';
+import {
+  categories,
+  products,
+  subcategories,
+} from '../drizzle/schema/index.js';
 import type { CreateCategoryDto } from './dto/create-category.dto.js';
+import type { CreateSubcategoryDto } from './dto/create-subcategory.dto.js';
 import type { UpdateCategoryDto } from './dto/update-category.dto.js';
 
 @Injectable()
@@ -88,6 +93,114 @@ export class CategoriesService {
         .update(categories)
         .set({ isActive: false })
         .where(eq(categories.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async findSubcategories(categoryId: string, actor: AuthenticatedUser) {
+    const [category] = await this.database.db
+      .select({ id: categories.id, isActive: categories.isActive })
+      .from(categories)
+      .where(eq(categories.id, categoryId))
+      .limit(1);
+    if (!category || (actor.role === 'CASHIER' && !category.isActive)) {
+      throw new NotFoundException('Category not found');
+    }
+
+    return this.database.db
+      .select()
+      .from(subcategories)
+      .where(
+        and(
+          eq(subcategories.categoryId, categoryId),
+          actor.role === 'CASHIER'
+            ? eq(subcategories.isActive, true)
+            : undefined,
+        ),
+      )
+      .orderBy(subcategories.name);
+  }
+
+  async createSubcategory(categoryId: string, input: CreateSubcategoryDto) {
+    return this.database.db.transaction(async (tx) => {
+      const [category] = await tx
+        .select({ id: categories.id, isActive: categories.isActive })
+        .from(categories)
+        .where(eq(categories.id, categoryId))
+        .for('share');
+      if (!category) throw new NotFoundException('Category not found');
+      if (!category.isActive) {
+        throw new BadRequestException('Category is inactive');
+      }
+
+      const trimmedName = input.name.trim();
+
+      const [existing] = await tx
+        .select()
+        .from(subcategories)
+        .where(
+          and(
+            eq(subcategories.categoryId, categoryId),
+            sql`lower(btrim(${subcategories.name})) = lower(btrim(${trimmedName}))`,
+          ),
+        )
+        .for('update');
+
+      if (existing) {
+        if (existing.isActive) {
+          throw new ConflictException(
+            'Subcategory name already exists in this category',
+          );
+        }
+        const [reactivated] = await tx
+          .update(subcategories)
+          .set({ isActive: true })
+          .where(eq(subcategories.id, existing.id))
+          .returning();
+        return reactivated;
+      }
+
+      const [created] = await tx
+        .insert(subcategories)
+        .values({
+          name: trimmedName,
+          categoryId,
+          isActive: input.isActive ?? true,
+        })
+        .returning();
+      return created;
+    });
+  }
+
+  async deactivateSubcategory(id: string, categoryId?: string) {
+    return this.database.db.transaction(async (tx) => {
+      const filters = [eq(subcategories.id, id)];
+      if (categoryId) {
+        filters.push(eq(subcategories.categoryId, categoryId));
+      }
+      const [sub] = await tx
+        .select({ id: subcategories.id })
+        .from(subcategories)
+        .where(and(...filters))
+        .for('update');
+      if (!sub) throw new NotFoundException('Subcategory not found');
+
+      const [activeProduct] = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.subCategoryId, id), eq(products.isActive, true)))
+        .limit(1);
+      if (activeProduct) {
+        throw new ConflictException(
+          'Deactivate or move active products before deactivating this subcategory',
+        );
+      }
+
+      const [updated] = await tx
+        .update(subcategories)
+        .set({ isActive: false })
+        .where(eq(subcategories.id, id))
         .returning();
       return updated;
     });

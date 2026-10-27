@@ -8,6 +8,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import { categories } from './categories.schema.js';
+import { subcategories } from './subcategories.schema.js';
 
 export const products = pgTable(
   'products',
@@ -20,6 +21,9 @@ export const products = pgTable(
     categoryId: uuid('category_id')
       .notNull()
       .references(() => categories.id),
+    subCategoryId: uuid('sub_category_id').references(() => subcategories.id, {
+      onDelete: 'set null',
+    }),
   },
   (table) => [
     check(

@@ -18,6 +18,7 @@ import {
   inventories,
   productAddons,
   products,
+  subcategories,
   transactionItems,
   transactions,
 } from '../drizzle/schema/index.js';
@@ -43,12 +44,34 @@ export class ProductsService {
       if (!category) throw new NotFoundException('Category not found');
       if (!category.isActive)
         throw new BadRequestException('Category is inactive');
+
+      if (input.subCategoryId) {
+        const [subCategory] = await tx
+          .select({
+            id: subcategories.id,
+            categoryId: subcategories.categoryId,
+            isActive: subcategories.isActive,
+          })
+          .from(subcategories)
+          .where(eq(subcategories.id, input.subCategoryId))
+          .for('share');
+        if (!subCategory || subCategory.categoryId !== input.categoryId) {
+          throw new NotFoundException(
+            'Subcategory not found for this category',
+          );
+        }
+        if (!subCategory.isActive) {
+          throw new BadRequestException('Subcategory is inactive');
+        }
+      }
+
       const [product] = await tx
         .insert(products)
         .values({
           name: input.name.trim(),
           price: normalizePrice(input.price),
           categoryId: input.categoryId,
+          subCategoryId: input.subCategoryId ?? null,
           isActive: true,
         })
         .returning();
@@ -108,11 +131,14 @@ export class ProductsService {
           categoryId: products.categoryId,
           categoryName: categories.name,
           categoryIsActive: categories.isActive,
+          subCategoryId: products.subCategoryId,
+          subCategoryName: subcategories.name,
           stock: sql<number>`coalesce(${invSubquery.stock}, 0)::int`,
           soldCount: sql<number>`coalesce(${salesSubquery.soldCount}, 0)::int`,
         })
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
+        .leftJoin(subcategories, eq(products.subCategoryId, subcategories.id))
         .leftJoin(invSubquery, eq(products.id, invSubquery.productId))
         .leftJoin(salesSubquery, eq(products.id, salesSubquery.productId))
         .where(where)
@@ -141,9 +167,12 @@ export class ProductsService {
         categoryId: products.categoryId,
         categoryName: categories.name,
         categoryIsActive: categories.isActive,
+        subCategoryId: products.subCategoryId,
+        subCategoryName: subcategories.name,
       })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
+      .leftJoin(subcategories, eq(products.subCategoryId, subcategories.id))
       .where(eq(products.id, id))
       .limit(1);
     if (!product) throw new NotFoundException('Product not found');
@@ -185,7 +214,9 @@ export class ProductsService {
     )
       throw new ForbiddenException('You cannot change product prices');
     if (
-      [input.name, input.categoryId].some((value) => value !== undefined) &&
+      [input.name, input.categoryId, input.subCategoryId].some(
+        (value) => value !== undefined,
+      ) &&
       !roleHasPermission(actor.role, PERMISSIONS.productsUpdateDetails)
     )
       throw new ForbiddenException('You cannot change product details');
@@ -214,12 +245,12 @@ export class ProductsService {
         .for('update')
         .limit(1);
       if (!existing) throw new NotFoundException('Product not found');
+      const effectiveCategoryId = input.categoryId ?? existing.categoryId;
       if (input.categoryId !== undefined || input.isActive === true) {
-        const categoryId = input.categoryId ?? existing.categoryId;
         const [category] = await tx
           .select({ id: categories.id, isActive: categories.isActive })
           .from(categories)
-          .where(eq(categories.id, categoryId))
+          .where(eq(categories.id, effectiveCategoryId))
           .for('share');
         if (!category) throw new NotFoundException('Category not found');
         if (input.isActive === true && !category.isActive) {
@@ -231,6 +262,30 @@ export class ProductsService {
           if (!category.isActive)
             throw new BadRequestException('Category is inactive');
           changes.categoryId = input.categoryId;
+        }
+      }
+      if (input.subCategoryId !== undefined) {
+        if (input.subCategoryId) {
+          const [subCategory] = await tx
+            .select({
+              id: subcategories.id,
+              categoryId: subcategories.categoryId,
+              isActive: subcategories.isActive,
+            })
+            .from(subcategories)
+            .where(eq(subcategories.id, input.subCategoryId))
+            .for('share');
+          if (!subCategory || subCategory.categoryId !== effectiveCategoryId) {
+            throw new NotFoundException(
+              'Subcategory not found for this category',
+            );
+          }
+          if (!subCategory.isActive) {
+            throw new BadRequestException('Subcategory is inactive');
+          }
+          changes.subCategoryId = input.subCategoryId;
+        } else {
+          changes.subCategoryId = null;
         }
       }
       if (Object.keys(changes).length === 0)
