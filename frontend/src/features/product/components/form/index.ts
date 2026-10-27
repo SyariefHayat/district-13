@@ -5,3 +5,4 @@ export { ProductPrice } from "./ProductPrice";
 export { ProductStock } from "./ProductStock";
 export { ProductStatus } from "./ProductStatus";
 export { ProductCategory } from "./ProductCategory";
+export { ProductAddon, type BackendAddon } from "./ProductAddon";

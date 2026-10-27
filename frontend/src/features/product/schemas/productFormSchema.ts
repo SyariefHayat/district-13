@@ -41,6 +41,7 @@ export const addProductSchema = z.object({
   category: z.string().min(1, "Silakan pilih kategori"),
   subCategory: z.string().optional(),
   variants: z.array(variantItemSchema),
+  addonIds: z.array(z.string()),
 });
 
 export type VariantItem = z.infer<typeof variantItemSchema>;

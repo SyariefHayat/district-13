@@ -1,10 +1,12 @@
 import * as React from "react";
 import { useNavigate } from "react-router";
+import type { FieldErrors } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconChevronLeft } from "@tabler/icons-react";
 
 import { toast } from "@/components/ui/toast";
+import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/context/auth-context";
 import {
   getPresetImageForCategory,
@@ -24,6 +26,8 @@ import {
   ProductStock,
   ProductStatus,
   ProductCategory,
+  ProductAddon,
+  type BackendAddon,
 } from "../components/form";
 import { Button } from "@/components/ui/button";
 
@@ -112,8 +116,13 @@ export default function AddProductPage({
   const [backendCategories, setBackendCategories] = React.useState<
     BackendCategory[]
   >([]);
+  const [addons, setAddons] = React.useState<BackendAddon[]>([]);
+  const [isLoadingAddons, setIsLoadingAddons] = React.useState(false);
   const [categoryMap, setCategoryMap] = React.useState(DEFAULT_CATEGORY_MAP);
-  const [isSaving, setIsSaving] = React.useState(false);
+  const [savingStatus, setSavingStatus] = React.useState<
+    "draft" | "published" | null
+  >(null);
+  const isSaving = savingStatus !== null;
   const [isDeletingCategory, setIsDeletingCategory] = React.useState(false);
 
   const categoriesList = React.useMemo(() => {
@@ -159,6 +168,7 @@ export default function AddProductPage({
           price: 2000,
         },
       ],
+      addonIds: [],
     },
     mode: "onBlur",
   });
@@ -180,6 +190,7 @@ export default function AddProductPage({
   const currentChargeTax = watch("chargeTax");
   const currentWarehouseStock = watch("warehouseStock") || 0;
   const currentDisplayStock = watch("displayStock") || 0;
+  const currentAddonIds = watch("addonIds") || [];
 
   // Load real categories from backend API on mount
   React.useEffect(() => {
@@ -224,6 +235,36 @@ export default function AddProductPage({
       isMounted = false;
     };
   }, [authorizedFetch, categoryMap, form, setValue]);
+
+  // Load real addons from backend API on mount
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadAddons() {
+      setIsLoadingAddons(true);
+      try {
+        const res = await authorizedFetch("/addons");
+        if (res.ok) {
+          const data = await res.json();
+          const list: BackendAddon[] = Array.isArray(data)
+            ? data
+            : data.data || [];
+          if (isMounted) {
+            setAddons(list.filter((a) => a.isActive));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load backend addons:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingAddons(false);
+        }
+      }
+    }
+    void loadAddons();
+    return () => {
+      isMounted = false;
+    };
+  }, [authorizedFetch]);
 
   const selectedCategory = categoriesList.find(
     (c) => c.id === currentCategory || c.name === currentCategory
@@ -412,10 +453,77 @@ export default function AddProductPage({
     });
   };
 
+  const handleToggleAddon = (id: string) => {
+    const next = currentAddonIds.includes(id)
+      ? currentAddonIds.filter((x) => x !== id)
+      : [...currentAddonIds, id];
+    setValue("addonIds", next, { shouldValidate: true });
+  };
+
+  const handleAddNewAddon = async (
+    name: string,
+    price: number
+  ): Promise<boolean> => {
+    try {
+      const res = await authorizedFetch("/addons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          price: price.toFixed(2),
+          isActive: true,
+        }),
+      });
+
+      if (res.ok) {
+        const created = (await res.json()) as BackendAddon;
+        setAddons((prev) => [...prev, created]);
+        setValue("addonIds", [...currentAddonIds, created.id], {
+          shouldValidate: true,
+        });
+        toast.add({
+          title: "Topping Berhasil Ditambahkan",
+          description: `Topping "${name.trim()}" berhasil dibuat dan dipilih.`,
+          type: "success",
+        });
+        return true;
+      } else {
+        const body = await res.json().catch(() => ({}));
+        toast.add({
+          title: "Gagal Menambahkan Topping",
+          description:
+            typeof body.message === "string"
+              ? body.message
+              : "Tidak dapat membuat topping di server.",
+          type: "error",
+        });
+        return false;
+      }
+    } catch {
+      toast.add({
+        title: "Gagal Menambahkan Topping",
+        description: "Terjadi kesalahan jaringan saat membuat topping.",
+        type: "error",
+      });
+      return false;
+    }
+  };
+
   const submitWithStatus = (targetStatus: "draft" | "published") => {
     setValue("status", targetStatus);
-    handleSubmit(async (data) => {
-      setIsSaving(true);
+
+    const onValid = async (data: AddProductFormData) => {
+      if (targetStatus === "published" && data.price <= 0) {
+        toast.add({
+          title: "Validasi Gagal",
+          description:
+            "Harga jual produk wajib lebih dari Rp 0 untuk diterbitkan.",
+          type: "error",
+        });
+        return;
+      }
+
+      setSavingStatus(targetStatus);
       try {
         const catName = selectedCategoryName;
         const primaryImage =
@@ -449,8 +557,10 @@ export default function AddProductPage({
               targetCategoryId = newCat.id;
               setBackendCategories((prev) => [...prev, newCat]);
             } else {
+              const catErr = await createCatRes.json().catch(() => ({}));
               throw new Error(
-                `Tidak dapat menetapkan kategori "${catName}". Silakan pilih atau buat kategori yang valid.`
+                catErr.message ||
+                  `Tidak dapat menetapkan kategori "${catName}". Silakan pilih atau buat kategori yang valid.`
               );
             }
           }
@@ -479,6 +589,20 @@ export default function AddProductPage({
         }
 
         const createdProduct = await productRes.json();
+
+        // 1.5 Associate selected addons via PUT /products/:id/addons
+        const selectedAddons = data.addonIds || [];
+        if (selectedAddons.length > 0) {
+          try {
+            await authorizedFetch(`/products/${createdProduct.id}/addons`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ addonIds: selectedAddons }),
+            });
+          } catch (addonErr) {
+            console.warn("Could not associate addons to product:", addonErr);
+          }
+        }
 
         // 2. Compute initial stock & adjust active / availability status
         const warehouseQty = Math.max(0, Number(data.warehouseStock || 0));
@@ -509,7 +633,7 @@ export default function AddProductPage({
         // 3. Provision stock into Warehouse and Display locations
         if (shouldBeAvailable && totalInitialStock > 0) {
           try {
-            await authorizedFetch("/inventory/restock", {
+            const restockRes = await authorizedFetch("/inventory/restock", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -518,7 +642,7 @@ export default function AddProductPage({
               }),
             });
 
-            if (displayQty > 0) {
+            if (restockRes.ok && displayQty > 0) {
               await authorizedFetch("/inventory/transfer-to-display", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -560,28 +684,37 @@ export default function AddProductPage({
             targetStatus === "published"
               ? "Produk Berhasil Diterbitkan"
               : "Draf Berhasil Disimpan",
-          description: `"${data.name}" telah ${
-            targetStatus === "published"
-              ? "berhasil diterbitkan ke sistem"
-              : "disimpan sebagai draf"
-          }.`,
-          type: targetStatus === "published" ? "success" : "info",
+          description: `"${data.name.trim()}" telah tersimpan ke database.`,
+          type: "success",
         });
 
         navigate("/dashboard/products");
       } catch (err) {
         toast.add({
-          title: "Gagal Menyimpan",
+          title: "Gagal Menyimpan Produk",
           description:
             err instanceof Error
               ? err.message
-              : "Terjadi kesalahan saat menyimpan produk",
+              : "Terjadi kesalahan sistem saat menyimpan ke database.",
           type: "error",
         });
       } finally {
-        setIsSaving(false);
+        setSavingStatus(null);
       }
-    })();
+    };
+
+    const onInvalid = (fieldErrors: FieldErrors<AddProductFormData>) => {
+      const firstError = Object.values(fieldErrors)[0];
+      toast.add({
+        title: "Validasi Formulir Gagal",
+        description:
+          firstError?.message ||
+          "Mohon periksa kembali kolom yang bertanda bintang (*).",
+        type: "error",
+      });
+    };
+
+    void handleSubmit(onValid, onInvalid)();
   };
 
   return (
@@ -622,16 +755,24 @@ export default function AddProductPage({
               variant="outline"
               disabled={isSubmitting || isSaving}
               onClick={() => submitWithStatus("draft")}
+              className="gap-2"
             >
-              {isSaving ? "Menyimpan..." : "Simpan Draf"}
+              {savingStatus === "draft" && <Spinner className="size-4" />}
+              <span>
+                {savingStatus === "draft" ? "Menyimpan Draf..." : "Simpan Draf"}
+              </span>
             </Button>
             <Button
               type="button"
               variant="default"
               disabled={isSubmitting || isSaving}
               onClick={() => submitWithStatus("published")}
+              className="gap-2"
             >
-              {isSaving ? "Menerbitkan..." : "Terbitkan"}
+              {savingStatus === "published" && <Spinner className="size-4" />}
+              <span>
+                {savingStatus === "published" ? "Menerbitkan..." : "Terbitkan"}
+              </span>
             </Button>
           </div>
         </div>
@@ -650,6 +791,14 @@ export default function AddProductPage({
             />
 
             <ProductVariant control={control} />
+
+            <ProductAddon
+              addons={addons}
+              selectedAddonIds={currentAddonIds}
+              isLoading={isLoadingAddons}
+              onToggleAddon={handleToggleAddon}
+              onAddNewAddon={handleAddNewAddon}
+            />
           </div>
 
           {/* RIGHT COLUMN: Pricing, Stock, Status, Categories (4 cols) */}

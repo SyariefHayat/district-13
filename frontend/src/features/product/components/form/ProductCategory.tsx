@@ -5,6 +5,7 @@ import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -234,8 +235,10 @@ export function ProductCategory({
               type="submit"
               size="default"
               disabled={!newCatName.trim() || isSubmittingCat}
+              className="gap-1.5"
             >
-              {isSubmittingCat ? "..." : "Tambah"}
+              {isSubmittingCat && <Spinner className="size-3.5" />}
+              <span>{isSubmittingCat ? "Menyimpan..." : "Tambah"}</span>
             </Button>
           </form>
         </DialogContent>
@@ -290,8 +293,10 @@ export function ProductCategory({
                 await onDeleteCategory();
                 setIsDeleteCatAlertOpen(false);
               }}
+              className="gap-1.5"
             >
-              {isDeletingCategory ? "Menghapus..." : "Hapus"}
+              {isDeletingCategory && <Spinner className="size-3.5" />}
+              <span>{isDeletingCategory ? "Menghapus..." : "Hapus"}</span>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
