@@ -20,6 +20,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -29,7 +30,6 @@ import type { AddProductFormData } from "../../schemas/productFormSchema";
 interface ProductCategoryProps {
   control: Control<AddProductFormData>;
   categoriesList: { id: string; name: string }[];
-  categoryItems: Record<string, string>;
   subCategories: string[];
   currentCategory: string;
   currentSubCategory?: string;
@@ -44,7 +44,6 @@ interface ProductCategoryProps {
 export function ProductCategory({
   control,
   categoriesList,
-  categoryItems,
   subCategories,
   currentCategory,
   currentSubCategory,
@@ -71,6 +70,22 @@ export function ProductCategory({
   const selectedCategoryName = selectedCatObj
     ? selectedCatObj.name
     : "kategori";
+
+  const categorySelectItems = React.useMemo(
+    () => [
+      { label: "Pilih kategori", value: null },
+      ...categoriesList.map((cat) => ({ label: cat.name, value: cat.id })),
+    ],
+    [categoriesList]
+  );
+
+  const subCategorySelectItems = React.useMemo(
+    () => [
+      { label: "Pilih sub-kategori", value: null },
+      ...subCategories.map((sub) => ({ label: sub, value: sub })),
+    ],
+    [subCategories]
+  );
 
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,27 +128,27 @@ export function ProductCategory({
               control={control}
               render={({ field }) => (
                 <Select
-                  items={categoryItems}
-                  value={field.value}
+                  items={categorySelectItems}
+                  value={field.value || null}
                   onValueChange={onCategoryChange}
                 >
                   <SelectTrigger className="flex-1 flex items-center justify-between text-xs md:text-sm">
-                    <SelectValue placeholder="Pilih kategori">
-                      {(val: string | null) => {
-                        if (!val) return "Pilih kategori";
-                        const found = categoriesList.find(
-                          (c) => c.id === val || c.name === val
-                        );
-                        return found ? found.name : "Pilih kategori";
-                      }}
-                    </SelectValue>
+                    <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                    {categoriesList.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
+                  <SelectContent
+                    alignItemWithTrigger={true}
+                    className="bg-[#18181b] border-zinc-800 text-zinc-200"
+                  >
+                    <SelectGroup>
+                      {categorySelectItems.map((item) => (
+                        <SelectItem
+                          key={item.value ?? "empty-cat"}
+                          value={item.value}
+                        >
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               )}
@@ -167,24 +182,27 @@ export function ProductCategory({
               control={control}
               render={({ field }) => (
                 <Select
-                  value={field.value}
-                  onValueChange={(val) => val && field.onChange(val)}
+                  items={subCategorySelectItems}
+                  value={field.value || null}
+                  onValueChange={(val) => field.onChange(val || "")}
                 >
                   <SelectTrigger className="flex-1 flex items-center justify-between text-xs md:text-sm">
-                    <SelectValue placeholder="Pilih sub-kategori" />
+                    <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                    {subCategories.length === 0 ? (
-                      <div className="p-2 text-xs text-zinc-500 text-center">
-                        Tidak ada sub-kategori
-                      </div>
-                    ) : (
-                      subCategories.map((sub) => (
-                        <SelectItem key={sub} value={sub}>
-                          {sub}
+                  <SelectContent
+                    alignItemWithTrigger={true}
+                    className="bg-[#18181b] border-zinc-800 text-zinc-200"
+                  >
+                    <SelectGroup>
+                      {subCategorySelectItems.map((item) => (
+                        <SelectItem
+                          key={item.value ?? "empty-sub"}
+                          value={item.value}
+                        >
+                          {item.label}
                         </SelectItem>
-                      ))
-                    )}
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               )}

@@ -3,10 +3,16 @@ import { useNavigate } from "react-router";
 import type { FieldErrors } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { IconChevronLeft } from "@tabler/icons-react";
+import { IconChevronLeft, IconChevronDown } from "@tabler/icons-react";
 
 import { toast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/auth-context";
 import {
   getPresetImageForCategory,
@@ -135,13 +141,6 @@ export default function AddProductPage({
     return DEFAULT_CATEGORY_OPTIONS;
   }, [backendCategories]);
 
-  const categoryItems = React.useMemo(() => {
-    return categoriesList.reduce<Record<string, string>>((acc, cat) => {
-      acc[cat.id] = cat.name;
-      return acc;
-    }, {});
-  }, [categoriesList]);
-
   const form = useForm<AddProductFormData>({
     resolver: zodResolver(addProductSchema),
     defaultValues: {
@@ -157,16 +156,11 @@ export default function AddProductPage({
       warehouseStock: 50,
       displayStock: 20,
       status: "published",
-      category: DEFAULT_CATEGORY_OPTIONS[0].id,
-      subCategory: DEFAULT_CATEGORY_MAP["Kopi"]?.[0] || "",
+      category: "",
+      subCategory: "",
       variants: [
-        { id: "var-1", option: "Suhu / Penyajian", value: "Panas", price: 0 },
-        {
-          id: "var-2",
-          option: "Suhu / Penyajian",
-          value: "Dingin / Es",
-          price: 2000,
-        },
+        { id: "var-1", option: "", value: "", price: 0 },
+        { id: "var-2", option: "", value: "", price: 0 },
       ],
       addonIds: [],
     },
@@ -207,22 +201,21 @@ export default function AddProductPage({
           if (isMounted && activeList.length > 0) {
             setBackendCategories(activeList);
 
-            // Synchronize selected category to matching backend UUID
+            // Synchronize selected category to matching backend UUID if already set
             const currentVal = form.getValues("category");
-            const matchedById = activeList.find((c) => c.id === currentVal);
-            const matchedByName = activeList.find(
-              (c) => c.name.toLowerCase() === currentVal.toLowerCase()
-            );
+            if (currentVal) {
+              const matchedById = activeList.find((c) => c.id === currentVal);
+              const matchedByName = activeList.find(
+                (c) => c.name.toLowerCase() === currentVal.toLowerCase()
+              );
 
-            if (matchedById) {
-              setValue("category", matchedById.id, { shouldValidate: true });
-            } else if (matchedByName) {
-              setValue("category", matchedByName.id, { shouldValidate: true });
-            } else {
-              const firstCat = activeList[0];
-              setValue("category", firstCat.id, { shouldValidate: true });
-              const subs = categoryMap[firstCat.name] || [];
-              setValue("subCategory", subs[0] || "");
+              if (matchedById) {
+                setValue("category", matchedById.id, { shouldValidate: true });
+              } else if (matchedByName) {
+                setValue("category", matchedByName.id, {
+                  shouldValidate: true,
+                });
+              }
             }
           }
         }
@@ -269,13 +262,18 @@ export default function AddProductPage({
   const selectedCategory = categoriesList.find(
     (c) => c.id === currentCategory || c.name === currentCategory
   );
-  const selectedCategoryName =
-    selectedCategory?.name || categoriesList[0]?.name || "";
+  const selectedCategoryName = selectedCategory?.name || "";
 
-  const subCategories = categoryMap[selectedCategoryName] || [];
+  const subCategories = selectedCategoryName
+    ? categoryMap[selectedCategoryName] || []
+    : [];
 
   const handleCategoryChange = (val: string | null) => {
-    if (!val) return;
+    if (!val) {
+      setValue("category", "", { shouldValidate: true });
+      setValue("subCategory", "");
+      return;
+    }
     setValue("category", val, { shouldValidate: true });
     const matched = categoriesList.find((c) => c.id === val || c.name === val);
     const catName = matched ? matched.name : val;
@@ -509,7 +507,10 @@ export default function AddProductPage({
     }
   };
 
-  const submitWithStatus = (targetStatus: "draft" | "published") => {
+  const submitWithStatus = (
+    targetStatus: "draft" | "published",
+    keepOnPage = false
+  ) => {
     setValue("status", targetStatus);
 
     const onValid = async (data: AddProductFormData) => {
@@ -688,7 +689,42 @@ export default function AddProductPage({
           type: "success",
         });
 
-        navigate("/dashboard/products");
+        if (keepOnPage) {
+          form.reset({
+            name: "",
+            sku: "",
+            barcode: "",
+            description: "",
+            images: [],
+            price: 0,
+            costPrice: undefined,
+            chargeTax: false,
+            inStock: true,
+            warehouseStock: 50,
+            displayStock: 20,
+            status: "published",
+            category: data.category,
+            subCategory: data.subCategory || "",
+            variants: [
+              {
+                id: `var-${Date.now()}-1`,
+                option: "",
+                value: "",
+                price: 0,
+              },
+              {
+                id: `var-${Date.now()}-2`,
+                option: "",
+                value: "",
+                price: 0,
+              },
+            ],
+            addonIds: [],
+          });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          navigate("/dashboard/products");
+        }
       } catch (err) {
         toast.add({
           title: "Gagal Menyimpan Produk",
@@ -762,18 +798,50 @@ export default function AddProductPage({
                 {savingStatus === "draft" ? "Menyimpan Draf..." : "Simpan Draf"}
               </span>
             </Button>
-            <Button
-              type="button"
-              variant="default"
-              disabled={isSubmitting || isSaving}
-              onClick={() => submitWithStatus("published")}
-              className="gap-2"
-            >
-              {savingStatus === "published" && <Spinner className="size-4" />}
-              <span>
-                {savingStatus === "published" ? "Menerbitkan..." : "Terbitkan"}
-              </span>
-            </Button>
+            {/* Split Button: Terbitkan | ▾ */}
+            <div className="flex items-center -space-x-px">
+              <Button
+                type="button"
+                variant="default"
+                disabled={isSubmitting || isSaving}
+                onClick={() => submitWithStatus("published", false)}
+                className="rounded-r-none gap-2 pr-3"
+              >
+                {savingStatus === "published" && <Spinner className="size-4" />}
+                <span>
+                  {savingStatus === "published"
+                    ? "Menerbitkan..."
+                    : "Terbitkan"}
+                </span>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="icon"
+                      disabled={isSubmitting || isSaving}
+                      className="rounded-l-none px-2 "
+                      title="Opsi terbitkan lainnya"
+                    >
+                      <IconChevronDown className="size-4" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent
+                  align="end"
+                  className="bg-[#18181b] border-zinc-800 text-zinc-200 min-w-[140px]"
+                >
+                  <DropdownMenuItem
+                    onClick={() => submitWithStatus("published", true)}
+                    className="cursor-pointer gap-2 py-2 text-xs md:text-sm hover:bg-zinc-800"
+                  >
+                    <span>Simpan & lanjut</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
@@ -823,7 +891,6 @@ export default function AddProductPage({
             <ProductCategory
               control={control}
               categoriesList={categoriesList}
-              categoryItems={categoryItems}
               subCategories={subCategories}
               currentCategory={currentCategory}
               currentSubCategory={currentSubCategory}

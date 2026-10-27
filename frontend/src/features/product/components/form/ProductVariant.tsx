@@ -1,7 +1,12 @@
 import * as React from "react";
 import type { Control } from "react-hook-form";
 import { Controller, useFieldArray } from "react-hook-form";
-import { IconPlus, IconTrash, IconSettings } from "@tabler/icons-react";
+import {
+  IconPlus,
+  IconMinus,
+  IconTrash,
+  IconSettings,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +25,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -97,132 +103,164 @@ export function ProductVariant({ control }: ProductVariantProps) {
     setOptionToDelete(null);
   };
 
+  const variantOptionItems = React.useMemo(
+    () => [
+      { label: "Pilih opsi", value: null },
+      ...optionsList.map((opt) => ({ label: opt, value: opt })),
+    ],
+    [optionsList]
+  );
+
   return (
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Varian</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsManageOptionsOpen(true)}
-            >
-              <IconSettings className="size-3.5" />
-              <span>Kelola Opsi</span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                append({
-                  id: `var-${Date.now()}`,
-                  option: optionsList[0] || "Suhu / Penyajian",
-                  value: "",
-                  price: 0,
-                })
-              }
-            >
-              <IconPlus className="size-3.5" />
-              <span>Tambah Varian</span>
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsManageOptionsOpen(true)}
+          >
+            <IconSettings className="size-3.5" />
+            <span>Kelola Opsi</span>
+          </Button>
         </CardHeader>
 
         <CardContent className="space-y-4">
           {/* Variants Table / Grid */}
           <div className="space-y-3">
             {/* Headers */}
-            <div className="grid grid-cols-12 gap-3 text-xs font-medium text-zinc-300 px-1">
-              <div className="col-span-4">Opsi</div>
-              <div className="col-span-4">Nilai</div>
-              <div className="col-span-3">Harga Tambahan</div>
-              <div className="col-span-1"></div>
+            <div className="flex items-center gap-2 text-xs font-medium text-zinc-300 px-1">
+              <div className="flex-[4] min-w-0">Opsi</div>
+              <div className="flex-[4] min-w-0">Nilai</div>
+              <div className="flex-[3] min-w-0">Harga Tambahan</div>
+              <div className="w-[72px] shrink-0"></div>
             </div>
 
             {/* Rows */}
-            {fields.map((fieldItem, index) => (
-              <div
-                key={fieldItem.id}
-                className="grid grid-cols-12 gap-3 items-center"
-              >
-                {/* Option Select */}
-                <div className="col-span-4">
-                  <Controller
-                    name={`variants.${index}.option`}
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={(val) => val && field.onChange(val)}
-                      >
-                        <SelectTrigger className="w-full text-xs">
-                          <SelectValue placeholder="Pilih opsi" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                          {optionsList.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
+            {fields.length === 0 ? (
+              <div className="py-4 text-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    append({
+                      id: `var-${Date.now()}`,
+                      option: "",
+                      value: "",
+                      price: 0,
+                    })
+                  }
+                  className="gap-1.5 text-xs"
+                >
+                  <IconPlus className="size-3.5" />
+                  <span>Tambah Baris Varian</span>
+                </Button>
+              </div>
+            ) : (
+              fields.map((fieldItem, index) => (
+                <div key={fieldItem.id} className="flex items-center gap-2">
+                  {/* Option Select */}
+                  <div className="flex-[4] min-w-0">
+                    <Controller
+                      name={`variants.${index}.option`}
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          items={variantOptionItems}
+                          value={field.value || null}
+                          onValueChange={(val) => field.onChange(val || "")}
+                        >
+                          <SelectTrigger className="w-full text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent
+                            alignItemWithTrigger={true}
+                            className="bg-[#18181b] border-zinc-800 text-zinc-200"
+                          >
+                            <SelectGroup>
+                              {variantOptionItems.map((opt) => (
+                                <SelectItem
+                                  key={opt.value ?? "empty-opt"}
+                                  value={opt.value}
+                                >
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </div>
 
-                {/* Value Input */}
-                <div className="col-span-4">
-                  <Controller
-                    name={`variants.${index}.value`}
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        placeholder="Contoh: Panas, Dingin / Es, + Telur, dll."
-                        className="text-xs"
-                        {...field}
-                      />
-                    )}
-                  />
-                </div>
+                  {/* Value Input */}
+                  <div className="flex-[4] min-w-0">
+                    <Controller
+                      name={`variants.${index}.value`}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          placeholder="Contoh: Panas, Dingin / Es, + Telur, dll."
+                          className="text-xs"
+                          {...field}
+                        />
+                      )}
+                    />
+                  </div>
 
-                {/* Price Input */}
-                <div className="col-span-3">
-                  <Controller
-                    name={`variants.${index}.price`}
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Rp"
-                        value={formatRupiah(field.value)}
-                        onChange={(e) =>
-                          field.onChange(parseRupiah(e.target.value))
-                        }
-                        className="text-xs"
-                      />
-                    )}
-                  />
-                </div>
+                  {/* Price Input */}
+                  <div className="flex-[3] min-w-0">
+                    <Controller
+                      name={`variants.${index}.price`}
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Rp"
+                          value={formatRupiah(field.value)}
+                          onChange={(e) =>
+                            field.onChange(parseRupiah(e.target.value))
+                          }
+                          className="text-xs"
+                        />
+                      )}
+                    />
+                  </div>
 
-                {/* Delete action */}
-                <div className="col-span-1 flex justify-center">
+                  {/* Action buttons: (+) and (-) */}
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon-xs"
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      append({
+                        id: `var-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                        option: "",
+                        value: "",
+                        price: 0,
+                      })
+                    }
+                    title="Tambah varian"
+                  >
+                    <IconPlus className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
                     onClick={() => remove(index)}
-                    className="text-zinc-500 hover:text-red-400"
+                    className="hover:text-red-400"
                     title="Hapus varian"
                   >
-                    <IconTrash className="size-3.5" />
+                    <IconMinus className="size-4" />
                   </Button>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -269,10 +307,10 @@ export function ProductVariant({ control }: ProductVariantProps) {
                   <span>{opt}</span>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="icon-xs"
                     onClick={() => setOptionToDelete(opt)}
-                    className="text-zinc-500 hover:text-red-400"
+                    className="hover:text-red-400"
                     title={`Hapus opsi ${opt}`}
                   >
                     <IconTrash className="size-3" />

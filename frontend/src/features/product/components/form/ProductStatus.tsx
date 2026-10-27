@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import type { AddProductFormData } from "../../schemas/productFormSchema";
 
@@ -14,7 +16,14 @@ interface ProductStatusProps {
   currentStatus: "draft" | "published" | "archived";
 }
 
-export function ProductStatus({ control, currentStatus }: ProductStatusProps) {
+const statusItems = [
+  { label: "Pilih status", value: null },
+  { label: "Diterbitkan", value: "published" },
+  { label: "Draf", value: "draft" },
+  { label: "Diarsipkan", value: "archived" },
+];
+
+export function ProductStatus({ control }: ProductStatusProps) {
   return (
     <Card>
       <CardHeader>
@@ -27,50 +36,44 @@ export function ProductStatus({ control, currentStatus }: ProductStatusProps) {
           control={control}
           render={({ field }) => (
             <Select
-              value={field.value}
-              onValueChange={(val) =>
-                val && field.onChange(val as "draft" | "published" | "archived")
-              }
+              items={statusItems}
+              value={field.value || null}
+              onValueChange={(val) => {
+                if (val) {
+                  field.onChange(val as "draft" | "published" | "archived");
+                }
+              }}
             >
               <SelectTrigger className="w-full flex items-center justify-between text-xs md:text-sm">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`size-2 rounded-full ${
-                      currentStatus === "published"
-                        ? "bg-emerald-500"
-                        : currentStatus === "draft"
-                          ? "bg-amber-500"
-                          : "bg-zinc-400"
-                    }`}
-                  />
-                  <span className="capitalize">
-                    {field.value === "published"
-                      ? "Diterbitkan"
-                      : field.value === "draft"
-                        ? "Draf"
-                        : "Diarsipkan"}
-                  </span>
-                </div>
+                <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#18181b] border-zinc-800 text-zinc-200">
-                <SelectItem value="draft">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-amber-500" />
-                    <span>Draf</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="published">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500" />
-                    <span>Diterbitkan</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="archived">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-zinc-400" />
-                    <span>Diarsipkan</span>
-                  </div>
-                </SelectItem>
+              <SelectContent
+                alignItemWithTrigger={true}
+                className="bg-[#18181b] border-zinc-800 text-zinc-200"
+              >
+                <SelectGroup>
+                  {statusItems.map((item) => (
+                    <SelectItem
+                      key={item.value ?? "empty-status"}
+                      value={item.value}
+                    >
+                      <div className="flex items-center gap-2">
+                        {item.value && (
+                          <span
+                            className={`size-2 rounded-full ${
+                              item.value === "published"
+                                ? "bg-emerald-500"
+                                : item.value === "draft"
+                                  ? "bg-amber-500"
+                                  : "bg-zinc-400"
+                            }`}
+                          />
+                        )}
+                        <span>{item.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           )}
