@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -7,12 +8,11 @@ import { ProductTable } from "../components/ProductTable";
 import { useProductData } from "../hooks/useProductData";
 
 export default function ProductPage() {
+  const navigate = useNavigate();
   const {
     products,
     categories,
     isLoading,
-    isSyncing,
-    lastSyncedAt,
     error,
     refetch,
     toggleStatus,
@@ -68,6 +68,12 @@ export default function ProductPage() {
         onToggleStatus={toggleStatus}
         onDeleteProduct={deleteProduct}
         onDeleteMultiple={deleteMultiple}
+        onViewDetails={(product) =>
+          navigate(`/dashboard/products/${product.id}`)
+        }
+        onEditProduct={(product) =>
+          navigate(`/dashboard/products/new?edit=${product.id}`)
+        }
       />
     </div>
   );
