@@ -33,7 +33,6 @@ export interface ProductsApiResponse {
 }
 
 function mapBackendProduct(p: BackendProduct): ProductItem {
-  // Generate deterministic short SKU from UUID or category prefix
   const shortId = p.id.replace(/-/g, "").slice(0, 4).toUpperCase();
   const catPrefix = p.categoryName
     ? p.categoryName.slice(0, 3).toUpperCase()
@@ -54,77 +53,130 @@ function mapBackendProduct(p: BackendProduct): ProductItem {
   };
 }
 
-export function useProductData() {
+export interface UseProductDataOptions {
+  pollIntervalMs?: number;
+}
+
+export function useProductData(options?: UseProductDataOptions) {
+  const pollIntervalMs = options?.pollIntervalMs ?? 5000;
   const { authorizedFetch } = useAuth();
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const abortRef = useRef<AbortController | null>(null);
+  const isInitialLoad = useRef(true);
 
-  const fetchProducts = useCallback(async () => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const [productsRes, categoriesRes] = await Promise.all([
-        authorizedFetch("/products?page=1&limit=100", {
-          signal: controller.signal,
-        }),
-        authorizedFetch("/categories", {
-          signal: controller.signal,
-        }).catch(() => null),
-      ]);
-
-      if (!productsRes.ok) {
-        const body = await productsRes.json().catch(() => ({}));
-        throw new Error(
-          typeof body.message === "string"
-            ? body.message
-            : `Failed to fetch products (${productsRes.status})`
-        );
+  const fetchProducts = useCallback(
+    async (silent = false) => {
+      if (!silent && isInitialLoad.current) {
+        setIsLoading(true);
       }
+      setIsSyncing(true);
+      setError(null);
 
-      const productsJson = (await productsRes.json()) as ProductsApiResponse;
-      const mapped = (productsJson.data || []).map(mapBackendProduct);
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-      if (!controller.signal.aborted) {
-        setProducts(mapped);
-      }
+      try {
+        const [productsRes, categoriesRes] = await Promise.all([
+          authorizedFetch("/products?page=1&limit=100", {
+            signal: controller.signal,
+          }),
+          authorizedFetch("/categories", {
+            signal: controller.signal,
+          }).catch(() => null),
+        ]);
 
-      if (categoriesRes && categoriesRes.ok) {
-        const categoriesJson = (await categoriesRes.json()) as
-          BackendCategory[] | { data: BackendCategory[] };
-        const rawCategories = Array.isArray(categoriesJson)
-          ? categoriesJson
-          : categoriesJson.data || [];
-        const categoryNames = rawCategories
-          .filter((c) => c.isActive)
-          .map((c) => c.name);
-        if (!controller.signal.aborted && categoryNames.length > 0) {
-          setCategories(["Semua Kategori", ...categoryNames]);
+        if (!productsRes.ok) {
+          const body = await productsRes.json().catch(() => ({}));
+          throw new Error(
+            typeof body.message === "string"
+              ? body.message
+              : `Gagal memuat produk dari database (${productsRes.status})`
+          );
+        }
+
+        const productsJson = (await productsRes.json()) as ProductsApiResponse;
+        const mapped = (productsJson.data || []).map(mapBackendProduct);
+
+        if (!controller.signal.aborted) {
+          setProducts(mapped);
+          setLastSyncedAt(new Date());
+          isInitialLoad.current = false;
+        }
+
+        if (categoriesRes && categoriesRes.ok) {
+          const categoriesJson = (await categoriesRes.json()) as
+            BackendCategory[] | { data: BackendCategory[] };
+          const rawCategories = Array.isArray(categoriesJson)
+            ? categoriesJson
+            : categoriesJson.data || [];
+          const categoryNames = rawCategories
+            .filter((c) => c.isActive)
+            .map((c) => c.name);
+          if (!controller.signal.aborted && categoryNames.length > 0) {
+            setCategories(["Semua Kategori", ...categoryNames]);
+          }
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+          setIsSyncing(false);
         }
       }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      if (!controller.signal.aborted) {
-        setIsLoading(false);
-      }
-    }
-  }, [authorizedFetch]);
+    },
+    [authorizedFetch]
+  );
 
+  // Initial load
   useEffect(() => {
-    void fetchProducts();
+    void fetchProducts(false);
     return () => {
       abortRef.current?.abort();
     };
   }, [fetchProducts]);
+
+  // Realtime Polling & Window Focus Revalidation
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => {
+        if (document.visibilityState === "visible") {
+          void fetchProducts(true);
+        }
+      }, pollIntervalMs);
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        void fetchProducts(true);
+        startPolling();
+      } else if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    startPolling();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+    };
+  }, [fetchProducts, pollIntervalMs]);
 
   const toggleStatus = useCallback(
     async (productId: string) => {
@@ -132,7 +184,6 @@ export function useProductData() {
       if (!target) return;
 
       const newAvailable = !target.isAvailable;
-      // Optimistic update
       setProducts((prev) =>
         prev.map((item) =>
           item.id === productId ? { ...item, isAvailable: newAvailable } : item
@@ -146,33 +197,20 @@ export function useProductData() {
           body: JSON.stringify({ isAvailable: newAvailable }),
         });
         if (!res.ok) {
-          // Rollback on error
-          setProducts((prev) =>
-            prev.map((item) =>
-              item.id === productId
-                ? { ...item, isAvailable: target.isAvailable }
-                : item
-            )
-          );
+          void fetchProducts(true);
+        } else {
+          void fetchProducts(true);
         }
       } catch {
-        // Rollback on error
-        setProducts((prev) =>
-          prev.map((item) =>
-            item.id === productId
-              ? { ...item, isAvailable: target.isAvailable }
-              : item
-          )
-        );
+        void fetchProducts(true);
       }
     },
-    [products, authorizedFetch]
+    [products, authorizedFetch, fetchProducts]
   );
 
   const deleteProduct = useCallback(
     async (productId: string) => {
       const previous = [...products];
-      // Optimistic remove
       setProducts((prev) => prev.filter((item) => item.id !== productId));
 
       try {
@@ -181,12 +219,14 @@ export function useProductData() {
         });
         if (!res.ok) {
           setProducts(previous);
+        } else {
+          void fetchProducts(true);
         }
       } catch {
         setProducts(previous);
       }
     },
-    [products, authorizedFetch]
+    [products, authorizedFetch, fetchProducts]
   );
 
   const deleteMultiple = useCallback(
@@ -202,19 +242,22 @@ export function useProductData() {
             authorizedFetch(`/products/${id}`, { method: "DELETE" })
           )
         );
+        void fetchProducts(true);
       } catch {
         setProducts(previous);
       }
     },
-    [products, authorizedFetch]
+    [products, authorizedFetch, fetchProducts]
   );
 
   return {
     products,
     categories,
     isLoading,
+    isSyncing,
+    lastSyncedAt,
     error,
-    refetch: fetchProducts,
+    refetch: () => fetchProducts(false),
     toggleStatus,
     deleteProduct,
     deleteMultiple,

@@ -11,6 +11,8 @@ export default function ProductPage() {
     products,
     categories,
     isLoading,
+    isSyncing,
+    lastSyncedAt,
     error,
     refetch,
     toggleStatus,
