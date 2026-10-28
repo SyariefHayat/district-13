@@ -8,7 +8,6 @@ import {
   IconDots,
   IconDownload,
   IconLayoutColumns,
-  IconLoader2,
   IconPackage,
   IconTrash,
 } from "@tabler/icons-react";
@@ -57,6 +56,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { formatProductPrice, type ProductItem } from "../data/productData";
 import { ProductFilterBar, type FilterItem } from "./ProductFilterBar";
@@ -642,19 +642,48 @@ export function ProductTable({
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-32 text-center text-muted-foreground"
+                Array.from({ length: 6 }).map((_, idx) => (
+                  <TableRow
+                    key={`skeleton-row-${idx}`}
+                    className="hover:bg-transparent"
                   >
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <IconLoader2 className="size-6 animate-spin text-muted-foreground" />
-                      <p className="text-sm font-medium">
-                        Memuat data produk...
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    <TableCell className="w-10 px-2">
+                      <div className="flex items-center justify-center">
+                        <Skeleton className="size-4 rounded" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="size-10 rounded-lg shrink-0" />
+                        <div className="flex flex-col gap-1.5 min-w-0">
+                          <Skeleton className="h-4 w-32 sm:w-44" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-20" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-12" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-10" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </TableCell>
+                    <TableCell className="w-12 px-2 text-right">
+                      <Skeleton className="size-8 rounded-md ml-auto" />
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                   <TableRow

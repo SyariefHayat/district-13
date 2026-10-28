@@ -1,17 +1,19 @@
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
-import { IconPlus } from "@tabler/icons-react";
+import { IconDownload, IconPlus } from "@tabler/icons-react";
 
 interface ProductHeaderProps {
   title?: string;
   description?: string;
   onAddProduct?: () => void;
+  onExport?: () => void;
 }
 
 export function ProductHeader({
-  title = "Product Performance",
-  description = "Pantau analitik penjualan dan performa produk.",
+  title = "Produk",
+  description = "Kelola katalog produk, pantau stok ketersediaan, dan analitik performa penjualan.",
   onAddProduct,
+  onExport,
 }: ProductHeaderProps) {
   const navigate = useNavigate();
 
@@ -34,7 +36,16 @@ export function ProductHeader({
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="default"
+          onClick={onExport}
+          className="gap-1.5 shadow-xs"
+        >
+          <IconDownload data-icon="inline-start" className="size-4" />
+          <span>Export</span>
+        </Button>
         <Button
           variant="default"
           size="default"

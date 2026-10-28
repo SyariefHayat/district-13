@@ -73,25 +73,25 @@ export function ProductStatsCards({
     {
       label: "Gross Product Sales",
       value: formatProductPrice(metrics.totalRevenue),
-      description: "Total akumulasi omzet seluruh katalog",
+      description: "Total omzet katalog",
       icon: IconCoin,
     },
     {
       label: "Sold",
       value: `${metrics.totalUnitsSold.toLocaleString("id-ID")} pcs`,
-      description: "Total kuantitas item terjual di kasir",
+      description: "Total item terjual",
       icon: IconShoppingCart,
     },
     {
       label: "Top Performer",
       value: metrics.topProduct?.name || "Belum ada data",
-      description: `${metrics.topProduct?.soldCount || 0} pcs terjual (${metrics.topProductShare}% porsi)`,
+      description: `${metrics.topProduct?.soldCount || 0} pcs (${metrics.topProductShare}%)`,
       icon: IconFlame,
     },
     {
       label: "Rasio Produk Laku",
       value: `${metrics.sellThroughRatio}%`,
-      description: `${metrics.activeSoldProducts} dari ${metrics.totalProducts} SKU aktif menghasilkan`,
+      description: `${metrics.activeSoldProducts} dari ${metrics.totalProducts} SKU`,
       icon: IconChartPie,
     },
   ];
