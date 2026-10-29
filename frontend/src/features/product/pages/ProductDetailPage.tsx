@@ -221,31 +221,35 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 p-4 md:p-8 flex justify-center">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8 flex justify-center">
       <div className="w-full max-w-310 space-y-6">
         {/* Header Bar */}
         <div className="flex items-start justify-between gap-4 pb-2">
           {/* Left: Title + Under it: added by, published, sku (pure text) */}
           <div className="space-y-3">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
               {detailData.name}
             </h1>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-white">Added By :</span>
-                <span className="text-zinc-300 font-normal">
+                <span className="font-semibold text-foreground">
+                  Added By :
+                </span>
+                <span className="text-muted-foreground font-normal">
                   {detailData.seller || "District 13 Store"}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-white">Published :</span>
-                <span className="text-zinc-300 font-normal">
+                <span className="font-semibold text-foreground">
+                  Published :
+                </span>
+                <span className="text-muted-foreground font-normal">
                   {detailData.publishedDate || "20 Oct, 2024"}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-white">SKU :</span>
-                <span className="font-mono text-zinc-300 uppercase tracking-wide">
+                <span className="font-semibold text-foreground">SKU :</span>
+                <span className="font-mono text-muted-foreground uppercase tracking-wide">
                   {detailData.sku}
                 </span>
               </div>
@@ -271,25 +275,25 @@ export default function ProductDetailPage() {
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="size-9 border-red-900/60 bg-red-950/40 text-red-300 hover:bg-red-900/50 hover:text-red-200"
+                    className="size-9 border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
                     title="Hapus produk"
                   >
                     <IconTrash className="size-4" />
                   </Button>
                 }
               />
-              <AlertDialogContent className="bg-[#121215] border-zinc-800 text-zinc-100">
+              <AlertDialogContent className="bg-card border-border text-foreground">
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="text-white">
+                  <AlertDialogTitle className="text-foreground">
                     Hapus Produk {detailData.name}?
                   </AlertDialogTitle>
-                  <AlertDialogDescription className="text-zinc-400">
+                  <AlertDialogDescription className="text-muted-foreground">
                     Apakah Anda yakin ingin menghapus produk ini dari database?
                     Tindakan ini tidak dapat dibatalkan.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel className="bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border-zinc-700">
+                  <AlertDialogCancel className="border-border">
                     Batal
                   </AlertDialogCancel>
                   <AlertDialogAction
