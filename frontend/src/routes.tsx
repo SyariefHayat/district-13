@@ -4,6 +4,7 @@ import { OverviewPage } from "./features/overview";
 import {
   ProductPage,
   AddProductPage,
+  EditPage,
   ProductDetailPage,
 } from "./features/product";
 import { AddonPage } from "./features/addons";
@@ -39,6 +40,8 @@ export const router = createBrowserRouter([
           { path: "users", element: <div>Dashboard Users</div> },
           { path: "products", Component: ProductPage },
           { path: "products/new", Component: AddProductPage },
+          { path: "products/edit", Component: EditPage },
+          { path: "products/:id/edit", Component: EditPage },
           { path: "products/:id", Component: ProductDetailPage },
           { path: "addons", Component: AddonPage },
 

@@ -32,7 +32,26 @@ import { formatIDR, getPresetImageForCategory } from "../data/productData";
 interface BackendProductDetailResponse {
   id: string;
   name: string;
+  sku?: string;
+  barcode?: string;
+  description?: string;
+  images?: string[];
   price: string | number;
+  costPrice?: string | number;
+  chargeTax?: boolean;
+  inStock?: boolean;
+  status?: string;
+  stock?: number;
+  soldCount?: number;
+  warehouseStock?: number;
+  displayStock?: number;
+  updatedAt?: string;
+  variants?: Array<{
+    id?: string;
+    option?: string;
+    value?: string;
+    price?: number;
+  }>;
   isActive: boolean;
   isAvailable: boolean;
   categoryId: string;
@@ -40,7 +59,6 @@ interface BackendProductDetailResponse {
   categoryIsActive?: boolean;
   subCategoryId?: string;
   subCategoryName?: string;
-  displayStock?: number;
   addons?: Array<{
     id: string;
     name: string;
@@ -120,6 +138,23 @@ function ProductDetailSkeleton() {
               <div className="grid grid-cols-2 gap-3">
                 <Skeleton className="h-14 rounded-xl" />
                 <Skeleton className="h-14 rounded-xl" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Variants card skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-36 rounded" />
+                <Skeleton className="h-4 w-16 rounded" />
+              </div>
+              <Skeleton className="h-3 w-48 rounded" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-12 rounded-xl" />
+                <Skeleton className="h-12 rounded-xl" />
               </div>
             </CardContent>
           </Card>
@@ -223,9 +258,26 @@ export default function ProductDetailPage() {
               );
             }
           }
+        } else if (data.updatedAt) {
+          setLastUpdatedDate(
+            new Date(data.updatedAt).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          );
         }
       } catch {
-        // Fallback to cached product or cashier display stock gracefully
+        // Fallback to direct product response
+        if (data.updatedAt) {
+          setLastUpdatedDate(
+            new Date(data.updatedAt).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          );
+        }
       }
     } catch (err) {
       setDetailError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -263,6 +315,20 @@ export default function ProductDetailPage() {
         image: getPresetImageForCategory("Coffee"),
         description:
           "Minuman kopi susu dengan paduan espresso pilihan dan steamed fresh milk lembut berkualitas premium.",
+        variants: [
+          {
+            id: "var-1",
+            option: "Suhu / Penyajian",
+            value: "Dingin / Ice",
+            price: 2000,
+          },
+          {
+            id: "var-2",
+            option: "Porsi / Ukuran",
+            value: "Large (16oz)",
+            price: 4000,
+          },
+        ],
         addons: [
           {
             id: "add-1",
@@ -287,10 +353,22 @@ export default function ProductDetailPage() {
     const subCategory = backendDetail?.subCategoryName || "";
     const priceNum = Number(backendDetail?.price ?? cachedProduct?.price ?? 0);
     const sku =
+      backendDetail?.sku ||
       cachedProduct?.sku ||
       `${category.slice(0, 3).toUpperCase()}-${(id || "").slice(0, 4).toUpperCase()}`;
 
-    // Compute stock from live inventory query if available, otherwise from cached overview
+    const barcode =
+      backendDetail?.barcode ||
+      `899${(id || "").replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`;
+
+    const description =
+      backendDetail?.description ||
+      cachedProduct?.description ||
+      `Produk katalog ${category}${
+        subCategory ? ` (${subCategory})` : ""
+      } dengan pencatatan inventaris otomatis dan kesiapan transaksi di kasir.`;
+
+    // Compute stock & sales from backend detail or inventory query
     const displayStockNum =
       displayStockCount !== null
         ? displayStockCount
@@ -299,21 +377,37 @@ export default function ProductDetailPage() {
     const warehouseStockNum =
       warehouseStockCount !== null
         ? warehouseStockCount
-        : Math.max(0, Number(cachedProduct?.stock ?? 0) - displayStockNum);
+        : backendDetail?.warehouseStock !== undefined
+          ? Number(backendDetail.warehouseStock)
+          : Math.max(0, Number(cachedProduct?.stock ?? 0) - displayStockNum);
 
     const totalStockNum =
       warehouseStockCount !== null && displayStockCount !== null
         ? warehouseStockNum + displayStockNum
-        : Number(cachedProduct?.stock ?? displayStockNum);
+        : backendDetail?.stock !== undefined
+          ? Number(backendDetail.stock)
+          : Number(cachedProduct?.stock ?? displayStockNum);
 
-    const soldCountNum = Number(cachedProduct?.soldCount ?? 0);
+    const soldCountNum =
+      backendDetail?.soldCount !== undefined
+        ? Number(backendDetail.soldCount)
+        : Number(cachedProduct?.soldCount ?? 0);
+
     const totalRevNum = priceNum * soldCountNum;
 
     const isActive = backendDetail?.isActive ?? cachedProduct?.isActive ?? true;
     const isAvailable =
       backendDetail?.isAvailable ?? cachedProduct?.isAvailable ?? true;
 
-    const image = cachedProduct?.image || getPresetImageForCategory(category);
+    const costPriceNum =
+      backendDetail?.costPrice !== undefined && backendDetail.costPrice !== null
+        ? Number(backendDetail.costPrice)
+        : Math.round(priceNum * 0.6);
+
+    const image =
+      backendDetail?.images && backendDetail.images.length > 0
+        ? backendDetail.images[0]
+        : cachedProduct?.image || getPresetImageForCategory(category);
 
     return {
       id: id || "",
@@ -321,9 +415,9 @@ export default function ProductDetailPage() {
       seller: user?.username ? `@${user.username}` : "District 13 Store",
       publishedDate: lastUpdatedDate || "Aktif di Katalog",
       sku,
-      barcode: `899${(id || "").replace(/\D/g, "").slice(0, 9).padEnd(9, "0")}`,
+      barcode,
       price: formatIDR(priceNum),
-      costPrice: formatIDR(Math.round(priceNum * 0.6)),
+      costPrice: formatIDR(costPriceNum),
       ordersCount: String(soldCountNum),
       availableStock: String(totalStockNum),
       warehouseStock: String(warehouseStockNum),
@@ -336,11 +430,8 @@ export default function ProductDetailPage() {
       isActive,
       isAvailable,
       image,
-      description:
-        cachedProduct?.description ||
-        `Produk katalog ${category}${
-          subCategory ? ` (${subCategory})` : ""
-        } dengan pencatatan inventaris otomatis dan kesiapan transaksi di kasir.`,
+      description,
+      variants: backendDetail?.variants || [],
       addons:
         backendDetail?.addons?.map((a) => ({
           id: a.id,
@@ -381,7 +472,7 @@ export default function ProductDetailPage() {
   };
 
   const handleEdit = () => {
-    navigate(`/dashboard/products/new?edit=${id || "demo"}`);
+    navigate(`/dashboard/products/${id || "demo"}/edit`);
   };
 
   return (

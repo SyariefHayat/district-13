@@ -7,6 +7,7 @@ import {
   IconSparkles,
   IconBuildingWarehouse,
   IconCash,
+  IconAdjustmentsHorizontal,
 } from "@tabler/icons-react";
 import {
   Card,
@@ -195,8 +196,9 @@ export function ProductDetail({ product, className }: ProductDetailProps) {
                   {availableStock} pcs
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-0 text-[11px] text-muted-foreground">
-                Gudang: {warehouseStock} | Display: {displayStock}
+              <CardContent className="pt-0 text-[11px] text-muted-foreground flex items-center gap-3">
+                <span>Gudang {warehouseStock}</span>
+                <span>Display {displayStock}</span>
               </CardContent>
             </Card>
 
@@ -267,30 +269,55 @@ export function ProductDetail({ product, className }: ProductDetailProps) {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
 
-              {/* Variants from system (if any) */}
-              {variants.length > 0 && (
-                <div className="space-y-2.5">
-                  <span className="text-xs md:text-sm font-medium text-foreground">
-                    Pilihan Varian
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {variants.map((v, idx) => (
-                      <div
-                        key={v.id || idx}
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 border border-border text-xs"
-                      >
-                        <span className="text-foreground font-medium">
-                          {v.option}: {v.value}
+          {/* Pilihan Varian Card (Standalone) */}
+          <Card className="bg-card border-border shadow-xs">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <IconAdjustmentsHorizontal className="size-4 text-sky-500" />
+                  <span>Pilihan Varian</span>
+                </CardTitle>
+                <Badge
+                  variant="outline"
+                  className="text-xs text-muted-foreground border-border"
+                >
+                  {variants.length} Varian
+                </Badge>
+              </div>
+              <CardDescription className="text-xs text-muted-foreground">
+                Pilihan opsi, ukuran, atau penyajian produk
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {variants.length === 0 ? (
+                <div className="text-xs text-muted-foreground py-3 text-center border border-dashed border-border rounded-xl">
+                  Tidak ada varian untuk produk ini.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {variants.map((v, idx) => (
+                    <div
+                      key={v.id || idx}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 border border-border text-xs"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] text-muted-foreground font-normal">
+                          {v.option}
                         </span>
-                        {v.price ? (
-                          <span className="font-mono text-muted-foreground">
-                            +{formatIDR(v.price)}
-                          </span>
-                        ) : null}
+                        <span className="text-foreground font-medium">
+                          {v.value}
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                      {v.price ? (
+                        <span className="font-mono text-muted-foreground font-medium">
+                          +{formatIDR(v.price)}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

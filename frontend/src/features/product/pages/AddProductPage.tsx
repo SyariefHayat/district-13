@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import type { FieldErrors } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -63,7 +63,15 @@ export default function AddProductPage({
   onProductCreated,
 }: AddProductPageProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { authorizedFetch } = useAuth();
+
+  const editId = searchParams.get("edit");
+  React.useEffect(() => {
+    if (editId) {
+      navigate(`/dashboard/products/${editId}/edit`, { replace: true });
+    }
+  }, [editId, navigate]);
 
   const [backendCategories, setBackendCategories] = React.useState<
     BackendCategory[]
@@ -647,18 +655,57 @@ export default function AddProductPage({
           validSubCategoryId = data.subCategory;
         }
 
+        const validVariants = (data.variants || [])
+          .filter((v) => v.option.trim() && v.value.trim())
+          .map((v) => ({
+            id: v.id,
+            option: v.option.trim(),
+            value: v.value.trim(),
+            price: Number(v.price) || 0,
+          }));
+
         const productPayload: {
           name: string;
           price: string;
           categoryId: string;
           subCategoryId?: string;
+          sku?: string;
+          barcode?: string;
+          description?: string;
+          costPrice?: string;
+          chargeTax?: boolean;
+          inStock?: boolean;
+          status?: "draft" | "published" | "archived";
+          images?: string[];
+          variants?: typeof validVariants;
         } = {
           name: data.name.trim(),
           price: Number(sellingPrice).toFixed(2),
           categoryId: targetCategoryId,
+          chargeTax: data.chargeTax ?? false,
+          inStock: data.inStock ?? true,
+          status: targetStatus,
+          images: data.images ?? [],
+          variants: validVariants,
         };
         if (validSubCategoryId) {
           productPayload.subCategoryId = validSubCategoryId;
+        }
+        if (data.sku?.trim()) {
+          productPayload.sku = data.sku.trim();
+        }
+        if (data.barcode?.trim()) {
+          productPayload.barcode = data.barcode.trim();
+        }
+        if (data.description?.trim()) {
+          productPayload.description = data.description.trim();
+        }
+        if (
+          data.costPrice !== undefined &&
+          data.costPrice !== null &&
+          !isNaN(Number(data.costPrice))
+        ) {
+          productPayload.costPrice = Number(data.costPrice).toFixed(2);
         }
 
         const productRes = await authorizedFetch("/products", {

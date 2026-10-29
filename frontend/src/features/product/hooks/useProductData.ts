@@ -8,7 +8,21 @@ import {
 export interface BackendProduct {
   id: string;
   name: string;
+  sku?: string;
+  barcode?: string;
+  description?: string;
+  images?: string[];
   price: string | number;
+  costPrice?: string | number;
+  chargeTax?: boolean;
+  inStock?: boolean;
+  status?: string;
+  variants?: Array<{
+    id?: string;
+    option?: string;
+    value?: string;
+    price?: number;
+  }>;
   isActive: boolean;
   isAvailable: boolean;
   categoryId: string;
@@ -37,7 +51,7 @@ function mapBackendProduct(p: BackendProduct): ProductItem {
   const catPrefix = p.categoryName
     ? p.categoryName.slice(0, 3).toUpperCase()
     : "PRD";
-  const sku = `${catPrefix}-${shortId}`;
+  const sku = p.sku || `${catPrefix}-${shortId}`;
 
   return {
     id: p.id,
@@ -49,8 +63,42 @@ function mapBackendProduct(p: BackendProduct): ProductItem {
     isAvailable: Boolean(p.isAvailable),
     isActive: Boolean(p.isActive),
     soldCount: Number(p.soldCount ?? 0),
-    image: getPresetImageForCategory(p.categoryName || ""),
+    image:
+      p.images && p.images.length > 0
+        ? p.images[0]
+        : getPresetImageForCategory(p.categoryName || ""),
+    description: p.description,
+    costPrice:
+      p.costPrice !== undefined && p.costPrice !== null
+        ? Number(p.costPrice)
+        : undefined,
   };
+}
+
+function areProductListsEqual(a: ProductItem[], b: ProductItem[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const p1 = a[i];
+    const p2 = b[i];
+    if (
+      p1.id !== p2.id ||
+      p1.name !== p2.name ||
+      p1.sku !== p2.sku ||
+      p1.category !== p2.category ||
+      p1.price !== p2.price ||
+      p1.stock !== p2.stock ||
+      p1.isAvailable !== p2.isAvailable ||
+      p1.isActive !== p2.isActive ||
+      p1.soldCount !== p2.soldCount ||
+      p1.image !== p2.image ||
+      p1.description !== p2.description ||
+      p1.costPrice !== p2.costPrice
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export interface UseProductDataOptions {
@@ -105,7 +153,9 @@ export function useProductData(options?: UseProductDataOptions) {
         const mapped = (productsJson.data || []).map(mapBackendProduct);
 
         if (!controller.signal.aborted) {
-          setProducts(mapped);
+          setProducts((prev) =>
+            areProductListsEqual(prev, mapped) ? prev : mapped
+          );
           setLastSyncedAt(new Date());
           isInitialLoad.current = false;
         }

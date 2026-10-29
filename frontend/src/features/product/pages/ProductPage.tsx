@@ -72,7 +72,7 @@ export default function ProductPage() {
           navigate(`/dashboard/products/${product.id}`)
         }
         onEditProduct={(product) =>
-          navigate(`/dashboard/products/new?edit=${product.id}`)
+          navigate(`/dashboard/products/${product.id}/edit`)
         }
       />
     </div>

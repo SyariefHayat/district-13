@@ -70,9 +70,18 @@ export class ProductsService {
         .values({
           name: input.name.trim(),
           price: normalizePrice(input.price),
+          costPrice: input.costPrice ? normalizePrice(input.costPrice) : null,
+          chargeTax: input.chargeTax ?? false,
+          inStock: input.inStock ?? true,
+          status: input.status ?? 'published',
           categoryId: input.categoryId,
           subCategoryId: input.subCategoryId ?? null,
-          isActive: true,
+          sku: input.sku?.trim() || null,
+          barcode: input.barcode?.trim() || null,
+          description: input.description?.trim() || null,
+          images: input.images ?? [],
+          variants: input.variants ?? [],
+          isActive: input.status ? input.status === 'published' : true,
         })
         .returning();
       return product;
@@ -125,7 +134,16 @@ export class ProductsService {
         .select({
           id: products.id,
           name: products.name,
+          sku: products.sku,
+          barcode: products.barcode,
+          description: products.description,
+          images: products.images,
           price: products.price,
+          costPrice: products.costPrice,
+          chargeTax: products.chargeTax,
+          inStock: products.inStock,
+          status: products.status,
+          variants: products.variants,
           isActive: products.isActive,
           isAvailable: products.isAvailable,
           categoryId: products.categoryId,
@@ -157,11 +175,65 @@ export class ProductsService {
   }
 
   async findOne(id: string, actor: AuthenticatedUser) {
+    const invSubquery = this.database.db
+      .select({
+        productId: inventories.productId,
+        warehouseStock:
+          sql<number>`coalesce(sum(case when ${inventories.location} = 'WAREHOUSE' then ${inventories.stock} else 0 end), 0)::int`.as(
+            'warehouse_stock',
+          ),
+        displayStock:
+          sql<number>`coalesce(sum(case when ${inventories.location} = 'DISPLAY' then ${inventories.stock} else 0 end), 0)::int`.as(
+            'display_stock',
+          ),
+        totalStock: sql<number>`coalesce(sum(${inventories.stock}), 0)::int`.as(
+          'total_stock',
+        ),
+        lastUpdated: sql<string>`max(${inventories.updatedAt})`.as(
+          'last_updated',
+        ),
+      })
+      .from(inventories)
+      .where(eq(inventories.productId, id))
+      .groupBy(inventories.productId)
+      .as('inv');
+
+    const salesSubquery = this.database.db
+      .select({
+        productId: transactionItems.productId,
+        soldCount:
+          sql<number>`coalesce(sum(${transactionItems.quantity}), 0)::int`.as(
+            'sold_count',
+          ),
+      })
+      .from(transactionItems)
+      .innerJoin(
+        transactions,
+        eq(transactionItems.transactionId, transactions.id),
+      )
+      .where(
+        and(
+          eq(transactionItems.productId, id),
+          eq(transactions.status, 'COMPLETED'),
+        ),
+      )
+      .groupBy(transactionItems.productId)
+      .as('sales');
+
     const [product] = await this.database.db
       .select({
         id: products.id,
         name: products.name,
+        sku: products.sku,
+        barcode: products.barcode,
+        description: products.description,
+        images: products.images,
         price: products.price,
+        costPrice: products.costPrice,
+        chargeTax: products.chargeTax,
+        inStock: products.inStock,
+        status: products.status,
+        variants: products.variants,
         isActive: products.isActive,
         isAvailable: products.isAvailable,
         categoryId: products.categoryId,
@@ -169,10 +241,17 @@ export class ProductsService {
         categoryIsActive: categories.isActive,
         subCategoryId: products.subCategoryId,
         subCategoryName: subcategories.name,
+        warehouseStock: sql<number>`coalesce(${invSubquery.warehouseStock}, 0)::int`,
+        displayStock: sql<number>`coalesce(${invSubquery.displayStock}, 0)::int`,
+        stock: sql<number>`coalesce(${invSubquery.totalStock}, 0)::int`,
+        soldCount: sql<number>`coalesce(${salesSubquery.soldCount}, 0)::int`,
+        updatedAt: invSubquery.lastUpdated,
       })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(subcategories, eq(products.subCategoryId, subcategories.id))
+      .leftJoin(invSubquery, eq(products.id, invSubquery.productId))
+      .leftJoin(salesSubquery, eq(products.id, salesSubquery.productId))
       .where(eq(products.id, id))
       .limit(1);
     if (!product) throw new NotFoundException('Product not found');
@@ -196,13 +275,13 @@ export class ProductsService {
           ? and(eq(productAddons.productId, id), eq(addons.isActive, true))
           : eq(productAddons.productId, id),
       );
-    const displayStock =
+    const cashierDisplayStock =
       actor.role === 'CASHIER'
         ? await this.inventoryService.getDisplayStock([id])
         : undefined;
     return {
       ...product,
-      ...(displayStock && { displayStock: displayStock.get(id) ?? 0 }),
+      displayStock: cashierDisplayStock?.get(id) ?? product.displayStock ?? 0,
       addons: activeAddonRows,
     };
   }
@@ -214,9 +293,20 @@ export class ProductsService {
     )
       throw new ForbiddenException('You cannot change product prices');
     if (
-      [input.name, input.categoryId, input.subCategoryId].some(
-        (value) => value !== undefined,
-      ) &&
+      [
+        input.name,
+        input.categoryId,
+        input.subCategoryId,
+        input.sku,
+        input.barcode,
+        input.description,
+        input.costPrice,
+        input.chargeTax,
+        input.inStock,
+        input.status,
+        input.images,
+        input.variants,
+      ].some((value) => value !== undefined) &&
       !roleHasPermission(actor.role, PERMISSIONS.productsUpdateDetails)
     )
       throw new ForbiddenException('You cannot change product details');
@@ -233,6 +323,20 @@ export class ProductsService {
     const changes: Partial<typeof products.$inferInsert> = {};
     if (input.name !== undefined) changes.name = input.name.trim();
     if (input.price !== undefined) changes.price = normalizePrice(input.price);
+    if (input.sku !== undefined) changes.sku = input.sku?.trim() || null;
+    if (input.barcode !== undefined)
+      changes.barcode = input.barcode?.trim() || null;
+    if (input.description !== undefined)
+      changes.description = input.description?.trim() || null;
+    if (input.costPrice !== undefined)
+      changes.costPrice = input.costPrice
+        ? normalizePrice(input.costPrice)
+        : null;
+    if (input.chargeTax !== undefined) changes.chargeTax = input.chargeTax;
+    if (input.inStock !== undefined) changes.inStock = input.inStock;
+    if (input.status !== undefined) changes.status = input.status;
+    if (input.images !== undefined) changes.images = input.images;
+    if (input.variants !== undefined) changes.variants = input.variants;
     if (input.isActive !== undefined) changes.isActive = input.isActive;
     if (input.isAvailable !== undefined)
       changes.isAvailable = input.isAvailable;

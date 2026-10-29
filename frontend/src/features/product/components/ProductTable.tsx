@@ -109,6 +109,16 @@ export function ProductTable({
 
   const handleClearAllFilters = () => {
     setFilters([]);
+    setPagination((prev) =>
+      prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }
+    );
+  };
+
+  const handleFiltersChange = (newFilters: FilterItem[]) => {
+    setFilters(newFilters);
+    setPagination((prev) =>
+      prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 }
+    );
   };
 
   const filteredProducts = React.useMemo(() => {
@@ -469,12 +479,23 @@ export function ProductTable({
     },
     getRowId: (row) => row.id,
     enableRowSelection: true,
+    autoResetPageIndex: false,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
   });
+
+  const pageCount = table.getPageCount();
+  React.useEffect(() => {
+    if (pageCount > 0 && pagination.pageIndex >= pageCount) {
+      setPagination((prev) => ({
+        ...prev,
+        pageIndex: Math.max(0, pageCount - 1),
+      }));
+    }
+  }, [pageCount, pagination.pageIndex]);
 
   const selectedRows = table.getFilteredSelectedRowModel().rows;
   const selectedCount = selectedRows.length;
@@ -543,7 +564,7 @@ export function ProductTable({
           ) : (
             <ProductFilterBar
               filters={filters}
-              onFiltersChange={setFilters}
+              onFiltersChange={handleFiltersChange}
               categories={categories}
             />
           )}
