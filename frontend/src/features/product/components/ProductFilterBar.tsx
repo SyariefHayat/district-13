@@ -23,7 +23,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PRODUCT_CATEGORIES } from "../data/productData";
 
 export type FilterAttributeId =
   "search" | "status" | "category" | "price" | "stock";
@@ -57,7 +56,7 @@ export interface ProductFilterBarProps {
 export function ProductFilterBar({
   filters,
   onFiltersChange,
-  categories = PRODUCT_CATEGORIES,
+  categories = [],
 }: ProductFilterBarProps) {
   const [filterMenuOpen, setFilterMenuOpen] = React.useState(false);
   const [attributeSearch, setAttributeSearch] = React.useState("");
@@ -364,24 +363,30 @@ function ConditionPopover({
             <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
               Select category
             </div>
-            {categories
-              .filter((c) => c !== "Semua Kategori")
-              .map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => {
-                    onSelect(cat, cat);
-                    onOpenChange(false);
-                  }}
-                  className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
-                >
-                  <span>{cat}</span>
-                  {filter.value === cat && (
-                    <IconCheck className="size-3.5 text-primary" />
-                  )}
-                </button>
-              ))}
+            {categories.filter((c) => c !== "Semua Kategori").length === 0 ? (
+              <div className="px-2 py-2 text-xs text-muted-foreground">
+                Belum ada kategori di database
+              </div>
+            ) : (
+              categories
+                .filter((c) => c !== "Semua Kategori")
+                .map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      onSelect(cat, cat);
+                      onOpenChange(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+                  >
+                    <span>{cat}</span>
+                    {filter.value === cat && (
+                      <IconCheck className="size-3.5 text-primary" />
+                    )}
+                  </button>
+                ))
+            )}
           </div>
         )}
 

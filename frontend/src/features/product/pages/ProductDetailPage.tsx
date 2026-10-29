@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
+import { Spinner } from "@/components/ui/spinner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -287,6 +288,10 @@ export default function ProductDetailPage() {
   }, [id, authorizedFetch]);
 
   React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [id]);
+
+  React.useEffect(() => {
     void fetchSingleProduct();
   }, [fetchSingleProduct]);
 
@@ -450,24 +455,31 @@ export default function ProductDetailPage() {
     lastUpdatedDate,
   ]);
 
-  const handleDelete = async () => {
-    if (id && id !== "demo") {
-      try {
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  const handleDelete = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      if (id && id !== "demo") {
         await deleteProduct(id);
         toast.add({
           title: "Produk berhasil dihapus",
           description: `${detailData.name} telah dihapus dari database.`,
         });
         navigate("/dashboard/products");
-      } catch {
-        toast.add({
-          title: "Gagal menghapus produk",
-          description: "Terjadi kesalahan saat menghapus data.",
-        });
+      } else {
+        toast.add({ title: "Produk demo telah dihapus" });
+        navigate("/dashboard/products");
       }
-    } else {
-      toast.add({ title: "Produk demo telah dihapus" });
-      navigate("/dashboard/products");
+    } catch {
+      toast.add({
+        title: "Gagal menghapus produk",
+        description: "Terjadi kesalahan saat menghapus data.",
+      });
+      setIsDeleting(false);
     }
   };
 
@@ -535,10 +547,15 @@ export default function ProductDetailPage() {
                         type="button"
                         variant="outline"
                         size="icon"
+                        disabled={isDeleting}
                         className="size-9 border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
                         title="Hapus produk"
                       >
-                        <IconTrash className="size-4" />
+                        {isDeleting ? (
+                          <Spinner className="size-4" />
+                        ) : (
+                          <IconTrash className="size-4" />
+                        )}
                       </Button>
                     }
                   />
@@ -553,14 +570,19 @@ export default function ProductDetailPage() {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="border-border">
+                      <AlertDialogCancel
+                        disabled={isDeleting}
+                        className="border-border"
+                      >
                         Batal
                       </AlertDialogCancel>
                       <AlertDialogAction
+                        disabled={isDeleting}
                         onClick={handleDelete}
-                        className="bg-destructive hover:bg-destructive/90 text-white"
+                        className="bg-destructive hover:bg-destructive/90 text-white gap-2"
                       >
-                        Hapus
+                        {isDeleting && <Spinner className="size-3.5" />}
+                        <span>{isDeleting ? "Menghapus..." : "Hapus"}</span>
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

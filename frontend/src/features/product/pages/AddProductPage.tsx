@@ -44,17 +44,6 @@ export interface BackendSubcategory {
   isActive: boolean;
 }
 
-const DEFAULT_CATEGORY_OPTIONS = [
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00101", name: "Kopi" },
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00102", name: "Minuman Sachet" },
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00103", name: "Makanan" },
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00104", name: "Gorengan & Snack" },
-  {
-    id: "c1b07384-d113-4c92-a1f9-4d6d03d00105",
-    name: "Minuman Dingin & Kaleng",
-  },
-];
-
 interface AddProductPageProps {
   onProductCreated?: (product: ProductItem) => void;
 }
@@ -92,13 +81,10 @@ export default function AddProductPage({
   const [isDeletingCategory, setIsDeletingCategory] = React.useState(false);
 
   const categoriesList = React.useMemo(() => {
-    if (backendCategories.length > 0) {
-      return backendCategories.map((c) => ({
-        id: c.id,
-        name: c.name,
-      }));
-    }
-    return DEFAULT_CATEGORY_OPTIONS;
+    return backendCategories.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
   }, [backendCategories]);
 
   const form = useForm<AddProductFormData>({
@@ -113,8 +99,8 @@ export default function AddProductPage({
       costPrice: undefined,
       chargeTax: false,
       inStock: true,
-      warehouseStock: 50,
-      displayStock: 20,
+      warehouseStock: 0,
+      displayStock: 0,
       status: "published",
       category: "",
       subCategory: "",
@@ -158,23 +144,23 @@ export default function AddProductPage({
             ? data
             : data.data || [];
           const activeList = list.filter((c) => c.isActive);
-          if (isMounted && activeList.length > 0) {
+          if (isMounted) {
             setBackendCategories(activeList);
 
             // Synchronize selected category to matching backend UUID if already set
             const currentVal = form.getValues("category");
             if (currentVal) {
-              const matchedById = activeList.find((c) => c.id === currentVal);
-              const matchedByName = activeList.find(
-                (c) => c.name.toLowerCase() === currentVal.toLowerCase()
+              const matched = activeList.find(
+                (c) =>
+                  c.id === currentVal ||
+                  c.name.toLowerCase() === currentVal.toLowerCase()
               );
 
-              if (matchedById) {
-                setValue("category", matchedById.id, { shouldValidate: true });
-              } else if (matchedByName) {
-                setValue("category", matchedByName.id, {
-                  shouldValidate: true,
-                });
+              if (matched) {
+                setValue("category", matched.id, { shouldValidate: true });
+              } else {
+                setValue("category", "", { shouldValidate: true });
+                setValue("subCategory", "");
               }
             }
           }
@@ -408,83 +394,60 @@ export default function AddProductPage({
   };
 
   const handleDeleteCategory = async () => {
+    if (isDeletingCategory) return;
     const targetCategory = categoriesList.find(
       (c) => c.id === currentCategory || c.name === currentCategory
     );
     if (!targetCategory) return;
 
-    const isBackendCat = backendCategories.some(
-      (c) => c.id === targetCategory.id
-    );
-
-    if (isBackendCat) {
-      setIsDeletingCategory(true);
-      try {
-        const res = await authorizedFetch(`/categories/${targetCategory.id}`, {
-          method: "DELETE",
-        });
-        if (res.ok) {
-          const remaining = backendCategories.filter(
-            (c) => c.id !== targetCategory.id
-          );
-          setBackendCategories(remaining);
-          const nextCat = remaining[0];
-          if (nextCat) {
-            setValue("category", nextCat.id, { shouldValidate: true });
-            setValue("subCategory", "");
-          } else {
-            setValue("category", "", { shouldValidate: true });
-            setValue("subCategory", "");
-            setSubCategories([]);
-          }
-          toast.add({
-            title: "Kategori Berhasil Dihapus",
-            description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
-            type: "success",
-          });
+    setIsDeletingCategory(true);
+    try {
+      const res = await authorizedFetch(`/categories/${targetCategory.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        const remaining = backendCategories.filter(
+          (c) => c.id !== targetCategory.id
+        );
+        setBackendCategories(remaining);
+        const nextCat = remaining[0];
+        if (nextCat) {
+          setValue("category", nextCat.id, { shouldValidate: true });
+          setValue("subCategory", "");
         } else {
-          const body = await res.json().catch(() => ({}));
-          toast.add({
-            title: "Gagal Menghapus Kategori",
-            description:
-              typeof body.message === "string"
-                ? body.message
-                : "Kategori tidak dapat dihapus (mungkin masih terdapat produk aktif).",
-            type: "error",
-          });
+          setValue("category", "", { shouldValidate: true });
+          setValue("subCategory", "");
+          setSubCategories([]);
         }
-      } catch {
+        toast.add({
+          title: "Kategori Berhasil Dihapus",
+          description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
+          type: "success",
+        });
+      } else {
+        const body = await res.json().catch(() => ({}));
         toast.add({
           title: "Gagal Menghapus Kategori",
-          description: "Terjadi kesalahan jaringan saat menghapus kategori.",
+          description:
+            typeof body.message === "string"
+              ? body.message
+              : "Kategori tidak dapat dihapus (mungkin masih terdapat produk aktif).",
           type: "error",
         });
-      } finally {
-        setIsDeletingCategory(false);
       }
-    } else {
-      const remainingDefaults = categoriesList.filter(
-        (c) => c.id !== targetCategory.id
-      );
-      const nextCat = remainingDefaults[0];
-      if (nextCat) {
-        setValue("category", nextCat.id, { shouldValidate: true });
-        setValue("subCategory", "");
-      } else {
-        setValue("category", "", { shouldValidate: true });
-        setValue("subCategory", "");
-        setSubCategories([]);
-      }
+    } catch {
       toast.add({
-        title: "Kategori Berhasil Dihapus",
-        description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
-        type: "success",
+        title: "Gagal Menghapus Kategori",
+        description: "Terjadi kesalahan jaringan saat menghapus kategori.",
+        type: "error",
       });
+    } finally {
+      setIsDeletingCategory(false);
     }
   };
 
   const handleDeleteSubCategory = async (): Promise<boolean> => {
-    if (!currentSubCategory) return false;
+    if (isDeletingSubCategory || !currentSubCategory) return false;
 
     const targetSub = subCategories.find(
       (s) => s.id === currentSubCategory || s.name === currentSubCategory
@@ -836,8 +799,8 @@ export default function AddProductPage({
             costPrice: undefined,
             chargeTax: false,
             inStock: true,
-            warehouseStock: 50,
-            displayStock: 20,
+            warehouseStock: 0,
+            displayStock: 0,
             status: "published",
             category: data.category,
             subCategory: data.subCategory || "",

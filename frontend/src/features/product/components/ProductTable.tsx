@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
+import { Spinner } from "@/components/ui/spinner";
 import { formatProductPrice, type ProductItem } from "../data/productData";
 import { ProductFilterBar, type FilterItem } from "./ProductFilterBar";
 
@@ -88,8 +89,8 @@ interface ProductTableProps {
   isLoading?: boolean;
   onToggleStatus?: (productId: string) => void;
   onEditProduct?: (product: ProductItem) => void;
-  onDeleteProduct?: (productId: string) => void;
-  onDeleteMultiple?: (productIds: string[]) => void;
+  onDeleteProduct?: (productId: string) => void | Promise<void>;
+  onDeleteMultiple?: (productIds: string[]) => void | Promise<void>;
   onViewDetails?: (product: ProductItem) => void;
   onExport?: (selectedProducts: ProductItem[]) => void;
 }
@@ -195,6 +196,30 @@ export function ProductTable({
     pageIndex: 0,
     pageSize: 10,
   });
+  const [isDeletingSelected, setIsDeletingSelected] = React.useState(false);
+  const [deletingProductIds, setDeletingProductIds] = React.useState<
+    Set<string>
+  >(() => new Set());
+
+  const handleDeleteSingleProduct = React.useCallback(
+    async (productId: string, productName: string) => {
+      if (deletingProductIds.has(productId)) return;
+      setDeletingProductIds((prev) => new Set(prev).add(productId));
+      try {
+        await onDeleteProduct?.(productId);
+        toast.add({
+          title: `Produk "${productName}" dihapus`,
+        });
+      } finally {
+        setDeletingProductIds((prev) => {
+          const next = new Set(prev);
+          next.delete(productId);
+          return next;
+        });
+      }
+    },
+    [deletingProductIds, onDeleteProduct]
+  );
 
   const columns = React.useMemo(
     () =>
@@ -408,62 +433,89 @@ export function ProductTable({
         columnHelper.display({
           id: "actions",
           header: () => null,
-          cell: ({ row }) => (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    className="flex size-8 text-muted-foreground data-[state=open]:bg-muted ml-auto"
-                    size="icon"
-                  >
-                    <IconDots className="size-4" />
-                    <span className="sr-only">Open menu</span>
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-40">
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                  Actions
-                </div>
-                <DropdownMenuItem onClick={() => onViewDetails?.(row.original)}>
-                  View details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEditProduct?.(row.original)}>
-                  Edit
-                </DropdownMenuItem>
-                {onToggleStatus && (
+          cell: ({ row }) => {
+            const isDeletingThisRow = deletingProductIds.has(row.original.id);
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className="flex size-8 text-muted-foreground data-[state=open]:bg-muted ml-auto"
+                      size="icon"
+                    >
+                      <IconDots className="size-4" />
+                      <span className="sr-only">Buka menu aksi</span>
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    Aksi Produk
+                  </div>
                   <DropdownMenuItem
-                    onClick={() => onToggleStatus(row.original.id)}
+                    onClick={() => onViewDetails?.(row.original)}
                   >
-                    {row.original.isAvailable
-                      ? "Set out of stock"
-                      : "Set available"}
+                    Lihat detail produk
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={() => {
-                    void navigator.clipboard.writeText(row.original.id);
-                    toast.add({ title: "ID copied to clipboard" });
-                  }}
-                >
-                  Copy ID
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => onDeleteProduct?.(row.original.id)}
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ),
+                  <DropdownMenuItem
+                    onClick={() => onEditProduct?.(row.original)}
+                  >
+                    Ubah data produk
+                  </DropdownMenuItem>
+                  {onToggleStatus && (
+                    <DropdownMenuItem
+                      onClick={() => onToggleStatus(row.original.id)}
+                    >
+                      {row.original.isAvailable
+                        ? "Tandai stok habis"
+                        : "Tandai stok tersedia"}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void navigator.clipboard.writeText(row.original.id);
+                      toast.add({ title: "ID produk berhasil disalin" });
+                    }}
+                  >
+                    Salin ID produk
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={isDeletingThisRow}
+                    onClick={() => {
+                      if (isDeletingThisRow) return;
+                      void handleDeleteSingleProduct(
+                        row.original.id,
+                        row.original.name
+                      );
+                    }}
+                  >
+                    {isDeletingThisRow ? (
+                      <span className="flex items-center gap-2">
+                        <Spinner className="size-3.5" />
+                        Menghapus...
+                      </span>
+                    ) : (
+                      "Hapus produk"
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          },
           enableSorting: false,
           enableHiding: false,
         }),
       ]),
-    [onViewDetails, onEditProduct, onToggleStatus, onDeleteProduct]
+    [
+      onViewDetails,
+      onEditProduct,
+      onToggleStatus,
+      handleDeleteSingleProduct,
+      deletingProductIds,
+    ]
   );
 
   const table = useTable({
@@ -500,17 +552,25 @@ export function ProductTable({
   const selectedRows = table.getFilteredSelectedRowModel().rows;
   const selectedCount = selectedRows.length;
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
+    if (isDeletingSelected) return;
     const ids = selectedRows.map((r) => r.original.id);
-    if (onDeleteMultiple) {
-      onDeleteMultiple(ids);
-    } else if (onDeleteProduct) {
-      ids.forEach((id) => onDeleteProduct(id));
+    if (ids.length === 0) return;
+
+    setIsDeletingSelected(true);
+    try {
+      if (onDeleteMultiple) {
+        await onDeleteMultiple(ids);
+      } else if (onDeleteProduct) {
+        await Promise.all(ids.map((id) => onDeleteProduct(id)));
+      }
+      table.resetRowSelection();
+      toast.add({
+        title: `${ids.length} produk berhasil dihapus`,
+      });
+    } finally {
+      setIsDeletingSelected(false);
     }
-    table.resetRowSelection();
-    toast.add({
-      title: `${selectedCount} item${selectedCount > 1 ? "s" : ""} deleted`,
-    });
   };
 
   const handleExport = () => {
@@ -527,7 +587,7 @@ export function ProductTable({
       a.click();
       URL.revokeObjectURL(url);
       toast.add({
-        title: `Exported ${itemsToExport.length} products`,
+        title: `Berhasil mengekspor ${itemsToExport.length} produk`,
       });
     }
   };
@@ -540,7 +600,7 @@ export function ProductTable({
           {selectedCount > 0 ? (
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">
-                {selectedCount} selected
+                {selectedCount} dipilih
               </span>
               <Button
                 variant="outline"
@@ -549,16 +609,21 @@ export function ProductTable({
                 onClick={handleExport}
               >
                 <IconDownload className="size-4" />
-                <span>Export</span>
+                <span>Ekspor</span>
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
                 className="gap-1.5 bg-red-500/15 text-red-600 hover:bg-red-500/25 border border-red-500/30 shadow-none dark:bg-red-500/20 dark:text-red-400"
                 onClick={handleDeleteSelected}
+                disabled={isDeletingSelected}
               >
-                <IconTrash className="size-4" />
-                <span>Delete</span>
+                {isDeletingSelected ? (
+                  <Spinner className="size-4" />
+                ) : (
+                  <IconTrash className="size-4" />
+                )}
+                <span>{isDeletingSelected ? "Menghapus..." : "Hapus"}</span>
               </Button>
             </div>
           ) : (
@@ -576,7 +641,7 @@ export function ProductTable({
                 size="sm"
                 onClick={() => table.resetRowSelection()}
               >
-                Cancel
+                Batal
               </Button>
             ) : (
               filters.length > 0 && (
@@ -585,7 +650,7 @@ export function ProductTable({
                   size="sm"
                   onClick={handleClearAllFilters}
                 >
-                  Clear
+                  Reset filter
                 </Button>
               )
             )}

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import {
   PERMISSIONS,
@@ -16,6 +16,7 @@ import {
   addons,
   categories,
   inventories,
+  inventoryMovements,
   productAddons,
   products,
   subcategories,
@@ -99,6 +100,10 @@ export class ProductsService {
     }
     if (query.categoryId)
       filters.push(eq(products.categoryId, query.categoryId));
+
+    // Exclude archived products by default
+    filters.push(ne(products.status, 'archived'));
+
     const where = filters.length ? and(...filters) : undefined;
 
     const invSubquery = this.database.db
@@ -403,14 +408,48 @@ export class ProductsService {
     });
   }
 
+  async remove(id: string) {
+    return this.database.db.transaction(async (tx) => {
+      const [product] = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(eq(products.id, id))
+        .for('update');
+      if (!product) throw new NotFoundException('Product not found');
+
+      // Check if product has historical sales transactions
+      const [txItem] = await tx
+        .select({ count: count() })
+        .from(transactionItems)
+        .where(eq(transactionItems.productId, id));
+
+      if (txItem && Number(txItem.count) > 0) {
+        // Archive product to preserve accounting integrity
+        const [archived] = await tx
+          .update(products)
+          .set({ isActive: false, isAvailable: false, status: 'archived' })
+          .where(eq(products.id, id))
+          .returning();
+        return archived;
+      }
+
+      // If no sales history, safely cascade delete related records and the product
+      await tx.delete(productAddons).where(eq(productAddons.productId, id));
+      await tx
+        .delete(inventoryMovements)
+        .where(eq(inventoryMovements.productId, id));
+      await tx.delete(inventories).where(eq(inventories.productId, id));
+      const [deleted] = await tx
+        .delete(products)
+        .where(eq(products.id, id))
+        .returning();
+
+      return deleted;
+    });
+  }
+
   async deactivate(id: string) {
-    const [product] = await this.database.db
-      .update(products)
-      .set({ isActive: false })
-      .where(eq(products.id, id))
-      .returning();
-    if (!product) throw new NotFoundException('Product not found');
-    return product;
+    return this.remove(id);
   }
 
   async setAddons(id: string, input: SetProductAddonsDto) {

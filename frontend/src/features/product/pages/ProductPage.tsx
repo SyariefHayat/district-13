@@ -63,7 +63,7 @@ export default function ProductPage() {
       <ProductStatsCards products={products} isLoading={isLoading} />
       <ProductTable
         products={products}
-        categories={categories.length > 0 ? categories : undefined}
+        categories={categories}
         isLoading={isLoading}
         onToggleStatus={toggleStatus}
         onDeleteProduct={deleteProduct}

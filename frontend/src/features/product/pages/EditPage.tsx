@@ -40,6 +40,8 @@ import {
   type BackendAddon,
 } from "../components/form";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export interface BackendSubcategory {
   id: string;
@@ -48,16 +50,178 @@ export interface BackendSubcategory {
   isActive: boolean;
 }
 
-const DEFAULT_CATEGORY_OPTIONS = [
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00101", name: "Kopi" },
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00102", name: "Minuman Sachet" },
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00103", name: "Makanan" },
-  { id: "c1b07384-d113-4c92-a1f9-4d6d03d00104", name: "Gorengan & Snack" },
-  {
-    id: "c1b07384-d113-4c92-a1f9-4d6d03d00105",
-    name: "Minuman Dingin & Kaleng",
-  },
-];
+function EditPageSkeleton() {
+  return (
+    <div className="w-full max-w-310 space-y-6">
+      {/* Top Header Bar Skeleton */}
+      <div className="flex items-center justify-between pb-2">
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-9 rounded-lg" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-6 w-36 md:w-48 rounded-md" />
+            <Skeleton className="h-3.5 w-56 md:w-72 rounded-md" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-18 rounded-lg" />
+          <Skeleton className="h-9 w-28 rounded-lg" />
+          <Skeleton className="h-9 w-36 rounded-lg" />
+        </div>
+      </div>
+
+      {/* 2-Column Layout Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: Details, Images, Variants, Addons (8 cols) */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Detail Product Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3 space-y-2">
+              <Skeleton className="h-5 w-32 rounded-md" />
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Name */}
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+              {/* SKU & Barcode */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-16 rounded" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-16 rounded" />
+                  <Skeleton className="h-10 w-full rounded-lg" />
+                </div>
+              </div>
+              {/* Description */}
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32 rounded" />
+                <Skeleton className="h-24 w-full rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Product Image Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3 space-y-2">
+              <Skeleton className="h-5 w-40 rounded-md" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} className="aspect-square rounded-xl" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Product Variant Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <Skeleton className="h-5 w-32 rounded-md" />
+              <Skeleton className="h-8 w-24 rounded-lg" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-10 flex-[4] rounded-lg" />
+                <Skeleton className="h-10 flex-[4] rounded-lg" />
+                <Skeleton className="h-10 flex-[3] rounded-lg" />
+                <Skeleton className="h-10 w-[72px] rounded-lg" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-10 flex-[4] rounded-lg" />
+                <Skeleton className="h-10 flex-[4] rounded-lg" />
+                <Skeleton className="h-10 flex-[3] rounded-lg" />
+                <Skeleton className="h-10 w-[72px] rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Product Addon Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <Skeleton className="h-5 w-36 rounded-md" />
+              <Skeleton className="h-8 w-28 rounded-lg" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* RIGHT COLUMN: Price, Stock, Status, Category (4 cols) */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Price Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3 space-y-2">
+              <Skeleton className="h-5 w-24 rounded-md" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-20 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stock Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3 space-y-2">
+              <Skeleton className="h-5 w-28 rounded-md" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Status Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3 space-y-2">
+              <Skeleton className="h-5 w-28 rounded-md" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </CardContent>
+          </Card>
+
+          {/* Category Card Skeleton */}
+          <Card className="border-border shadow-xs">
+            <CardHeader className="pb-3 space-y-2">
+              <Skeleton className="h-5 w-36 rounded-md" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-20 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-10 w-full rounded-lg" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const EMPTY_FORM_VALUES: AddProductFormData = {
   name: "",
@@ -121,16 +285,13 @@ export default function EditPage({
   >(null);
   const isSaving = savingStatus !== null;
   const [isDeletingCategory, setIsDeletingCategory] = React.useState(false);
-  const [isLoadingProduct, setIsLoadingProduct] = React.useState(false);
+  const [isLoadingProduct, setIsLoadingProduct] = React.useState(true);
 
   const categoriesList = React.useMemo(() => {
-    if (backendCategories.length > 0) {
-      return backendCategories.map((c) => ({
-        id: c.id,
-        name: c.name,
-      }));
-    }
-    return DEFAULT_CATEGORY_OPTIONS;
+    return backendCategories.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
   }, [backendCategories]);
 
   const form = useForm<AddProductFormData>({
@@ -162,6 +323,10 @@ export default function EditPage({
   const currentDisplayStock = watch("displayStock") || 0;
   const currentAddonIds = watch("addonIds") || [];
 
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [params.id]);
+
   // If no ID is provided, automatically find the first real product from backend
   React.useEffect(() => {
     const urlId =
@@ -176,6 +341,7 @@ export default function EditPage({
 
     let isMounted = true;
     async function fetchFirstProduct() {
+      setIsLoadingProduct(true);
       try {
         const res = await authorizedFetch("/products?page=1&limit=1");
         if (res.ok) {
@@ -183,10 +349,17 @@ export default function EditPage({
           const list = Array.isArray(json) ? json : json.data || [];
           if (isMounted && list.length > 0 && list[0].id) {
             setResolvedProductId(list[0].id);
+          } else if (isMounted) {
+            setIsLoadingProduct(false);
           }
+        } else if (isMounted) {
+          setIsLoadingProduct(false);
         }
       } catch (err) {
         console.warn("Could not fetch first product:", err);
+        if (isMounted) {
+          setIsLoadingProduct(false);
+        }
       }
     }
 
@@ -208,7 +381,7 @@ export default function EditPage({
             ? data
             : data.data || [];
           const activeList = list.filter((c) => c.isActive);
-          if (isMounted && activeList.length > 0) {
+          if (isMounted) {
             setBackendCategories(activeList);
           }
         }
@@ -254,7 +427,10 @@ export default function EditPage({
 
   // 3. Load real product data from backend API
   React.useEffect(() => {
-    if (!resolvedProductId || resolvedProductId === "demo") return;
+    if (!resolvedProductId || resolvedProductId === "demo") {
+      setIsLoadingProduct(false);
+      return;
+    }
 
     let isMounted = true;
     async function loadProductData() {
@@ -548,83 +724,60 @@ export default function EditPage({
   };
 
   const handleDeleteCategory = async () => {
+    if (isDeletingCategory) return;
     const targetCategory = categoriesList.find(
       (c) => c.id === currentCategory || c.name === currentCategory
     );
     if (!targetCategory) return;
 
-    const isBackendCat = backendCategories.some(
-      (c) => c.id === targetCategory.id
-    );
-
-    if (isBackendCat) {
-      setIsDeletingCategory(true);
-      try {
-        const res = await authorizedFetch(`/categories/${targetCategory.id}`, {
-          method: "DELETE",
-        });
-        if (res.ok) {
-          const remaining = backendCategories.filter(
-            (c) => c.id !== targetCategory.id
-          );
-          setBackendCategories(remaining);
-          const nextCat = remaining[0];
-          if (nextCat) {
-            setValue("category", nextCat.id, { shouldValidate: true });
-            setValue("subCategory", "");
-          } else {
-            setValue("category", "", { shouldValidate: true });
-            setValue("subCategory", "");
-            setSubCategories([]);
-          }
-          toast.add({
-            title: "Kategori Berhasil Dihapus",
-            description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
-            type: "success",
-          });
+    setIsDeletingCategory(true);
+    try {
+      const res = await authorizedFetch(`/categories/${targetCategory.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        const remaining = backendCategories.filter(
+          (c) => c.id !== targetCategory.id
+        );
+        setBackendCategories(remaining);
+        const nextCat = remaining[0];
+        if (nextCat) {
+          setValue("category", nextCat.id, { shouldValidate: true });
+          setValue("subCategory", "");
         } else {
-          const body = await res.json().catch(() => ({}));
-          toast.add({
-            title: "Gagal Menghapus Kategori",
-            description:
-              typeof body.message === "string"
-                ? body.message
-                : "Kategori tidak dapat dihapus (mungkin masih terdapat produk aktif).",
-            type: "error",
-          });
+          setValue("category", "", { shouldValidate: true });
+          setValue("subCategory", "");
+          setSubCategories([]);
         }
-      } catch {
+        toast.add({
+          title: "Kategori Berhasil Dihapus",
+          description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
+          type: "success",
+        });
+      } else {
+        const body = await res.json().catch(() => ({}));
         toast.add({
           title: "Gagal Menghapus Kategori",
-          description: "Terjadi kesalahan jaringan saat menghapus kategori.",
+          description:
+            typeof body.message === "string"
+              ? body.message
+              : "Kategori tidak dapat dihapus (mungkin masih terdapat produk aktif).",
           type: "error",
         });
-      } finally {
-        setIsDeletingCategory(false);
       }
-    } else {
-      const remainingDefaults = categoriesList.filter(
-        (c) => c.id !== targetCategory.id
-      );
-      const nextCat = remainingDefaults[0];
-      if (nextCat) {
-        setValue("category", nextCat.id, { shouldValidate: true });
-        setValue("subCategory", "");
-      } else {
-        setValue("category", "", { shouldValidate: true });
-        setValue("subCategory", "");
-        setSubCategories([]);
-      }
+    } catch {
       toast.add({
-        title: "Kategori Berhasil Dihapus",
-        description: `Kategori "${targetCategory.name}" berhasil dihapus.`,
-        type: "success",
+        title: "Gagal Menghapus Kategori",
+        description: "Terjadi kesalahan jaringan saat menghapus kategori.",
+        type: "error",
       });
+    } finally {
+      setIsDeletingCategory(false);
     }
   };
 
   const handleDeleteSubCategory = async (): Promise<boolean> => {
-    if (!currentSubCategory) return false;
+    if (isDeletingSubCategory || !currentSubCategory) return false;
 
     const targetSub = subCategories.find(
       (s) => s.id === currentSubCategory || s.name === currentSubCategory
@@ -921,169 +1074,170 @@ export default function EditPage({
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 p-4 md:p-8 flex justify-center">
-      <div className="w-full max-w-310 space-y-6">
-        {/* Top Header Bar */}
-        <div className="flex items-center justify-between pb-2">
-          {/* Back button + Title */}
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => navigate("/dashboard/products")}
-              title="Kembali ke daftar produk"
-            >
-              <IconChevronLeft className="size-4" />
-            </Button>
-            <div>
-              <div className="flex items-center gap-2">
+      {isLoadingProduct ? (
+        <EditPageSkeleton />
+      ) : (
+        <div className="w-full max-w-310 space-y-6">
+          {/* Top Header Bar */}
+          <div className="flex items-center justify-between pb-2">
+            {/* Back button + Title */}
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => navigate("/dashboard/products")}
+                title="Kembali ke daftar produk"
+              >
+                <IconChevronLeft className="size-4" />
+              </Button>
+              <div>
                 <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
                   Edit Produk
                 </h1>
-                {isLoadingProduct && (
-                  <Spinner className="size-4 text-zinc-400" />
-                )}
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Perbarui rincian, harga, stok, dan kategori produk
+                </p>
               </div>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Perbarui rincian, harga, stok, dan kategori produk
-              </p>
             </div>
-          </div>
 
-          {/* Action Buttons: Batal, Simpan Draf, Simpan Perubahan */}
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={isSubmitting || isSaving}
-              onClick={() => navigate("/dashboard/products")}
-            >
-              Batal
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isSubmitting || isSaving}
-              onClick={() => submitWithStatus("draft")}
-              className="gap-2"
-            >
-              {savingStatus === "draft" && <Spinner className="size-4" />}
-              <span>
-                {savingStatus === "draft" ? "Menyimpan Draf..." : "Simpan Draf"}
-              </span>
-            </Button>
-            {/* Split Button: Simpan Perubahan | ▾ */}
-            <div className="flex items-center -space-x-px">
+            {/* Action Buttons: Batal, Simpan Draf, Simpan Perubahan */}
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant="default"
+                variant="ghost"
                 disabled={isSubmitting || isSaving}
-                onClick={() => submitWithStatus("published", false)}
-                className="rounded-r-none gap-2 pr-3"
+                onClick={() => navigate("/dashboard/products")}
               >
-                {savingStatus === "published" ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  <IconCheck className="size-4" />
-                )}
+                Batal
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmitting || isSaving}
+                onClick={() => submitWithStatus("draft")}
+                className="gap-2"
+              >
+                {savingStatus === "draft" && <Spinner className="size-4" />}
                 <span>
-                  {savingStatus === "published"
-                    ? "Menyimpan..."
-                    : "Simpan Perubahan"}
+                  {savingStatus === "draft"
+                    ? "Menyimpan Draf..."
+                    : "Simpan Draf"}
                 </span>
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="icon"
-                      disabled={isSubmitting || isSaving}
-                      className="rounded-l-none px-2"
-                      title="Opsi simpan lainnya"
-                    >
-                      <IconChevronDown className="size-4" />
-                    </Button>
-                  }
-                />
-                <DropdownMenuContent
-                  align="end"
-                  className="bg-[#18181b] border-zinc-800 text-zinc-200 min-w-[170px]"
+              {/* Split Button: Simpan Perubahan | ▾ */}
+              <div className="flex items-center -space-x-px">
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={isSubmitting || isSaving}
+                  onClick={() => submitWithStatus("published", false)}
+                  className="rounded-r-none gap-2 pr-3"
                 >
-                  <DropdownMenuItem
-                    onClick={() => submitWithStatus("published", true)}
-                    className="cursor-pointer gap-2 py-2 text-xs md:text-sm hover:bg-zinc-800"
+                  {savingStatus === "published" ? (
+                    <Spinner className="size-4" />
+                  ) : (
+                    <IconCheck className="size-4" />
+                  )}
+                  <span>
+                    {savingStatus === "published"
+                      ? "Menyimpan..."
+                      : "Simpan Perubahan"}
+                  </span>
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="icon"
+                        disabled={isSubmitting || isSaving}
+                        className="rounded-l-none px-2"
+                        title="Opsi simpan lainnya"
+                      >
+                        <IconChevronDown className="size-4" />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent
+                    align="end"
+                    className="bg-[#18181b] border-zinc-800 text-zinc-200 min-w-[170px]"
                   >
-                    <span>Simpan & tetap di halaman</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem
+                      onClick={() => submitWithStatus("published", true)}
+                      className="cursor-pointer gap-2 py-2 text-xs md:text-sm hover:bg-zinc-800"
+                    >
+                      <span>Simpan & tetap di halaman</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </div>
+
+          {/* 2-Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN: Details, Images, Variants, Addons (8 cols) */}
+            <div className="lg:col-span-8 space-y-6">
+              <DetailProduct control={control} errors={errors} />
+
+              <ProductImage
+                images={currentImages}
+                onChange={(imgs) =>
+                  setValue("images", imgs, { shouldValidate: true })
+                }
+              />
+
+              <ProductVariant control={control} />
+
+              <ProductAddon
+                addons={addons}
+                selectedAddonIds={currentAddonIds}
+                isLoading={isLoadingAddons}
+                onToggleAddon={handleToggleAddon}
+                onAddNewAddon={handleAddNewAddon}
+              />
+            </div>
+
+            {/* RIGHT COLUMN: Pricing, Stock, Status, Categories (4 cols) */}
+            <div className="lg:col-span-4 space-y-6">
+              <ProductPrice
+                control={control}
+                errors={errors}
+                price={currentPrice}
+                costPrice={currentCostPrice}
+                chargeTax={currentChargeTax}
+              />
+
+              <ProductStock
+                control={control}
+                errors={errors}
+                warehouseStock={currentWarehouseStock}
+                displayStock={currentDisplayStock}
+              />
+
+              <ProductStatus control={control} currentStatus={currentStatus} />
+
+              <ProductCategory
+                control={control}
+                categoriesList={categoriesList}
+                subCategories={subCategories}
+                currentCategory={currentCategory}
+                currentSubCategory={currentSubCategory}
+                isDeletingCategory={isDeletingCategory}
+                isDeletingSubCategory={isDeletingSubCategory}
+                isLoadingSubCategories={isLoadingSubCategories}
+                onCategoryChange={handleCategoryChange}
+                onAddCategory={handleAddCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onAddSubCategory={handleAddSubCategory}
+                onDeleteSubCategory={handleDeleteSubCategory}
+              />
             </div>
           </div>
         </div>
-
-        {/* 2-Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: Details, Images, Variants, Addons (8 cols) */}
-          <div className="lg:col-span-8 space-y-6">
-            <DetailProduct control={control} errors={errors} />
-
-            <ProductImage
-              images={currentImages}
-              onChange={(imgs) =>
-                setValue("images", imgs, { shouldValidate: true })
-              }
-            />
-
-            <ProductVariant control={control} />
-
-            <ProductAddon
-              addons={addons}
-              selectedAddonIds={currentAddonIds}
-              isLoading={isLoadingAddons}
-              onToggleAddon={handleToggleAddon}
-              onAddNewAddon={handleAddNewAddon}
-            />
-          </div>
-
-          {/* RIGHT COLUMN: Pricing, Stock, Status, Categories (4 cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            <ProductPrice
-              control={control}
-              errors={errors}
-              price={currentPrice}
-              costPrice={currentCostPrice}
-              chargeTax={currentChargeTax}
-            />
-
-            <ProductStock
-              control={control}
-              errors={errors}
-              warehouseStock={currentWarehouseStock}
-              displayStock={currentDisplayStock}
-            />
-
-            <ProductStatus control={control} currentStatus={currentStatus} />
-
-            <ProductCategory
-              control={control}
-              categoriesList={categoriesList}
-              subCategories={subCategories}
-              currentCategory={currentCategory}
-              currentSubCategory={currentSubCategory}
-              isDeletingCategory={isDeletingCategory}
-              isDeletingSubCategory={isDeletingSubCategory}
-              isLoadingSubCategories={isLoadingSubCategories}
-              onCategoryChange={handleCategoryChange}
-              onAddCategory={handleAddCategory}
-              onDeleteCategory={handleDeleteCategory}
-              onAddSubCategory={handleAddSubCategory}
-              onDeleteSubCategory={handleDeleteSubCategory}
-            />
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

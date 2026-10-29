@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "@/components/ui/toast";
 import {
   getPresetImageForCategory,
   type ProductItem,
@@ -117,6 +118,7 @@ export function useProductData(options?: UseProductDataOptions) {
 
   const abortRef = useRef<AbortController | null>(null);
   const isInitialLoad = useRef(true);
+  const deletingIdsRef = useRef<Set<string>>(new Set());
 
   const fetchProducts = useCallback(
     async (silent = false) => {
@@ -169,8 +171,12 @@ export function useProductData(options?: UseProductDataOptions) {
           const categoryNames = rawCategories
             .filter((c) => c.isActive)
             .map((c) => c.name);
-          if (!controller.signal.aborted && categoryNames.length > 0) {
-            setCategories(["Semua Kategori", ...categoryNames]);
+          if (!controller.signal.aborted) {
+            setCategories(
+              categoryNames.length > 0
+                ? ["Semua Kategori", ...categoryNames]
+                : []
+            );
           }
         }
       } catch (err) {
@@ -260,6 +266,9 @@ export function useProductData(options?: UseProductDataOptions) {
 
   const deleteProduct = useCallback(
     async (productId: string) => {
+      if (deletingIdsRef.current.has(productId)) return;
+      deletingIdsRef.current.add(productId);
+
       const previous = [...products];
       setProducts((prev) => prev.filter((item) => item.id !== productId));
 
@@ -268,12 +277,27 @@ export function useProductData(options?: UseProductDataOptions) {
           method: "DELETE",
         });
         if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          toast.add({
+            title: "Gagal menghapus produk",
+            description:
+              typeof body.message === "string"
+                ? body.message
+                : "Terjadi kesalahan pada server",
+          });
           setProducts(previous);
         } else {
           void fetchProducts(true);
         }
-      } catch {
+      } catch (err) {
+        toast.add({
+          title: "Gagal menghapus produk",
+          description:
+            err instanceof Error ? err.message : "Koneksi bermasalah",
+        });
         setProducts(previous);
+      } finally {
+        deletingIdsRef.current.delete(productId);
       }
     },
     [products, authorizedFetch, fetchProducts]
@@ -281,20 +305,39 @@ export function useProductData(options?: UseProductDataOptions) {
 
   const deleteMultiple = useCallback(
     async (productIds: string[]) => {
+      const targetIds = productIds.filter(
+        (id) => !deletingIdsRef.current.has(id)
+      );
+      if (targetIds.length === 0) return;
+      targetIds.forEach((id) => deletingIdsRef.current.add(id));
+
       const previous = [...products];
       setProducts((prev) =>
-        prev.filter((item) => !productIds.includes(item.id))
+        prev.filter((item) => !targetIds.includes(item.id))
       );
 
       try {
-        await Promise.all(
-          productIds.map((id) =>
+        const results = await Promise.all(
+          targetIds.map((id) =>
             authorizedFetch(`/products/${id}`, { method: "DELETE" })
           )
         );
+        const hasFailures = results.some((r) => !r.ok);
+        if (hasFailures) {
+          toast.add({
+            title: "Beberapa produk gagal dihapus",
+          });
+        }
         void fetchProducts(true);
-      } catch {
+      } catch (err) {
+        toast.add({
+          title: "Gagal menghapus produk",
+          description:
+            err instanceof Error ? err.message : "Koneksi bermasalah",
+        });
         setProducts(previous);
+      } finally {
+        targetIds.forEach((id) => deletingIdsRef.current.delete(id));
       }
     },
     [products, authorizedFetch, fetchProducts]

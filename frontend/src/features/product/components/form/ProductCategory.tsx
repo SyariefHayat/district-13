@@ -90,7 +90,11 @@ export function ProductCategory({
 
   const categorySelectItems = React.useMemo(
     () => [
-      { label: "Pilih kategori", value: null },
+      {
+        label:
+          categoriesList.length === 0 ? "Belum ada kategori" : "Pilih kategori",
+        value: null,
+      },
       ...categoriesList.map((cat) => ({ label: cat.name, value: cat.id })),
     ],
     [categoriesList]
@@ -101,7 +105,9 @@ export function ProductCategory({
       {
         label: isLoadingSubCategories
           ? "Memuat sub-kategori..."
-          : "Pilih sub-kategori",
+          : subCategories.length === 0
+            ? "Belum ada sub-kategori"
+            : "Pilih sub-kategori",
         value: null,
       },
       ...subCategories.map((sub) => ({ label: sub.name, value: sub.id })),
@@ -162,7 +168,10 @@ export function ProductCategory({
                   value={field.value || null}
                   onValueChange={onCategoryChange}
                 >
-                  <SelectTrigger className="flex-1 flex items-center justify-between text-xs md:text-sm">
+                  <SelectTrigger
+                    disabled={categoriesList.length === 0}
+                    className="flex-1 flex items-center justify-between text-xs md:text-sm"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent
@@ -216,7 +225,14 @@ export function ProductCategory({
                   value={field.value || null}
                   onValueChange={(val) => field.onChange(val || "")}
                 >
-                  <SelectTrigger className="flex-1 flex items-center justify-between text-xs md:text-sm">
+                  <SelectTrigger
+                    disabled={
+                      !currentCategory ||
+                      subCategories.length === 0 ||
+                      isLoadingSubCategories
+                    }
+                    className="flex-1 flex items-center justify-between text-xs md:text-sm"
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent
@@ -344,7 +360,9 @@ export function ProductCategory({
             <AlertDialogAction
               variant="destructive"
               disabled={isDeletingCategory}
-              onClick={async () => {
+              onClick={async (e) => {
+                e.preventDefault();
+                if (isDeletingCategory) return;
                 await onDeleteCategory();
                 setIsDeleteCatAlertOpen(false);
               }}
@@ -377,7 +395,9 @@ export function ProductCategory({
             <AlertDialogAction
               variant="destructive"
               disabled={isDeletingSubCategory}
-              onClick={async () => {
+              onClick={async (e) => {
+                e.preventDefault();
+                if (isDeletingSubCategory) return;
                 await onDeleteSubCategory();
                 setIsDeleteSubAlertOpen(false);
               }}

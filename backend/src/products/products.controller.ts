@@ -91,8 +91,8 @@ export class ProductsController {
 
   @Delete(':id')
   @Permissions(PERMISSIONS.productsDeactivate)
-  deactivate(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.productsService.deactivate(id);
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.productsService.remove(id);
   }
 
   @Put(':id/addons')
