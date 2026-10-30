@@ -5,6 +5,7 @@ import {
   IconCircleDot,
   IconCurrencyDollar,
   IconDotsVertical,
+  IconLink,
   IconSearch,
   IconTag,
   IconX,
@@ -23,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export type AddonFilterAttributeId = "search" | "status" | "category" | "price";
+export type AddonFilterAttributeId =
+  "addon" | "category" | "price" | "linkedProducts" | "status";
 
 export interface AddonFilterItem {
   id: AddonFilterAttributeId;
@@ -38,10 +40,11 @@ interface AttributeDef {
 }
 
 const ATTRIBUTES: AttributeDef[] = [
-  { id: "search", label: "Search", icon: IconSearch },
+  { id: "addon", label: "Add-on", icon: IconSearch },
+  { id: "category", label: "Kategori", icon: IconTag },
+  { id: "price", label: "Harga", icon: IconCurrencyDollar },
+  { id: "linkedProducts", label: "Menu Terkait", icon: IconLink },
   { id: "status", label: "Status", icon: IconCircleDot },
-  { id: "category", label: "Category", icon: IconTag },
-  { id: "price", label: "Price", icon: IconCurrencyDollar },
 ];
 
 export interface AddonFilterBarProps {
@@ -153,7 +156,7 @@ export function AddonFilterBar({
                     className="flex items-center justify-center size-7 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-r-lg transition-colors cursor-pointer"
                   >
                     <IconDotsVertical className="size-3.5" />
-                    <span className="sr-only">Options</span>
+                    <span className="sr-only">Opsi</span>
                   </button>
                 }
               />
@@ -162,14 +165,14 @@ export function AddonFilterBar({
                   <DropdownMenuItem
                     onClick={() => handleClearFilterValue(filter.id)}
                   >
-                    Clear condition
+                    Hapus nilai
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => handleRemoveFilter(filter.id)}
                 >
-                  Remove filter
+                  Hapus filter
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -183,14 +186,14 @@ export function AddonFilterBar({
           render={
             <Button variant="outline" size="sm" className="gap-2 h-8">
               <IconAdjustmentsHorizontal className="size-4" />
-              <span>Filters</span>
+              <span>Filter</span>
             </Button>
           }
         />
         <PopoverContent align="start" className="w-56 p-1">
           <div className="p-1 pb-1.5 border-b border-border/50">
             <Input
-              placeholder="Search attributes..."
+              placeholder="Cari atribut..."
               value={attributeSearch}
               onChange={(e) => setAttributeSearch(e.target.value)}
               className="h-8 text-xs bg-transparent border-none shadow-none focus-visible:ring-0 px-2"
@@ -214,7 +217,7 @@ export function AddonFilterBar({
             })}
             {filteredAttributes.length === 0 && (
               <div className="py-3 text-center text-xs text-muted-foreground">
-                No attributes found
+                Tidak ada atribut ditemukan
               </div>
             )}
           </div>
@@ -241,12 +244,14 @@ function ConditionPopover({
   onSelect,
   onClear,
 }: ConditionPopoverProps) {
+  const isSearchType =
+    filter.id === "addon" || (filter.id as string) === "search";
   const [searchInput, setSearchInput] = React.useState(
-    filter.id === "search" ? filter.value : ""
+    isSearchType ? filter.value : ""
   );
   const [prevValue, setPrevValue] = React.useState(filter.value);
 
-  if (filter.id === "search" && filter.value !== prevValue) {
+  if (isSearchType && filter.value !== prevValue) {
     setPrevValue(filter.value);
     setSearchInput(filter.value);
   }
@@ -266,13 +271,13 @@ function ConditionPopover({
                   : "text-muted-foreground"
               }
             >
-              {filter.displayValue || "Select condition"}
+              {filter.displayValue || "Pilih opsi"}
             </span>
           </button>
         }
       />
       <PopoverContent align="start" className="w-56 p-2 space-y-2">
-        {filter.id === "search" && (
+        {isSearchType && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -286,11 +291,11 @@ function ConditionPopover({
             className="space-y-2"
           >
             <div className="text-xs font-semibold text-muted-foreground px-1">
-              Search condition
+              Nama atau ID Add-on
             </div>
             <div className="relative">
               <Input
-                placeholder="Type keywords..."
+                placeholder="Cari nama atau ID..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="h-8 text-xs pr-7"
@@ -318,23 +323,51 @@ function ConditionPopover({
                 }}
                 className="h-7 text-xs px-2"
               >
-                Clear
+                Reset
               </Button>
               <Button type="submit" size="sm" className="h-7 text-xs px-2.5">
-                Apply
+                Terapkan
               </Button>
             </div>
           </form>
         )}
 
+        {filter.id === "linkedProducts" && (
+          <div className="space-y-1">
+            <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
+              Status menu terkait
+            </div>
+            {[
+              { label: "Terhubung ke menu (> 0)", value: "linked" },
+              { label: "Belum terhubung (0)", value: "unlinked" },
+              { label: "Sering digunakan (≥ 10)", value: "frequent" },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onSelect(option.value, option.label);
+                  onOpenChange(false);
+                }}
+                className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+              >
+                <span>{option.label}</span>
+                {filter.value === option.value && (
+                  <IconCheck className="size-3.5 text-primary" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         {filter.id === "status" && (
           <div className="space-y-1">
             <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
-              Select status
+              Pilih status
             </div>
             {[
-              { label: "Active", value: "active" },
-              { label: "Inactive", value: "inactive" },
+              { label: "Aktif", value: "active" },
+              { label: "Nonaktif", value: "inactive" },
             ].map((option) => (
               <button
                 key={option.value}
@@ -357,7 +390,7 @@ function ConditionPopover({
         {filter.id === "category" && (
           <div className="space-y-1 max-h-56 overflow-y-auto">
             <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
-              Select category
+              Pilih kategori
             </div>
             {categories.filter((c) => c !== "Semua Kategori").length === 0 ? (
               <div className="px-2 py-2 text-xs text-muted-foreground">
@@ -389,7 +422,7 @@ function ConditionPopover({
         {filter.id === "price" && (
           <div className="space-y-1">
             <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
-              Price range
+              Rentang harga
             </div>
             {[
               { label: "< Rp 5.000", value: "under-5k" },

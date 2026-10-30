@@ -33,7 +33,7 @@ export function AddonHeader({
           className="gap-1.5 shadow-xs"
         >
           <IconDownload data-icon="inline-start" className="size-4" />
-          <span>Export</span>
+          <span>Ekspor</span>
         </Button>
         <Button
           variant="default"

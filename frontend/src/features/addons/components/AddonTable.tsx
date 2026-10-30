@@ -119,7 +119,7 @@ export function AddonTable({
       for (const filter of filters) {
         if (!filter.value) continue;
 
-        if (filter.id === "search") {
+        if (filter.id === "addon" || (filter.id as string) === "search") {
           const q = filter.value.trim().toLowerCase();
           const matches =
             addon.name.toLowerCase().includes(q) ||
@@ -129,8 +129,9 @@ export function AddonTable({
         }
 
         if (filter.id === "status") {
-          if (filter.value === "active" && !addon.isActive) return false;
-          if (filter.value === "inactive" && addon.isActive) return false;
+          const val = filter.value.toLowerCase();
+          if (val === "active" && !addon.isActive) return false;
+          if (val === "inactive" && addon.isActive) return false;
         }
 
         if (filter.id === "category") {
@@ -146,6 +147,13 @@ export function AddonTable({
             return false;
           }
           if (filter.value === "over-10k" && addon.price <= 10000) return false;
+        }
+
+        if (filter.id === "linkedProducts") {
+          const count = addon.linkedProductsCount ?? 0;
+          if (filter.value === "linked" && count <= 0) return false;
+          if (filter.value === "unlinked" && count > 0) return false;
+          if (filter.value === "frequent" && count < 10) return false;
         }
       }
       return true;
@@ -277,7 +285,7 @@ export function AddonTable({
               className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
               onClick={() => column.toggleSorting()}
             >
-              <span>Harga Tambahan</span>
+              <span>Harga</span>
               <IconArrowsSort className="size-3.5 text-muted-foreground" />
             </Button>
           ),
@@ -296,7 +304,7 @@ export function AddonTable({
               className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
               onClick={() => column.toggleSorting()}
             >
-              <span>Terkait Menu</span>
+              <span>Menu Terkait</span>
               <IconArrowsSort className="size-3.5 text-muted-foreground" />
             </Button>
           ),
@@ -306,11 +314,11 @@ export function AddonTable({
               <span className="tabular-nums font-medium text-foreground">
                 {row.original.linkedProductsCount}
               </span>
-              <span>produk</span>
+              <span>menu</span>
             </div>
           ),
         }),
-        columnHelper.accessor((row) => (row.isActive ? "Active" : "Inactive"), {
+        columnHelper.accessor((row) => (row.isActive ? "Aktif" : "Nonaktif"), {
           id: "status",
           header: ({ column }) => (
             <Button
@@ -330,7 +338,7 @@ export function AddonTable({
                   variant="outline"
                   className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium px-2.5 py-0.5 rounded-full text-xs"
                 >
-                  Active
+                  Aktif
                 </Badge>
               );
             }
@@ -339,7 +347,7 @@ export function AddonTable({
                 variant="outline"
                 className="border-muted text-muted-foreground font-medium px-2.5 py-0.5 rounded-full text-xs"
               >
-                Inactive
+                Nonaktif
               </Badge>
             );
           },
@@ -561,7 +569,7 @@ export function AddonTable({
                 render={
                   <Button variant="outline" size="sm" className="gap-1.5">
                     <IconLayoutColumns className="size-4" />
-                    <span>Columns</span>
+                    <span>Kolom</span>
                   </Button>
                 }
               />
@@ -578,7 +586,7 @@ export function AddonTable({
                       addon: "Add-on",
                       category: "Kategori",
                       price: "Harga",
-                      linkedProducts: "Terkait Menu",
+                      linkedProducts: "Menu Terkait",
                       status: "Status",
                     };
                     return (
@@ -711,8 +719,8 @@ export function AddonTable({
         {/* Pagination Footer */}
         <div className="flex flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between border-t">
           <div className="text-sm text-muted-foreground">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} row(s) selected.
+            {table.getFilteredSelectedRowModel().rows.length} dari{" "}
+            {table.getFilteredRowModel().rows.length} baris dipilih.
           </div>
           <div className="flex items-center gap-4 sm:gap-6 justify-between sm:justify-end">
             <div className="flex items-center gap-2">
@@ -720,7 +728,7 @@ export function AddonTable({
                 htmlFor="rows-per-page"
                 className="text-sm font-medium whitespace-nowrap"
               >
-                Rows per page
+                Baris per halaman
               </Label>
               <Select
                 value={`${table.state.pagination.pageSize}`}
@@ -741,7 +749,7 @@ export function AddonTable({
               </Select>
             </div>
             <div className="flex w-fit items-center justify-center text-sm font-medium whitespace-nowrap">
-              Page {table.state.pagination.pageIndex + 1} of{" "}
+              Halaman {table.state.pagination.pageIndex + 1} dari{" "}
               {table.getPageCount() || 1}
             </div>
             <div className="flex items-center gap-1 sm:gap-2">
@@ -751,7 +759,7 @@ export function AddonTable({
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
               >
-                <span className="sr-only">Go to first page</span>
+                <span className="sr-only">Ke halaman pertama</span>
                 <IconChevronsLeft className="size-4" />
               </Button>
               <Button
@@ -761,7 +769,7 @@ export function AddonTable({
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
               >
-                <span className="sr-only">Go to previous page</span>
+                <span className="sr-only">Ke halaman sebelumnya</span>
                 <IconChevronLeft className="size-4" />
               </Button>
               <Button
@@ -771,7 +779,7 @@ export function AddonTable({
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
               >
-                <span className="sr-only">Go to next page</span>
+                <span className="sr-only">Ke halaman berikutnya</span>
                 <IconChevronRight className="size-4" />
               </Button>
               <Button
@@ -780,7 +788,7 @@ export function AddonTable({
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
               >
-                <span className="sr-only">Go to last page</span>
+                <span className="sr-only">Ke halaman terakhir</span>
                 <IconChevronsRight className="size-4" />
               </Button>
             </div>

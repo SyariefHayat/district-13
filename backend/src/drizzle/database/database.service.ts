@@ -26,9 +26,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.client = postgres(databaseUrl, {
       max: 20,
       idle_timeout: 30,
-      connect_timeout: 10,
-      // Aktifkan jika menggunakan Supabase Transaction Pooler:
-      // prepare: false,
+      connect_timeout: 15,
+      // Supabase connection pooler works best with prepared statements disabled
+      prepare: false,
     });
 
     this.db = drizzle({
