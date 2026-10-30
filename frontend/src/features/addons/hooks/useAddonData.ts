@@ -8,7 +8,6 @@ export interface BackendAddon {
   name: string;
   price: string | number;
   isActive: boolean;
-  category?: string;
   linkedProductsCount?: number;
 }
 
@@ -16,7 +15,6 @@ function mapBackendAddon(a: BackendAddon): AddonItem {
   return {
     id: a.id,
     name: a.name,
-    category: a.category || "Umum",
     price: Number(a.price) || 0,
     isActive: Boolean(a.isActive),
     linkedProductsCount: Number(a.linkedProductsCount ?? 0),
@@ -32,7 +30,6 @@ function areAddonListsEqual(a: AddonItem[], b: AddonItem[]): boolean {
     if (
       item1.id !== item2.id ||
       item1.name !== item2.name ||
-      item1.category !== item2.category ||
       item1.price !== item2.price ||
       item1.isActive !== item2.isActive ||
       item1.linkedProductsCount !== item2.linkedProductsCount
@@ -51,14 +48,6 @@ export function useAddonData(options?: UseAddonDataOptions) {
   const pollIntervalMs = options?.pollIntervalMs ?? 5000;
   const { authorizedFetch } = useAuth();
   const [addons, setAddons] = useState<AddonItem[]>(INITIAL_ADDONS);
-  const [categories, setCategories] = useState<string[]>([
-    "Semua Kategori",
-    "Espresso & Kopi",
-    "Susu Alternatif",
-    "Sirup & Pemanis",
-    "Topping Minuman",
-    "Topping & Saus Makanan",
-  ]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -104,12 +93,6 @@ export function useAddonData(options?: UseAddonDataOptions) {
           setAddons((prev) =>
             areAddonListsEqual(prev, mapped) ? prev : mapped
           );
-          const dynamicCategories = Array.from(
-            new Set(mapped.map((item) => item.category).filter(Boolean))
-          );
-          if (dynamicCategories.length > 0) {
-            setCategories(["Semua Kategori", ...dynamicCategories]);
-          }
           setLastSyncedAt(new Date());
           isInitialLoad.current = false;
         }
@@ -200,12 +183,22 @@ export function useAddonData(options?: UseAddonDataOptions) {
   );
 
   const deleteAddon = useCallback(
-    async (addonId: string) => {
-      if (deletingIdsRef.current.has(addonId)) return;
+    async (addonId: string): Promise<boolean> => {
+      if (deletingIdsRef.current.has(addonId)) return false;
       deletingIdsRef.current.add(addonId);
 
       const previous = [...addons];
       setAddons((prev) => prev.filter((item) => item.id !== addonId));
+
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          addonId
+        );
+
+      if (!isUuid) {
+        deletingIdsRef.current.delete(addonId);
+        return true;
+      }
 
       try {
         const res = await authorizedFetch(`/addons/${addonId}`, {
@@ -221,8 +214,10 @@ export function useAddonData(options?: UseAddonDataOptions) {
                 : "Terjadi kesalahan pada server",
           });
           setAddons(previous);
+          return false;
         } else {
           void fetchAddons(true);
+          return true;
         }
       } catch (err) {
         toast.add({
@@ -231,6 +226,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
             err instanceof Error ? err.message : "Koneksi bermasalah",
         });
         setAddons(previous);
+        return false;
       } finally {
         deletingIdsRef.current.delete(addonId);
       }
@@ -239,29 +235,44 @@ export function useAddonData(options?: UseAddonDataOptions) {
   );
 
   const deleteMultiple = useCallback(
-    async (addonIds: string[]) => {
+    async (addonIds: string[]): Promise<boolean> => {
       const targetIds = addonIds.filter(
         (id) => !deletingIdsRef.current.has(id)
       );
-      if (targetIds.length === 0) return;
+      if (targetIds.length === 0) return false;
       targetIds.forEach((id) => deletingIdsRef.current.add(id));
 
       const previous = [...addons];
       setAddons((prev) => prev.filter((item) => !targetIds.includes(item.id)));
 
+      const uuidTargets = targetIds.filter((id) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          id
+        )
+      );
+
+      if (uuidTargets.length === 0) {
+        targetIds.forEach((id) => deletingIdsRef.current.delete(id));
+        return true;
+      }
+
       try {
         const results = await Promise.all(
-          targetIds.map((id) =>
+          uuidTargets.map((id) =>
             authorizedFetch(`/addons/${id}`, { method: "DELETE" })
           )
         );
         const hasFailures = results.some((r) => !r.ok);
         if (hasFailures) {
           toast.add({
-            title: "Beberapa add-on gagal dihapus",
+            title: "Beberapa add-on gagal dihapus dari server",
           });
+          void fetchAddons(true);
+          return false;
+        } else {
+          void fetchAddons(true);
+          return true;
         }
-        void fetchAddons(true);
       } catch (err) {
         toast.add({
           title: "Gagal menghapus add-on",
@@ -269,6 +280,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
             err instanceof Error ? err.message : "Koneksi bermasalah",
         });
         setAddons(previous);
+        return false;
       } finally {
         targetIds.forEach((id) => deletingIdsRef.current.delete(id));
       }
@@ -277,12 +289,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
   );
 
   const createAddon = useCallback(
-    async (data: {
-      name: string;
-      price: number;
-      category?: string;
-      isActive?: boolean;
-    }) => {
+    async (data: { name: string; price: number; isActive?: boolean }) => {
       try {
         const res = await authorizedFetch("/addons", {
           method: "POST",
@@ -299,7 +306,6 @@ export function useAddonData(options?: UseAddonDataOptions) {
           const mapped: AddonItem = {
             id: created.id,
             name: created.name,
-            category: data.category || "Umum",
             price: Number(created.price) || data.price,
             isActive: created.isActive ?? true,
             linkedProductsCount: 0,
@@ -311,7 +317,6 @@ export function useAddonData(options?: UseAddonDataOptions) {
           const localItem: AddonItem = {
             id: `add-${Date.now()}`,
             name: data.name,
-            category: data.category || "Umum",
             price: data.price,
             isActive: data.isActive ?? true,
             linkedProductsCount: 0,
@@ -324,7 +329,6 @@ export function useAddonData(options?: UseAddonDataOptions) {
         const localItem: AddonItem = {
           id: `add-${Date.now()}`,
           name: data.name,
-          category: data.category || "Umum",
           price: data.price,
           isActive: data.isActive ?? true,
           linkedProductsCount: 0,
@@ -340,7 +344,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
   const updateAddon = useCallback(
     async (
       addonId: string,
-      data: Partial<Pick<AddonItem, "name" | "price" | "category" | "isActive">>
+      data: Partial<Pick<AddonItem, "name" | "price" | "isActive">>
     ) => {
       setAddons((prev) =>
         prev.map((item) => (item.id === addonId ? { ...item, ...data } : item))
@@ -373,7 +377,6 @@ export function useAddonData(options?: UseAddonDataOptions) {
 
   return {
     addons,
-    categories,
     isLoading,
     isSyncing,
     lastSyncedAt,

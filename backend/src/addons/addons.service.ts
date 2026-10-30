@@ -87,6 +87,18 @@ export class AddonsService {
     return addon;
   }
 
+  async remove(id: string) {
+    return this.database.db.transaction(async (tx) => {
+      await tx.delete(productAddons).where(eq(productAddons.addonId, id));
+      const [deleted] = await tx
+        .delete(addons)
+        .where(eq(addons.id, id))
+        .returning();
+      if (!deleted) throw new NotFoundException('Add-on not found');
+      return deleted;
+    });
+  }
+
   async deactivate(id: string) {
     const [addon] = await this.database.db
       .update(addons)

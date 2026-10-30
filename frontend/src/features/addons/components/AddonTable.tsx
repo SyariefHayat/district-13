@@ -8,7 +8,6 @@ import {
   IconDots,
   IconDownload,
   IconLayoutColumns,
-  IconLayersIntersect,
   IconLayersOff,
   IconLink,
   IconTrash,
@@ -79,18 +78,18 @@ const columnHelper = createColumnHelper<typeof features, AddonItem>();
 
 interface AddonTableProps {
   addons: AddonItem[];
-  categories?: string[];
   isLoading?: boolean;
   onToggleStatus?: (addonId: string) => void;
   onEditAddon?: (addon: AddonItem) => void;
-  onDeleteAddon?: (addonId: string) => void | Promise<void>;
-  onDeleteMultiple?: (addonIds: string[]) => void | Promise<void>;
+  onDeleteAddon?: (addonId: string) => void | boolean | Promise<void | boolean>;
+  onDeleteMultiple?: (
+    addonIds: string[]
+  ) => void | boolean | Promise<void | boolean>;
   onExport?: (selectedAddons: AddonItem[]) => void;
 }
 
 export function AddonTable({
   addons,
-  categories,
   isLoading,
   onToggleStatus,
   onEditAddon,
@@ -123,8 +122,7 @@ export function AddonTable({
           const q = filter.value.trim().toLowerCase();
           const matches =
             addon.name.toLowerCase().includes(q) ||
-            addon.id.toLowerCase().includes(q) ||
-            addon.category.toLowerCase().includes(q);
+            addon.id.toLowerCase().includes(q);
           if (!matches) return false;
         }
 
@@ -132,10 +130,6 @@ export function AddonTable({
           const val = filter.value.toLowerCase();
           if (val === "active" && !addon.isActive) return false;
           if (val === "inactive" && addon.isActive) return false;
-        }
-
-        if (filter.id === "category") {
-          if (addon.category !== filter.value) return false;
         }
 
         if (filter.id === "price") {
@@ -180,13 +174,15 @@ export function AddonTable({
 
   const handleDeleteSingleAddon = React.useCallback(
     async (addonId: string, addonName: string) => {
-      if (deletingAddonIds.has(addonId)) return;
+      if (deletingAddonIds.has(addonId) || isDeletingSelected) return;
       setDeletingAddonIds((prev) => new Set(prev).add(addonId));
       try {
-        await onDeleteAddon?.(addonId);
-        toast.add({
-          title: `Add-on "${addonName}" dihapus`,
-        });
+        const result = await onDeleteAddon?.(addonId);
+        if (result !== false) {
+          toast.add({
+            title: `Add-on "${addonName}" berhasil dihapus`,
+          });
+        }
       } finally {
         setDeletingAddonIds((prev) => {
           const next = new Set(prev);
@@ -195,7 +191,7 @@ export function AddonTable({
         });
       }
     },
-    [deletingAddonIds, onDeleteAddon]
+    [deletingAddonIds, isDeletingSelected, onDeleteAddon]
   );
 
   const columns = React.useMemo(
@@ -212,18 +208,23 @@ export function AddonTable({
                   table.toggleAllPageRowsSelected(!!value)
                 }
                 aria-label="Pilih semua"
+                disabled={isDeletingSelected || deletingAddonIds.size > 0}
               />
             </div>
           ),
-          cell: ({ row }) => (
-            <div className="flex items-center justify-center">
-              <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Pilih baris"
-              />
-            </div>
-          ),
+          cell: ({ row }) => {
+            const isDeletingThisRow = deletingAddonIds.has(row.original.id);
+            return (
+              <div className="flex items-center justify-center">
+                <Checkbox
+                  checked={row.getIsSelected()}
+                  onCheckedChange={(value) => row.toggleSelected(!!value)}
+                  aria-label="Pilih baris"
+                  disabled={isDeletingThisRow || isDeletingSelected}
+                />
+              </div>
+            );
+          },
           enableSorting: false,
           enableHiding: false,
         }),
@@ -241,40 +242,16 @@ export function AddonTable({
             </Button>
           ),
           cell: ({ row }) => (
-            <div className="flex items-center gap-3">
-              <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground border border-border/50">
-                <IconLayersIntersect className="size-5 text-muted-foreground" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="font-medium text-foreground truncate">
-                  {row.original.name}
-                </span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {row.original.id}
-                </span>
-              </div>
+            <div className="flex flex-col min-w-0 py-0.5">
+              <span className="font-medium text-foreground truncate">
+                {row.original.name}
+              </span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {row.original.id}
+              </span>
             </div>
           ),
           enableHiding: false,
-        }),
-        columnHelper.accessor("category", {
-          id: "category",
-          header: ({ column }) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
-              onClick={() => column.toggleSorting()}
-            >
-              <span>Kategori</span>
-              <IconArrowsSort className="size-3.5 text-muted-foreground" />
-            </Button>
-          ),
-          cell: ({ row }) => (
-            <span className="text-sm text-foreground">
-              {row.original.category}
-            </span>
-          ),
         }),
         columnHelper.accessor("price", {
           id: "price",
@@ -365,8 +342,13 @@ export function AddonTable({
                       variant="ghost"
                       className="flex size-8 text-muted-foreground data-[state=open]:bg-muted ml-auto"
                       size="icon"
+                      disabled={isDeletingThisRow || isDeletingSelected}
                     >
-                      <IconDots className="size-4" />
+                      {isDeletingThisRow ? (
+                        <Spinner className="size-3.5" />
+                      ) : (
+                        <IconDots className="size-4" />
+                      )}
                       <span className="sr-only">Buka menu aksi</span>
                     </Button>
                   }
@@ -375,11 +357,15 @@ export function AddonTable({
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                     Aksi Add-on
                   </div>
-                  <DropdownMenuItem onClick={() => onEditAddon?.(row.original)}>
+                  <DropdownMenuItem
+                    disabled={isDeletingThisRow || isDeletingSelected}
+                    onClick={() => onEditAddon?.(row.original)}
+                  >
                     Ubah data add-on
                   </DropdownMenuItem>
                   {onToggleStatus && (
                     <DropdownMenuItem
+                      disabled={isDeletingThisRow || isDeletingSelected}
                       onClick={() => onToggleStatus(row.original.id)}
                     >
                       {row.original.isActive
@@ -398,9 +384,10 @@ export function AddonTable({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     variant="destructive"
-                    disabled={isDeletingThisRow}
-                    onClick={() => {
-                      if (isDeletingThisRow) return;
+                    disabled={isDeletingThisRow || isDeletingSelected}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (isDeletingThisRow || isDeletingSelected) return;
                       void handleDeleteSingleAddon(
                         row.original.id,
                         row.original.name
@@ -462,21 +449,26 @@ export function AddonTable({
   const selectedCount = selectedRows.length;
 
   const handleDeleteSelected = async () => {
-    if (isDeletingSelected) return;
+    if (isDeletingSelected || deletingAddonIds.size > 0) return;
     const ids = selectedRows.map((r) => r.original.id);
     if (ids.length === 0) return;
 
     setIsDeletingSelected(true);
     try {
+      let ok = true;
       if (onDeleteMultiple) {
-        await onDeleteMultiple(ids);
+        const res = await onDeleteMultiple(ids);
+        if (res === false) ok = false;
       } else if (onDeleteAddon) {
-        await Promise.all(ids.map((id) => onDeleteAddon(id)));
+        const results = await Promise.all(ids.map((id) => onDeleteAddon(id)));
+        if (results.some((r) => r === false)) ok = false;
       }
       table.resetRowSelection();
-      toast.add({
-        title: `${ids.length} add-on berhasil dihapus`,
-      });
+      if (ok) {
+        toast.add({
+          title: `${ids.length} add-on berhasil dihapus`,
+        });
+      }
     } finally {
       setIsDeletingSelected(false);
     }
@@ -523,9 +515,12 @@ export function AddonTable({
               <Button
                 variant="destructive"
                 size="sm"
-                className="gap-1.5 bg-red-500/15 text-red-600 hover:bg-red-500/25 border border-red-500/30 shadow-none dark:bg-red-500/20 dark:text-red-400"
-                onClick={handleDeleteSelected}
-                disabled={isDeletingSelected}
+                className="gap-1.5 bg-red-500/15 text-red-600 hover:bg-red-500/25 border border-red-500/30 shadow-none dark:bg-red-500/20 dark:text-red-400 disabled:opacity-50 disabled:pointer-events-none"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDeleteSelected();
+                }}
+                disabled={isDeletingSelected || deletingAddonIds.size > 0}
               >
                 {isDeletingSelected ? (
                   <Spinner className="size-4" />
@@ -539,7 +534,6 @@ export function AddonTable({
             <AddonFilterBar
               filters={filters}
               onFiltersChange={handleFiltersChange}
-              categories={categories}
             />
           )}
 
@@ -584,7 +578,6 @@ export function AddonTable({
                   .map((column) => {
                     const columnLabels: Record<string, string> = {
                       addon: "Add-on",
-                      category: "Kategori",
                       price: "Harga",
                       linkedProducts: "Menu Terkait",
                       status: "Status",
@@ -646,16 +639,10 @@ export function AddonTable({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="size-10 rounded-lg shrink-0" />
-                        <div className="flex flex-col gap-1.5 min-w-0">
-                          <Skeleton className="h-4 w-32 sm:w-44" />
-                          <Skeleton className="h-3 w-16" />
-                        </div>
+                      <div className="flex flex-col gap-1.5 min-w-0 py-0.5">
+                        <Skeleton className="h-4 w-32 sm:w-44" />
+                        <Skeleton className="h-3 w-16" />
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-24" />
                     </TableCell>
                     <TableCell>
                       <Skeleton className="h-4 w-20" />
@@ -672,28 +659,33 @@ export function AddonTable({
                   </TableRow>
                 ))
               ) : table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className="hover:bg-muted/30 data-[state=selected]:bg-muted/50"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={
-                          cell.column.id === "select"
-                            ? "w-10 px-2"
-                            : cell.column.id === "actions"
-                              ? "w-12 px-2 text-right"
-                              : ""
-                        }
-                      >
-                        <FlexRender cell={cell} />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                table.getRowModel().rows.map((row) => {
+                  const isRowDeleting = deletingAddonIds.has(row.original.id);
+                  return (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                      className={`hover:bg-muted/30 data-[state=selected]:bg-muted/50 transition-opacity ${
+                        isRowDeleting ? "opacity-50 pointer-events-none" : ""
+                      }`}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className={
+                            cell.column.id === "select"
+                              ? "w-10 px-2"
+                              : cell.column.id === "actions"
+                                ? "w-12 px-2 text-right"
+                                : ""
+                          }
+                        >
+                          <FlexRender cell={cell} />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
                   <TableCell

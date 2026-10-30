@@ -11,68 +11,55 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { ADDON_CATEGORIES, type AddonItem } from "../data/addonData";
+import type { AddonItem } from "../data/addonData";
 
 interface AddonFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   addon?: AddonItem | null;
-  categories?: string[];
   onSubmit: (values: {
     name: string;
-    category: string;
     price: number;
     isActive: boolean;
   }) => Promise<boolean>;
+}
+
+function formatRupiah(value?: number): string {
+  if (value === undefined || value === null) return "";
+  return `Rp ${value.toLocaleString("id-ID")}`;
+}
+
+function parseRupiah(raw: string): number {
+  const clean = raw.replace(/\D/g, "");
+  return clean ? parseInt(clean, 10) : 0;
 }
 
 export function AddonFormDialog({
   open,
   onOpenChange,
   addon,
-  categories = [],
   onSubmit,
 }: AddonFormDialogProps) {
   const isEditing = Boolean(addon);
   const [name, setName] = React.useState("");
-  const [category, setCategory] = React.useState("Espresso & Kopi");
   const [priceStr, setPriceStr] = React.useState("");
   const [isActive, setIsActive] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
-  const availableCategories = React.useMemo(() => {
-    const combined = Array.from(
-      new Set([
-        ...ADDON_CATEGORIES.filter((c) => c !== "Semua Kategori"),
-        ...categories.filter((c) => c !== "Semua Kategori"),
-      ])
-    );
-    return combined;
-  }, [categories]);
-
   React.useEffect(() => {
     if (addon) {
       setName(addon.name);
-      setCategory(addon.category || availableCategories[0] || "Umum");
-      setPriceStr(addon.price.toString());
+      setPriceStr(formatRupiah(addon.price));
       setIsActive(addon.isActive);
     } else {
       setName("");
-      setCategory(availableCategories[0] || "Espresso & Kopi");
       setPriceStr("");
       setIsActive(true);
     }
     setErrorMsg(null);
-  }, [addon, open, availableCategories]);
+  }, [addon, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,15 +69,13 @@ export function AddonFormDialog({
       return;
     }
 
-    const rawDigits = priceStr.replace(/\D/g, "");
-    const priceNum = rawDigits ? parseInt(rawDigits, 10) : 0;
+    const priceNum = parseRupiah(priceStr);
 
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
       const success = await onSubmit({
         name: cleanName,
-        category,
         price: priceNum,
         isActive,
       });
@@ -115,7 +100,7 @@ export function AddonFormDialog({
           </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Perbarui informasi nama, kategori, harga, dan ketersediaan add-on."
+              ? "Perbarui informasi nama, harga, dan ketersediaan add-on."
               : "Tambahkan opsi kustomisasi atau bahan tambahan untuk menu kasir."}
           </DialogDescription>
         </DialogHeader>
@@ -141,45 +126,27 @@ export function AddonFormDialog({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="addon-category" className="text-xs font-medium">
-                Kategori
-              </Label>
-              <Select
-                value={category}
-                onValueChange={(val) => {
-                  if (val) setCategory(val);
-                }}
-              >
-                <SelectTrigger id="addon-category" className="w-full">
-                  <SelectValue placeholder="Pilih kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCategories.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="addon-price" className="text-xs font-medium">
-                Harga Tambahan (IDR)
-              </Label>
-              <Input
-                id="addon-price"
-                type="number"
-                min="0"
-                step="500"
-                placeholder="Contoh: 6000"
-                value={priceStr}
-                onChange={(e) => setPriceStr(e.target.value)}
-                required
-              />
-            </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="addon-price" className="text-xs font-medium">
+              Harga Tambahan
+            </Label>
+            <Input
+              id="addon-price"
+              type="text"
+              inputMode="numeric"
+              placeholder="Rp 0"
+              value={priceStr}
+              onChange={(e) => {
+                const rawDigits = e.target.value.replace(/\D/g, "");
+                if (!rawDigits) {
+                  setPriceStr("");
+                } else {
+                  const num = parseInt(rawDigits, 10);
+                  setPriceStr(`Rp ${num.toLocaleString("id-ID")}`);
+                }
+              }}
+              required
+            />
           </div>
 
           <div className="flex items-center gap-2 pt-1">

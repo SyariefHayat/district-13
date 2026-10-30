@@ -12,7 +12,6 @@ import type { AddonItem } from "../data/addonData";
 export default function AddonPage() {
   const {
     addons,
-    categories,
     isLoading,
     error,
     refetch,
@@ -83,7 +82,6 @@ export default function AddonPage() {
       <AddonStatsCards addons={addons} isLoading={isLoading} />
       <AddonTable
         addons={addons}
-        categories={categories}
         isLoading={isLoading}
         onToggleStatus={toggleStatus}
         onDeleteAddon={deleteAddon}
@@ -96,7 +94,6 @@ export default function AddonPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         addon={editingAddon}
-        categories={categories}
         onSubmit={async (values) => {
           if (editingAddon) {
             return await updateAddon(editingAddon.id, values);

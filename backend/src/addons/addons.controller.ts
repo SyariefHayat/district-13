@@ -72,7 +72,7 @@ export class AddonsController {
 
   @Delete(':id')
   @Permissions(PERMISSIONS.addonsManage)
-  deactivate(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.addonsService.deactivate(id);
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.addonsService.remove(id);
   }
 }

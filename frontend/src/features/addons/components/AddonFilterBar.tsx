@@ -7,7 +7,6 @@ import {
   IconDotsVertical,
   IconLink,
   IconSearch,
-  IconTag,
   IconX,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export type AddonFilterAttributeId =
-  "addon" | "category" | "price" | "linkedProducts" | "status";
+  "addon" | "price" | "linkedProducts" | "status";
 
 export interface AddonFilterItem {
   id: AddonFilterAttributeId;
@@ -41,7 +40,6 @@ interface AttributeDef {
 
 const ATTRIBUTES: AttributeDef[] = [
   { id: "addon", label: "Add-on", icon: IconSearch },
-  { id: "category", label: "Kategori", icon: IconTag },
   { id: "price", label: "Harga", icon: IconCurrencyDollar },
   { id: "linkedProducts", label: "Menu Terkait", icon: IconLink },
   { id: "status", label: "Status", icon: IconCircleDot },
@@ -50,13 +48,11 @@ const ATTRIBUTES: AttributeDef[] = [
 export interface AddonFilterBarProps {
   filters: AddonFilterItem[];
   onFiltersChange: (filters: AddonFilterItem[]) => void;
-  categories?: string[];
 }
 
 export function AddonFilterBar({
   filters,
   onFiltersChange,
-  categories = [],
 }: AddonFilterBarProps) {
   const [filterMenuOpen, setFilterMenuOpen] = React.useState(false);
   const [attributeSearch, setAttributeSearch] = React.useState("");
@@ -128,7 +124,6 @@ export function AddonFilterBar({
             {/* Middle: Condition Trigger */}
             <ConditionPopover
               filter={filter}
-              categories={categories}
               isOpen={activeOpenId === filter.id}
               onOpenChange={(open) => {
                 if (open) {
@@ -229,7 +224,6 @@ export function AddonFilterBar({
 
 interface ConditionPopoverProps {
   filter: AddonFilterItem;
-  categories: string[];
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (value: string, displayValue?: string) => void;
@@ -238,7 +232,6 @@ interface ConditionPopoverProps {
 
 function ConditionPopover({
   filter,
-  categories,
   isOpen,
   onOpenChange,
   onSelect,
@@ -384,38 +377,6 @@ function ConditionPopover({
                 )}
               </button>
             ))}
-          </div>
-        )}
-
-        {filter.id === "category" && (
-          <div className="space-y-1 max-h-56 overflow-y-auto">
-            <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
-              Pilih kategori
-            </div>
-            {categories.filter((c) => c !== "Semua Kategori").length === 0 ? (
-              <div className="px-2 py-2 text-xs text-muted-foreground">
-                Belum ada kategori terdaftar
-              </div>
-            ) : (
-              categories
-                .filter((c) => c !== "Semua Kategori")
-                .map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => {
-                      onSelect(cat, cat);
-                      onOpenChange(false);
-                    }}
-                    className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
-                  >
-                    <span>{cat}</span>
-                    {filter.value === cat && (
-                      <IconCheck className="size-3.5 text-primary" />
-                    )}
-                  </button>
-                ))
-            )}
           </div>
         )}
 
