@@ -1,0 +1,11 @@
+export { default as WarehousePage } from "./pages/WarehousePage";
+export { default as WarehouseMovementsPage } from "./pages/WarehouseMovementsPage";
+export * from "./components/WarehouseHeader";
+export * from "./components/WarehouseStatsCards";
+export * from "./components/WarehouseTable";
+export * from "./components/WarehouseFilterBar";
+export * from "./components/WarehouseRestockDialog";
+export * from "./components/WarehouseTransferDialog";
+export * from "./components/WarehouseMovementsDialog";
+export * from "./hooks/useWarehouseData";
+export * from "./data/warehouseData";

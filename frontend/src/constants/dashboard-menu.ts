@@ -25,9 +25,8 @@ export const dashboardMenu = [
     title: "Manajemen Stok",
     icon: IconBox,
     items: [
-      { title: "Stok Gudang", url: "/dashboard/stocks" },
-      { title: "Stok Etalase", url: "/dashboard/stocks" },
-      { title: "Perpindahan Stok", url: "/dashboard/stocks" },
+      { title: "Inventori & Stok", url: "/dashboard/stocks" },
+      { title: "Riwayat Perpindahan", url: "/dashboard/stocks/movements" },
     ],
   },
   {
