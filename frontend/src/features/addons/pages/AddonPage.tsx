@@ -1,77 +1,109 @@
 import * as React from "react";
+import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { AddonHeader } from "../components/AddonHeader";
 import { AddonStatsCards } from "../components/AddonStatsCards";
-import { AddonFilterBar } from "../components/AddonFilterBar";
 import { AddonTable } from "../components/AddonTable";
-import { INITIAL_ADDONS, type AddonItem } from "../data/addonData";
+import { AddonFormDialog } from "../components/AddonFormDialog";
+import { useAddonData } from "../hooks/useAddonData";
+import type { AddonItem } from "../data/addonData";
 
 export default function AddonPage() {
-  const [addons, setAddons] = React.useState<AddonItem[]>(INITIAL_ADDONS);
-  const [searchQuery, setSearchQuery] = React.useState<string>("");
-  const [selectedCategory, setSelectedCategory] =
-    React.useState<string>("Semua Kategori");
-  const [selectedStatus, setSelectedStatus] = React.useState<string>("all");
+  const {
+    addons,
+    categories,
+    isLoading,
+    error,
+    refetch,
+    toggleStatus,
+    deleteAddon,
+    deleteMultiple,
+    createAddon,
+    updateAddon,
+  } = useAddonData();
 
-  const filteredAddons = React.useMemo(() => {
-    return addons.filter((item) => {
-      // Search filter
-      const matchesSearch =
-        searchQuery.trim() === "" ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase());
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [editingAddon, setEditingAddon] = React.useState<AddonItem | null>(
+    null
+  );
 
-      // Category filter
-      const matchesCategory =
-        selectedCategory === "Semua Kategori" ||
-        item.category === selectedCategory;
+  const handleOpenAdd = () => {
+    setEditingAddon(null);
+    setDialogOpen(true);
+  };
 
-      // Status filter
-      let matchesStatus = true;
-      if (selectedStatus === "active") {
-        matchesStatus = item.isActive;
-      } else if (selectedStatus === "inactive") {
-        matchesStatus = !item.isActive;
-      }
+  const handleOpenEdit = (addon: AddonItem) => {
+    setEditingAddon(addon);
+    setDialogOpen(true);
+  };
 
-      return matchesSearch && matchesCategory && matchesStatus;
+  const handleExport = (selectedAddons?: AddonItem[]) => {
+    const listToExport =
+      selectedAddons && selectedAddons.length > 0 ? selectedAddons : addons;
+    if (!listToExport.length) {
+      toast.add({ title: "Tidak ada varian untuk diekspor" });
+      return;
+    }
+    const json = JSON.stringify(listToExport, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `addons-export-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.add({
+      title: `Berhasil mengekspor ${listToExport.length} varian`,
     });
-  }, [addons, searchQuery, selectedCategory, selectedStatus]);
-
-  const handleToggleStatus = (addonId: string) => {
-    setAddons((prev) =>
-      prev.map((item) =>
-        item.id === addonId ? { ...item, isActive: !item.isActive } : item
-      )
-    );
-  };
-
-  const handleDeleteAddon = (addonId: string) => {
-    setAddons((prev) => prev.filter((item) => item.id !== addonId));
-  };
-
-  const handleResetFilters = () => {
-    setSearchQuery("");
-    setSelectedCategory("Semua Kategori");
-    setSelectedStatus("all");
   };
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <AddonHeader />
-      <AddonStatsCards addons={addons} />
-      <AddonFilterBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-        selectedStatus={selectedStatus}
-        onStatusChange={setSelectedStatus}
-        onReset={handleResetFilters}
-      />
+      <AddonHeader onExport={() => handleExport()} onAddAddon={handleOpenAdd} />
+
+      {error && (
+        <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <IconAlertCircle className="size-5 shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            className="gap-1.5"
+          >
+            <IconRefresh className="size-4" />
+            <span>Coba lagi</span>
+          </Button>
+        </div>
+      )}
+
+      <AddonStatsCards addons={addons} isLoading={isLoading} />
       <AddonTable
-        addons={filteredAddons}
-        onToggleStatus={handleToggleStatus}
-        onDeleteAddon={handleDeleteAddon}
+        addons={addons}
+        categories={categories}
+        isLoading={isLoading}
+        onToggleStatus={toggleStatus}
+        onDeleteAddon={deleteAddon}
+        onDeleteMultiple={deleteMultiple}
+        onEditAddon={handleOpenEdit}
+        onExport={handleExport}
+      />
+
+      <AddonFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        addon={editingAddon}
+        categories={categories}
+        onSubmit={async (values) => {
+          if (editingAddon) {
+            return await updateAddon(editingAddon.id, values);
+          } else {
+            return await createAddon(values);
+          }
+        }}
       />
     </div>
   );

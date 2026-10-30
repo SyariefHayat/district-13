@@ -2,39 +2,46 @@ import { Button } from "@/components/ui/button";
 import { IconDownload, IconPlus } from "@tabler/icons-react";
 
 interface AddonHeaderProps {
+  title?: string;
+  description?: string;
   onAddAddon?: () => void;
   onExport?: () => void;
 }
 
-export function AddonHeader({ onAddAddon, onExport }: AddonHeaderProps) {
+export function AddonHeader({
+  title = "Varian & Tambahan (Add-ons)",
+  description = "Kelola opsi kustomisasi menu, varian susu, sirup, topping, dan saus tambahan.",
+  onAddAddon,
+  onExport,
+}: AddonHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 px-4 sm:flex-row sm:items-center sm:justify-between md:px-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-lg font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-xl">
-          Varian & Tambahan (Add-ons)
+          {title}
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Kelola opsi kustomisasi menu, varian susu, sirup, topping, dan saus
-          tambahan.
+        <p className="text-sm text-slate-500 dark:text-slate-400 sm:text-base">
+          {description}
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
-          size="sm"
-          className="gap-1.5"
+          size="default"
           onClick={onExport}
+          className="gap-1.5 shadow-xs"
         >
-          <IconDownload className="size-4" />
-          <span>Ekspor</span>
+          <IconDownload data-icon="inline-start" className="size-4" />
+          <span>Export</span>
         </Button>
         <Button
-          size="sm"
-          className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+          variant="default"
+          size="default"
           onClick={onAddAddon}
+          className="gap-1.5 shadow-xs"
         >
-          <IconPlus className="size-4" />
+          <IconPlus data-icon="inline-start" className="size-4" />
           <span>Tambah Varian</span>
         </Button>
       </div>
