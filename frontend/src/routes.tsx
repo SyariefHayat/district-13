@@ -8,7 +8,12 @@ import {
   ProductDetailPage,
 } from "./features/product";
 import { AddonPage } from "./features/addons";
-import { WarehousePage, WarehouseMovementsPage } from "./features/warehouse";
+import {
+  WarehousePage,
+  WarehouseMovementsPage,
+  WarehouseRestockPage,
+  WarehouseTransferPage,
+} from "./features/warehouse";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 
@@ -53,6 +58,8 @@ export const router = createBrowserRouter([
           // Cashier & Cash Flow
           { path: "cash", element: <div>Dashboard Cash</div> },
           { path: "stocks", Component: WarehousePage },
+          { path: "stocks/restock", Component: WarehouseRestockPage },
+          { path: "stocks/transfer", Component: WarehouseTransferPage },
           { path: "stocks/movements", Component: WarehouseMovementsPage },
           { path: "warehouse", Component: WarehousePage },
           { path: "cashiers", element: <div>Dashboard Cashiers</div> },

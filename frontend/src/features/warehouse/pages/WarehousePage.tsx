@@ -1,49 +1,46 @@
 import * as React from "react";
+import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { WarehouseHeader } from "../components/WarehouseHeader";
 import { WarehouseStatsCards } from "../components/WarehouseStatsCards";
 import { WarehouseTable } from "../components/WarehouseTable";
-import { WarehouseRestockDialog } from "../components/WarehouseRestockDialog";
-import { WarehouseTransferDialog } from "../components/WarehouseTransferDialog";
-import { WarehouseMovementsDialog } from "../components/WarehouseMovementsDialog";
 import { useWarehouseData } from "../hooks/useWarehouseData";
 import type { WarehouseInventoryItem } from "../data/warehouseData";
 
 export default function WarehousePage() {
-  const {
-    items,
-    movements,
-    categories,
-    isLoading,
-    isMovementsLoading,
-    error,
-    refetch,
-    fetchMovements,
-    restock,
-    transferToDisplay,
-  } = useWarehouseData();
-
-  const [restockDialogOpen, setRestockDialogOpen] = React.useState(false);
-  const [transferDialogOpen, setTransferDialogOpen] = React.useState(false);
-  const [movementsDialogOpen, setMovementsDialogOpen] = React.useState(false);
-  const [activeItem, setActiveItem] =
-    React.useState<WarehouseInventoryItem | null>(null);
+  const navigate = useNavigate();
+  const { items, categories, isLoading, error, refetch } = useWarehouseData();
 
   const handleOpenRestock = (item?: WarehouseInventoryItem) => {
-    setActiveItem(item || null);
-    setRestockDialogOpen(true);
+    if (item) {
+      navigate(
+        `/dashboard/stocks/restock?productId=${item.productId || item.id}`
+      );
+    } else {
+      navigate("/dashboard/stocks/restock");
+    }
   };
 
   const handleOpenTransfer = (item?: WarehouseInventoryItem) => {
-    setActiveItem(item || null);
-    setTransferDialogOpen(true);
+    if (item) {
+      navigate(
+        `/dashboard/stocks/transfer?productId=${item.productId || item.id}`
+      );
+    } else {
+      navigate("/dashboard/stocks/transfer");
+    }
   };
 
-  const handleOpenMovements = () => {
-    void fetchMovements();
-    setMovementsDialogOpen(true);
+  const handleOpenMovements = (item?: WarehouseInventoryItem) => {
+    if (item) {
+      navigate(
+        `/dashboard/stocks/movements?productId=${item.productId || item.id}`
+      );
+    } else {
+      navigate("/dashboard/stocks/movements");
+    }
   };
 
   const handleExport = (selectedItems?: WarehouseInventoryItem[]) => {
@@ -101,29 +98,6 @@ export default function WarehousePage() {
         onOpenTransfer={handleOpenTransfer}
         onViewMovements={handleOpenMovements}
         onExport={handleExport}
-      />
-
-      <WarehouseRestockDialog
-        open={restockDialogOpen}
-        onOpenChange={setRestockDialogOpen}
-        items={items}
-        selectedItem={activeItem}
-        onRestock={restock}
-      />
-
-      <WarehouseTransferDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        items={items}
-        selectedItem={activeItem}
-        onTransfer={transferToDisplay}
-      />
-
-      <WarehouseMovementsDialog
-        open={movementsDialogOpen}
-        onOpenChange={setMovementsDialogOpen}
-        movements={movements}
-        isLoading={isMovementsLoading}
       />
     </div>
   );

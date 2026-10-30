@@ -1,5 +1,7 @@
 export { default as WarehousePage } from "./pages/WarehousePage";
 export { default as WarehouseMovementsPage } from "./pages/WarehouseMovementsPage";
+export { default as WarehouseRestockPage } from "./pages/WarehouseRestockPage";
+export { default as WarehouseTransferPage } from "./pages/WarehouseTransferPage";
 export * from "./components/WarehouseHeader";
 export * from "./components/WarehouseStatsCards";
 export * from "./components/WarehouseTable";

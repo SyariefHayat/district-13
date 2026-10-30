@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,14 +7,38 @@ import {
   IconArrowDownLeft,
   IconArrowUpRight,
   IconArrowsTransferUpDown,
+  IconFilter,
   IconRefresh,
+  IconX,
 } from "@tabler/icons-react";
 import { useWarehouseData } from "../hooks/useWarehouseData";
 import type { WarehouseMovementItem } from "../data/warehouseData";
 
 export default function WarehouseMovementsPage() {
   const navigate = useNavigate();
-  const { movements, isMovementsLoading, fetchMovements } = useWarehouseData();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterProductId = searchParams.get("productId") || "";
+
+  const { movements, items, isMovementsLoading, fetchMovements } =
+    useWarehouseData();
+
+  const filteredMovements = filterProductId
+    ? movements.filter(
+        (m) =>
+          m.productId === filterProductId ||
+          items.some(
+            (it) =>
+              (it.id === filterProductId || it.productId === filterProductId) &&
+              it.name.toLowerCase() === m.productName.toLowerCase()
+          )
+      )
+    : movements;
+
+  const targetItem = filterProductId
+    ? items.find(
+        (i) => i.productId === filterProductId || i.id === filterProductId
+      )
+    : null;
 
   const formatMovementDate = (isoStr: string) => {
     try {
@@ -114,6 +138,30 @@ export default function WarehouseMovementsPage() {
         </Button>
       </div>
 
+      {filterProductId && (
+        <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/40 text-sm">
+          <IconFilter className="size-4 text-muted-foreground" />
+          <span className="text-muted-foreground">
+            Menampilkan mutasi untuk:
+          </span>
+          <span className="font-semibold text-foreground">
+            {targetItem ? targetItem.name : filterProductId}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              searchParams.delete("productId");
+              setSearchParams(searchParams);
+            }}
+            className="h-7 px-2 text-xs gap-1 ml-auto text-muted-foreground hover:text-foreground"
+          >
+            <IconX className="size-3.5" />
+            <span>Lihat Semua Produk</span>
+          </Button>
+        </div>
+      )}
+
       {/* Movement List Container */}
       <div className="overflow-hidden rounded-xl border bg-card text-card-foreground shadow-xs p-4 sm:p-6">
         {isMovementsLoading ? (
@@ -131,13 +179,15 @@ export default function WarehouseMovementsPage() {
               </div>
             ))}
           </div>
-        ) : movements.length === 0 ? (
+        ) : filteredMovements.length === 0 ? (
           <div className="text-center py-16 text-sm text-muted-foreground border border-dashed rounded-lg">
-            Belum ada catatan mutasi perpindahan stok yang tercatat.
+            {filterProductId
+              ? `Belum ada catatan mutasi untuk produk ini.`
+              : `Belum ada catatan mutasi perpindahan stok yang tercatat.`}
           </div>
         ) : (
           <div className="space-y-3">
-            {movements.map((m) => (
+            {filteredMovements.map((m) => (
               <div
                 key={m.id}
                 className="p-4 rounded-lg border border-border/70 bg-card hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-xs"
