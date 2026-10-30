@@ -100,17 +100,15 @@ export function useAddonData(options?: UseAddonDataOptions) {
           : data.data || [];
 
         if (!controller.signal.aborted) {
-          if (list.length > 0) {
-            const mapped = list.map(mapBackendAddon);
-            setAddons((prev) =>
-              areAddonListsEqual(prev, mapped) ? prev : mapped
-            );
-            const dynamicCategories = Array.from(
-              new Set(mapped.map((item) => item.category).filter(Boolean))
-            );
-            if (dynamicCategories.length > 0) {
-              setCategories(["Semua Kategori", ...dynamicCategories]);
-            }
+          const mapped = list.map(mapBackendAddon);
+          setAddons((prev) =>
+            areAddonListsEqual(prev, mapped) ? prev : mapped
+          );
+          const dynamicCategories = Array.from(
+            new Set(mapped.map((item) => item.category).filter(Boolean))
+          );
+          if (dynamicCategories.length > 0) {
+            setCategories(["Semua Kategori", ...dynamicCategories]);
           }
           setLastSyncedAt(new Date());
           isInitialLoad.current = false;

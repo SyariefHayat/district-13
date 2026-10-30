@@ -4,14 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import {
   PERMISSIONS,
   roleHasPermission,
 } from '../auth/permissions/permissions.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
-import { addons } from '../drizzle/schema/index.js';
+import { addons, productAddons } from '../drizzle/schema/index.js';
 import type { CreateAddonDto } from './dto/create-addon.dto.js';
 import type { UpdateAddonDto } from './dto/update-addon.dto.js';
 
@@ -21,9 +21,17 @@ export class AddonsService {
 
   findAll(actor: AuthenticatedUser) {
     return this.database.db
-      .select()
+      .select({
+        id: addons.id,
+        name: addons.name,
+        price: addons.price,
+        isActive: addons.isActive,
+        linkedProductsCount: sql<number>`count(${productAddons.productId})::int`,
+      })
       .from(addons)
+      .leftJoin(productAddons, eq(addons.id, productAddons.addonId))
       .where(actor.role === 'CASHIER' ? eq(addons.isActive, true) : undefined)
+      .groupBy(addons.id)
       .orderBy(addons.name);
   }
 
