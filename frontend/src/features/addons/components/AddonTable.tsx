@@ -177,7 +177,7 @@ export function AddonTable({
       try {
         await onDeleteAddon?.(addonId);
         toast.add({
-          title: `Varian "${addonName}" dihapus`,
+          title: `Add-on "${addonName}" dihapus`,
         });
       } finally {
         setDeletingAddonIds((prev) => {
@@ -228,7 +228,7 @@ export function AddonTable({
               className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
               onClick={() => column.toggleSorting()}
             >
-              <span>Varian / Add-on</span>
+              <span>Add-on</span>
               <IconArrowsSort className="size-3.5 text-muted-foreground" />
             </Button>
           ),
@@ -365,27 +365,27 @@ export function AddonTable({
                 />
                 <DropdownMenuContent align="end" className="w-48">
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                    Aksi Varian
+                    Aksi Add-on
                   </div>
                   <DropdownMenuItem onClick={() => onEditAddon?.(row.original)}>
-                    Ubah data varian
+                    Ubah data add-on
                   </DropdownMenuItem>
                   {onToggleStatus && (
                     <DropdownMenuItem
                       onClick={() => onToggleStatus(row.original.id)}
                     >
                       {row.original.isActive
-                        ? "Nonaktifkan varian"
-                        : "Aktifkan varian"}
+                        ? "Nonaktifkan add-on"
+                        : "Aktifkan add-on"}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
                     onClick={() => {
                       void navigator.clipboard.writeText(row.original.id);
-                      toast.add({ title: "ID varian berhasil disalin" });
+                      toast.add({ title: "ID add-on berhasil disalin" });
                     }}
                   >
-                    Salin ID varian
+                    Salin ID add-on
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -405,7 +405,7 @@ export function AddonTable({
                         Menghapus...
                       </span>
                     ) : (
-                      "Hapus varian"
+                      "Hapus add-on"
                     )}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -467,7 +467,7 @@ export function AddonTable({
       }
       table.resetRowSelection();
       toast.add({
-        title: `${ids.length} varian berhasil dihapus`,
+        title: `${ids.length} add-on berhasil dihapus`,
       });
     } finally {
       setIsDeletingSelected(false);
@@ -488,7 +488,7 @@ export function AddonTable({
       a.click();
       URL.revokeObjectURL(url);
       toast.add({
-        title: `Berhasil mengekspor ${itemsToExport.length} varian`,
+        title: `Berhasil mengekspor ${itemsToExport.length} add-on`,
       });
     }
   };
@@ -575,7 +575,7 @@ export function AddonTable({
                   )
                   .map((column) => {
                     const columnLabels: Record<string, string> = {
-                      addon: "Varian / Add-on",
+                      addon: "Add-on",
                       category: "Kategori",
                       price: "Harga",
                       linkedProducts: "Terkait Menu",
@@ -695,7 +695,7 @@ export function AddonTable({
                     <div className="flex flex-col items-center justify-center gap-1.5">
                       <IconLayersOff className="size-7 text-muted-foreground/50" />
                       <p className="text-sm font-medium">
-                        Tidak ada varian ditemukan
+                        Tidak ada add-on ditemukan
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Coba ubah kata kunci pencarian atau reset filter.

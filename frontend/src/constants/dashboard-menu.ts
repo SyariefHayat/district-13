@@ -18,16 +18,16 @@ export const dashboardMenu = [
     icon: IconPackage,
     items: [
       { title: "Produk", url: "/dashboard/products" },
-      { title: "Varian / Tambahan", url: "/dashboard/addons" },
+      { title: "Add-ons", url: "/dashboard/addons" },
     ],
   },
   {
     title: "Manajemen Stok",
     icon: IconBox,
     items: [
-      { title: "Stok Gudang", url: "/dashboard/stocks" },
+      { title: "Stok Gudang", url: "/dashboard/warehouse" },
       { title: "Stok Etalase", url: "/dashboard/stocks" },
-      { title: "Perpindahan Stok", url: "/dashboard/stocks" },
+      { title: "Perpindahan Stok", url: "/dashboard/warehouse" },
     ],
   },
   {

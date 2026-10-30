@@ -45,27 +45,27 @@ export function AddonStatsCards({ addons, isLoading }: AddonStatsCardsProps) {
 
   const kpis = [
     {
-      label: "Total Varian",
-      value: `${metrics.totalAddons} varian`,
-      description: "Pilihan kustomisasi terdaftar",
+      label: "Total Add-ons",
+      value: `${metrics.totalAddons} item`,
+      description: "Pilihan tambahan menu terdaftar",
       icon: IconLayersIntersect,
     },
     {
-      label: "Varian Aktif",
-      value: `${metrics.activeCount} varian`,
-      description: `${metrics.activeShare}% dari total katalog varian`,
+      label: "Add-ons Aktif",
+      value: `${metrics.activeCount} item`,
+      description: `${metrics.activeShare}% dari total katalog add-ons`,
       icon: IconCheck,
     },
     {
-      label: "Varian Nonaktif",
-      value: `${metrics.inactiveCount} varian`,
-      description: "Disembunyikan dari POS & menu",
+      label: "Add-ons Nonaktif",
+      value: `${metrics.inactiveCount} item`,
+      description: "Disembunyikan dari POS & kasir",
       icon: IconEyeOff,
     },
     {
       label: "Rata-rata Harga",
       value: formatIDR(metrics.avgPrice),
-      description: "Biaya tambahan per opsi menu",
+      description: "Biaya tambahan per opsi add-on",
       icon: IconCoins,
     },
   ];

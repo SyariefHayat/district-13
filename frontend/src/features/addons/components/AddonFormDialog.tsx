@@ -78,7 +78,7 @@ export function AddonFormDialog({
     e.preventDefault();
     const cleanName = name.trim();
     if (!cleanName) {
-      setErrorMsg("Nama varian wajib diisi");
+      setErrorMsg("Nama add-on wajib diisi");
       return;
     }
 
@@ -99,7 +99,7 @@ export function AddonFormDialog({
       }
     } catch (err) {
       setErrorMsg(
-        err instanceof Error ? err.message : "Gagal menyimpan varian"
+        err instanceof Error ? err.message : "Gagal menyimpan add-on"
       );
     } finally {
       setIsSubmitting(false);
@@ -111,11 +111,11 @@ export function AddonFormDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Ubah Data Varian" : "Tambah Varian Baru"}
+            {isEditing ? "Ubah Data Add-on" : "Tambah Add-on Baru"}
           </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? "Perbarui informasi nama, kategori, harga, dan ketersediaan varian."
+              ? "Perbarui informasi nama, kategori, harga, dan ketersediaan add-on."
               : "Tambahkan opsi kustomisasi atau bahan tambahan untuk menu kasir."}
           </DialogDescription>
         </DialogHeader>
@@ -129,7 +129,7 @@ export function AddonFormDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="addon-name" className="text-xs font-medium">
-              Nama Varian / Tambahan
+              Nama Add-on / Tambahan
             </Label>
             <Input
               id="addon-name"
@@ -207,7 +207,7 @@ export function AddonFormDialog({
             </Button>
             <Button type="submit" disabled={isSubmitting} className="gap-1.5">
               {isSubmitting && <Spinner className="size-3.5" />}
-              <span>{isEditing ? "Simpan Perubahan" : "Simpan Varian"}</span>
+              <span>{isEditing ? "Simpan Perubahan" : "Simpan Add-on"}</span>
             </Button>
           </DialogFooter>
         </form>

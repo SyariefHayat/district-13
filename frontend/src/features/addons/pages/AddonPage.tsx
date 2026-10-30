@@ -42,7 +42,7 @@ export default function AddonPage() {
     const listToExport =
       selectedAddons && selectedAddons.length > 0 ? selectedAddons : addons;
     if (!listToExport.length) {
-      toast.add({ title: "Tidak ada varian untuk diekspor" });
+      toast.add({ title: "Tidak ada add-on untuk diekspor" });
       return;
     }
     const json = JSON.stringify(listToExport, null, 2);
@@ -54,7 +54,7 @@ export default function AddonPage() {
     a.click();
     URL.revokeObjectURL(url);
     toast.add({
-      title: `Berhasil mengekspor ${listToExport.length} varian`,
+      title: `Berhasil mengekspor ${listToExport.length} add-on`,
     });
   };
 

@@ -9,8 +9,8 @@ interface AddonHeaderProps {
 }
 
 export function AddonHeader({
-  title = "Varian & Tambahan (Add-ons)",
-  description = "Kelola opsi kustomisasi menu, varian susu, sirup, topping, dan saus tambahan.",
+  title = "Add-ons (Tambahan)",
+  description = "Kelola opsi tambahan menu, susu alternatif, sirup, topping, dan saus.",
   onAddAddon,
   onExport,
 }: AddonHeaderProps) {
@@ -42,7 +42,7 @@ export function AddonHeader({
           className="gap-1.5 shadow-xs"
         >
           <IconPlus data-icon="inline-start" className="size-4" />
-          <span>Tambah Varian</span>
+          <span>Tambah Add-on</span>
         </Button>
       </div>
     </div>

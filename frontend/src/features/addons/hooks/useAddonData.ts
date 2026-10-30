@@ -90,7 +90,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
           throw new Error(
             typeof body.message === "string"
               ? body.message
-              : `Gagal memuat varian dari database (${res.status})`
+              : `Gagal memuat add-ons dari database (${res.status})`
           );
         }
 
@@ -117,7 +117,6 @@ export function useAddonData(options?: UseAddonDataOptions) {
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        // If it fails on network or dev fallback, preserve current addons
         if (isInitialLoad.current) {
           setAddons(INITIAL_ADDONS);
           isInitialLoad.current = false;
@@ -217,7 +216,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           toast.add({
-            title: "Gagal menghapus varian",
+            title: "Gagal menghapus add-on",
             description:
               typeof body.message === "string"
                 ? body.message
@@ -229,7 +228,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
         }
       } catch (err) {
         toast.add({
-          title: "Gagal menghapus varian",
+          title: "Gagal menghapus add-on",
           description:
             err instanceof Error ? err.message : "Koneksi bermasalah",
         });
@@ -261,13 +260,13 @@ export function useAddonData(options?: UseAddonDataOptions) {
         const hasFailures = results.some((r) => !r.ok);
         if (hasFailures) {
           toast.add({
-            title: "Beberapa varian gagal dihapus",
+            title: "Beberapa add-on gagal dihapus",
           });
         }
         void fetchAddons(true);
       } catch (err) {
         toast.add({
-          title: "Gagal menghapus varian",
+          title: "Gagal menghapus add-on",
           description:
             err instanceof Error ? err.message : "Koneksi bermasalah",
         });
@@ -308,10 +307,9 @@ export function useAddonData(options?: UseAddonDataOptions) {
             linkedProductsCount: 0,
           };
           setAddons((prev) => [mapped, ...prev]);
-          toast.add({ title: `Varian "${data.name}" berhasil ditambahkan` });
+          toast.add({ title: `Add-on "${data.name}" berhasil ditambahkan` });
           return true;
         } else {
-          // Fallback local addition if in demo mode
           const localItem: AddonItem = {
             id: `add-${Date.now()}`,
             name: data.name,
@@ -321,7 +319,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
             linkedProductsCount: 0,
           };
           setAddons((prev) => [localItem, ...prev]);
-          toast.add({ title: `Varian "${data.name}" berhasil ditambahkan` });
+          toast.add({ title: `Add-on "${data.name}" berhasil ditambahkan` });
           return true;
         }
       } catch {
@@ -334,7 +332,7 @@ export function useAddonData(options?: UseAddonDataOptions) {
           linkedProductsCount: 0,
         };
         setAddons((prev) => [localItem, ...prev]);
-        toast.add({ title: `Varian "${data.name}" berhasil ditambahkan` });
+        toast.add({ title: `Add-on "${data.name}" berhasil ditambahkan` });
         return true;
       }
     },
@@ -363,13 +361,13 @@ export function useAddonData(options?: UseAddonDataOptions) {
           body: JSON.stringify(updatePayload),
         });
         if (res.ok) {
-          toast.add({ title: "Perubahan varian berhasil disimpan" });
+          toast.add({ title: "Perubahan add-on berhasil disimpan" });
           return true;
         }
       } catch {
         // Optimistic update retained
       }
-      toast.add({ title: "Perubahan varian berhasil disimpan" });
+      toast.add({ title: "Perubahan add-on berhasil disimpan" });
       return true;
     },
     [authorizedFetch]
