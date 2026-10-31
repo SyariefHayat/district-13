@@ -14,12 +14,12 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import {
   IconAlertTriangle,
-  IconArrowLeft,
   IconArrowRight,
   IconArrowsTransferUpDown,
   IconBuildingStore,
   IconBuildingWarehouse,
   IconCheck,
+  IconChevronLeft,
   IconPlus,
   IconX,
 } from "@tabler/icons-react";
@@ -117,36 +117,49 @@ export default function WarehouseTransferPage() {
 
   return (
     <div className="flex flex-col gap-6 py-4 md:py-6 px-4 md:px-6 max-w-5xl">
-      {/* Navigation Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
+      {/* Top Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-2">
+        {/* Back button + Title */}
+        <div className="flex items-center gap-3">
           <Button
-            variant="ghost"
-            size="sm"
+            type="button"
+            variant="outline"
+            size="icon"
             onClick={() => navigate("/dashboard/stocks")}
-            className="gap-1.5 -ml-2 text-muted-foreground hover:text-foreground"
+            title="Kembali ke daftar stok"
           >
-            <IconArrowLeft className="size-4" />
-            <span>Kembali ke Stok</span>
+            <IconChevronLeft className="size-4" />
           </Button>
-        </div>
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
               Transfer Stok ke Etalase
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Pindahkan stok dari gudang penyimpanan utama ke etalase
-              kasir/toko.
-            </p>
           </div>
-          <Badge
-            variant="outline"
-            className="w-fit gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-xs font-medium"
+        </div>
+
+        {/* Action Buttons: Discard, Confirm Transfer */}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isSubmitting}
+            onClick={() => navigate("/dashboard/stocks")}
           >
-            <IconArrowsTransferUpDown className="size-3.5" />
-            <span>Gudang → Etalase Kasir</span>
-          </Badge>
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            form="transfer-form"
+            disabled={isSubmitting || isOutOfStockInWarehouse || !currentItem}
+            className="gap-2 shadow-xs"
+          >
+            {isSubmitting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <IconCheck className="size-4" />
+            )}
+            <span>{isSubmitting ? "Memproses..." : "Konfirmasi Transfer"}</span>
+          </Button>
         </div>
       </div>
 
@@ -190,6 +203,7 @@ export default function WarehouseTransferPage() {
       )}
 
       <form
+        id="transfer-form"
         onSubmit={handleSubmit}
         className="grid grid-cols-1 md:grid-cols-3 gap-6"
       >

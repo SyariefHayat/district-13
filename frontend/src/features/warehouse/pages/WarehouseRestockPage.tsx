@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  IconArrowLeft,
   IconBuildingWarehouse,
   IconCheck,
+  IconChevronLeft,
   IconFileText,
   IconPlus,
   IconTruckLoading,
@@ -99,35 +99,49 @@ export default function WarehouseRestockPage() {
 
   return (
     <div className="flex flex-col gap-6 py-4 md:py-6 px-4 md:px-6 max-w-5xl">
-      {/* Navigation Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
+      {/* Top Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-2">
+        {/* Back button + Title */}
+        <div className="flex items-center gap-3">
           <Button
-            variant="ghost"
-            size="sm"
+            type="button"
+            variant="outline"
+            size="icon"
             onClick={() => navigate("/dashboard/stocks")}
-            className="gap-1.5 -ml-2 text-muted-foreground hover:text-foreground"
+            title="Kembali ke daftar stok"
           >
-            <IconArrowLeft className="size-4" />
-            <span>Kembali ke Stok</span>
+            <IconChevronLeft className="size-4" />
           </Button>
-        </div>
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
               Restock Barang Masuk
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Tambah pasokan inventori baru ke gudang penyimpanan utama toko.
-            </p>
           </div>
-          <Badge
-            variant="outline"
-            className="w-fit gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs font-medium"
+        </div>
+
+        {/* Action Buttons: Discard, Confirm Restock */}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isSubmitting}
+            onClick={() => navigate("/dashboard/stocks")}
           >
-            <IconTruckLoading className="size-3.5" />
-            <span>Gudang Utama (Warehouse)</span>
-          </Badge>
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            form="restock-form"
+            disabled={isSubmitting || !currentItem}
+            className="gap-2 shadow-xs"
+          >
+            {isSubmitting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <IconCheck className="size-4" />
+            )}
+            <span>{isSubmitting ? "Menyimpan..." : "Konfirmasi Restock"}</span>
+          </Button>
         </div>
       </div>
 
@@ -146,6 +160,7 @@ export default function WarehouseRestockPage() {
       )}
 
       <form
+        id="restock-form"
         onSubmit={handleSubmit}
         className="grid grid-cols-1 md:grid-cols-3 gap-6"
       >
