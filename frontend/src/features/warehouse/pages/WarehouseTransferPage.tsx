@@ -429,35 +429,6 @@ export default function WarehouseTransferPage() {
                 </div>
               </div>
             </div>
-
-            <div className="pt-2 flex flex-col gap-2">
-              <Button
-                type="submit"
-                disabled={
-                  isSubmitting || isOutOfStockInWarehouse || !currentItem
-                }
-                className="w-full gap-2 shadow-xs"
-              >
-                {isSubmitting ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  <IconCheck className="size-4" />
-                )}
-                <span>
-                  {isSubmitting ? "Memproses..." : "Konfirmasi Transfer"}
-                </span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/dashboard/stocks")}
-                disabled={isSubmitting}
-                className="w-full gap-1.5"
-              >
-                <IconX className="size-4" />
-                <span>Batal</span>
-              </Button>
-            </div>
           </div>
         </div>
       </form>

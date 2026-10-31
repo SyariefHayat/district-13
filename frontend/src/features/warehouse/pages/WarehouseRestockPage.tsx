@@ -356,33 +356,6 @@ export default function WarehouseRestockPage() {
                 </div>
               )}
             </div>
-
-            <div className="pt-4 flex flex-col gap-2">
-              <Button
-                type="submit"
-                disabled={isSubmitting || !currentItem}
-                className="w-full gap-2 shadow-xs"
-              >
-                {isSubmitting ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  <IconCheck className="size-4" />
-                )}
-                <span>
-                  {isSubmitting ? "Menyimpan..." : "Konfirmasi Restock"}
-                </span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => navigate("/dashboard/stocks")}
-                disabled={isSubmitting}
-                className="w-full gap-1.5"
-              >
-                <IconX className="size-4" />
-                <span>Batal</span>
-              </Button>
-            </div>
           </div>
         </div>
       </form>
