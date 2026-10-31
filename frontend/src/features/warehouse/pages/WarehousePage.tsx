@@ -1,4 +1,3 @@
-import * as React from "react";
 import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";

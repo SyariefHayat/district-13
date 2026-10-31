@@ -55,9 +55,23 @@ export default function WarehouseMovementsPage() {
     }
   };
 
-  const getMovementBadge = (type: WarehouseMovementItem["type"]) => {
+  const getMovementBadge = (
+    type: WarehouseMovementItem["type"],
+    toLocation?: string | null
+  ) => {
     switch (type) {
       case "STOCK_IN":
+        if (toLocation === "DISPLAY") {
+          return (
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800 gap-1"
+            >
+              <IconArrowDownLeft className="size-3" />
+              <span>Restock Etalase</span>
+            </Badge>
+          );
+        }
         return (
           <Badge
             variant="outline"
@@ -197,7 +211,7 @@ export default function WarehouseMovementsPage() {
                     <span className="font-semibold text-base text-foreground truncate">
                       {m.productName}
                     </span>
-                    {getMovementBadge(m.type)}
+                    {getMovementBadge(m.type, m.toLocation)}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>Oleh: {m.username || "System"}</span>

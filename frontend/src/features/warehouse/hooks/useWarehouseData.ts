@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/toast";
-import {
-  INITIAL_WAREHOUSE_ITEMS,
-  type WarehouseInventoryItem,
-  type WarehouseMovementItem,
+import type {
+  WarehouseInventoryItem,
+  WarehouseMovementItem,
 } from "../data/warehouseData";
 
 interface InventoryDashboardItem {
@@ -37,13 +36,12 @@ interface RawBackendProduct {
   images?: string[];
   stock?: number;
   displayStock?: number;
+  updatedAt?: string;
 }
 
 export function useWarehouseData() {
   const { authorizedFetch } = useAuth();
-  const [items, setItems] = useState<WarehouseInventoryItem[]>(
-    INITIAL_WAREHOUSE_ITEMS
-  );
+  const [items, setItems] = useState<WarehouseInventoryItem[]>([]);
   const [movements, setMovements] = useState<WarehouseMovementItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,7 +85,7 @@ export function useWarehouseData() {
             ? prodData
             : prodData.data || [];
 
-          let inventoryMap = new Map<
+          const inventoryMap = new Map<
             string,
             { warehouseStock: number; displayStock: number; updatedAt?: string }
           >();
@@ -113,43 +111,32 @@ export function useWarehouseData() {
           if (productsList.length > 0) {
             mergedItems = productsList.map((p) => {
               const inv = inventoryMap.get(p.id);
-              const warehouseStock =
-                inv?.warehouseStock ??
-                (p.stock ? Math.max(0, p.stock - 5) : 10);
-              const displayStock =
-                inv?.displayStock ??
-                p.displayStock ??
-                (p.stock ? Math.min(5, p.stock) : 5);
+              const warehouseStock = inv ? inv.warehouseStock : 0;
+              const displayStock = inv ? inv.displayStock : 0;
+              const costPrice = Number(p.costPrice) || 0;
+              const sellingPrice = Number(p.price) || 0;
 
               return {
                 id: p.id,
                 productId: p.id,
                 name: p.name,
-                sku: p.sku || `SKU-${p.id.slice(0, 4).toUpperCase()}`,
-                category: p.categoryName || "Umum",
+                sku: p.sku || "-",
+                category: p.categoryName || "Uncategorized",
                 image: p.images?.[0],
                 warehouseStock,
                 displayStock,
                 totalStock: warehouseStock + displayStock,
                 minStockThreshold: 10,
-                costPrice:
-                  Number(p.costPrice) ||
-                  Math.round((Number(p.price) || 20000) * 0.7),
-                sellingPrice: Number(p.price) || 20000,
-                updatedAt: inv?.updatedAt || new Date().toISOString(),
+                costPrice,
+                sellingPrice,
+                updatedAt:
+                  inv?.updatedAt || p.updatedAt || new Date().toISOString(),
               };
             });
           }
         }
 
-        if (mergedItems.length > 0) {
-          setItems(mergedItems);
-        } else {
-          // Keep current items or default to realistic initial items
-          setItems((prev) =>
-            prev.length > 0 ? prev : INITIAL_WAREHOUSE_ITEMS
-          );
-        }
+        setItems(mergedItems);
 
         // Set categories
         if (catRes && catRes.ok) {
@@ -167,9 +154,7 @@ export function useWarehouseData() {
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         console.warn("Could not sync warehouse data:", err);
-        setError(
-          "Koneksi gagal sinkronisasi, menggunakan data inventori lokal."
-        );
+        setError("Gagal menyinkronkan data inventori dari database server.");
       } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
@@ -205,12 +190,20 @@ export function useWarehouseData() {
   }, [fetchWarehouseData, fetchMovements]);
 
   const restock = useCallback(
-    async (productId: string, quantity: number) => {
+    async (
+      productId: string,
+      quantity: number,
+      targetLocation: "WAREHOUSE" | "DISPLAY" = "WAREHOUSE"
+    ) => {
       try {
         const res = await authorizedFetch("/inventory/restock", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ productId, quantity }),
+          body: JSON.stringify({
+            productId,
+            quantity,
+            location: targetLocation,
+          }),
         });
 
         if (!res.ok) {
@@ -223,11 +216,19 @@ export function useWarehouseData() {
         setItems((prev) =>
           prev.map((item) => {
             if (item.productId === productId || item.id === productId) {
-              const newWhStock = item.warehouseStock + quantity;
+              const newWhStock =
+                targetLocation === "WAREHOUSE"
+                  ? item.warehouseStock + quantity
+                  : item.warehouseStock;
+              const newDispStock =
+                targetLocation === "DISPLAY"
+                  ? item.displayStock + quantity
+                  : item.displayStock;
               return {
                 ...item,
                 warehouseStock: newWhStock,
-                totalStock: newWhStock + item.displayStock,
+                displayStock: newDispStock,
+                totalStock: newWhStock + newDispStock,
                 updatedAt: new Date().toISOString(),
               };
             }
@@ -235,9 +236,11 @@ export function useWarehouseData() {
           })
         );
 
+        const targetLabel =
+          targetLocation === "DISPLAY" ? "etalase kasir" : "gudang utama";
         toast.add({
           title: "Restock Berhasil",
-          description: `Berhasil menambahkan +${quantity} unit ke gudang utama`,
+          description: `Berhasil menambahkan +${quantity} unit ke ${targetLabel}`,
         });
 
         void fetchWarehouseData(true);
