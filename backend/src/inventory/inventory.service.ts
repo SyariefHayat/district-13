@@ -227,13 +227,14 @@ export class InventoryService {
   }
 
   async restock(input: StockOperationDto, actor: AuthenticatedUser) {
+    const targetLocation = input.location ?? 'WAREHOUSE';
     return this.database.db.transaction(async (tx) => {
       await this.lockActiveProduct(tx, input.productId);
       const [inventory] = await tx
         .insert(inventories)
         .values({
           productId: input.productId,
-          location: 'WAREHOUSE',
+          location: targetLocation,
           stock: input.quantity,
         })
         .onConflictDoUpdate({
@@ -248,7 +249,7 @@ export class InventoryService {
         .insert(inventoryMovements)
         .values({
           productId: input.productId,
-          toLocation: 'WAREHOUSE',
+          toLocation: targetLocation,
           type: 'STOCK_IN',
           quantity: input.quantity,
           userId: actor.id,
