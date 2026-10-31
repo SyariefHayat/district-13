@@ -39,7 +39,19 @@ interface RawBackendProduct {
   updatedAt?: string;
 }
 
-export function useWarehouseData() {
+export interface UseWarehouseDataOptions {
+  pollIntervalMs?: number;
+  productId?: string;
+}
+
+export function useWarehouseData(
+  options: number | UseWarehouseDataOptions = 5000
+) {
+  const pollIntervalMs =
+    typeof options === "number" ? options : (options.pollIntervalMs ?? 5000);
+  const targetProductId =
+    typeof options === "object" ? options.productId : undefined;
+
   const { authorizedFetch } = useAuth();
   const [items, setItems] = useState<WarehouseInventoryItem[]>([]);
   const [movements, setMovements] = useState<WarehouseMovementItem[]>([]);
@@ -49,7 +61,9 @@ export function useWarehouseData() {
   const [error, setError] = useState<string | null>(null);
 
   const isInitialLoad = useRef(true);
+  const isInitialMovementsLoad = useRef(true);
   const abortRef = useRef<AbortController | null>(null);
+  const movementsAbortRef = useRef<AbortController | null>(null);
 
   const fetchWarehouseData = useCallback(
     async (silent = false) => {
@@ -165,29 +179,100 @@ export function useWarehouseData() {
     [authorizedFetch]
   );
 
-  const fetchMovements = useCallback(async () => {
-    setIsMovementsLoading(true);
-    try {
-      const res = await authorizedFetch("/inventory/movements?limit=50");
-      if (res && res.ok) {
-        const json = await res.json();
-        const list = Array.isArray(json) ? json : json.data || [];
-        setMovements(list);
+  const fetchMovements = useCallback(
+    async (silent = false, specificProductId?: string) => {
+      if (!silent && isInitialMovementsLoad.current) {
+        setIsMovementsLoading(true);
       }
-    } catch (err) {
-      console.warn("Could not fetch movements:", err);
-    } finally {
-      setIsMovementsLoading(false);
-    }
-  }, [authorizedFetch]);
 
+      movementsAbortRef.current?.abort();
+      const controller = new AbortController();
+      movementsAbortRef.current = controller;
+
+      try {
+        const pid = specificProductId ?? targetProductId;
+        const isUuid =
+          pid &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            pid
+          );
+        const url = isUuid
+          ? `/inventory/movements?limit=100&productId=${encodeURIComponent(pid)}`
+          : `/inventory/movements?limit=100`;
+
+        const res = await authorizedFetch(url, { signal: controller.signal });
+        if (controller.signal.aborted) return;
+
+        if (res && res.ok) {
+          const json = await res.json();
+          const list: WarehouseMovementItem[] = Array.isArray(json)
+            ? json
+            : json.data || [];
+          setMovements(list);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.warn("Could not fetch movements:", err);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsMovementsLoading(false);
+          isInitialMovementsLoad.current = false;
+        }
+      }
+    },
+    [authorizedFetch, targetProductId]
+  );
+
+  // Initial load
   useEffect(() => {
     void fetchWarehouseData(false);
-    void fetchMovements();
+    void fetchMovements(false);
     return () => {
       abortRef.current?.abort();
+      movementsAbortRef.current?.abort();
     };
   }, [fetchWarehouseData, fetchMovements]);
+
+  // Realtime Polling & Window Focus / Visibility Revalidation
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const syncRealtime = () => {
+      void fetchWarehouseData(true);
+      void fetchMovements(true);
+    };
+
+    const startPolling = () => {
+      if (intervalId) clearInterval(intervalId);
+      if (pollIntervalMs > 0) {
+        intervalId = setInterval(() => {
+          if (document.visibilityState === "visible") {
+            syncRealtime();
+          }
+        }, pollIntervalMs);
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        syncRealtime();
+        startPolling();
+      } else if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    startPolling();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+    };
+  }, [fetchWarehouseData, fetchMovements, pollIntervalMs]);
 
   const restock = useCallback(
     async (
