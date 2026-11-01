@@ -8,6 +8,7 @@ import {
   ProductDetailPage,
 } from "./features/product";
 import { AddonPage } from "./features/addons";
+import { UserPage } from "./features/users";
 import {
   WarehousePage,
   WarehouseMovementsPage,
@@ -43,7 +44,7 @@ export const router = createBrowserRouter([
 
           // Master Data & Management
           { path: "settings", element: <div>Dashboard Settings</div> },
-          { path: "users", element: <div>Dashboard Users</div> },
+          { path: "users", Component: UserPage },
           { path: "products", Component: ProductPage },
           { path: "products/new", Component: AddProductPage },
           { path: "products/edit", Component: EditPage },
