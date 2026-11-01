@@ -85,7 +85,11 @@ export function UserPasswordDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <form
+          id="change-password-form"
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
           {errorMsg && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive">
               {errorMsg}
@@ -111,7 +115,7 @@ export function UserPasswordDialog({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                 tabIndex={-1}
               >
                 {showPassword ? (
@@ -142,7 +146,7 @@ export function UserPasswordDialog({
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                 tabIndex={-1}
               >
                 {showConfirmPassword ? (
@@ -153,28 +157,33 @@ export function UserPasswordDialog({
               </button>
             </div>
           </div>
-
-          <DialogFooter className="pt-2 gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="gap-1.5"
-            >
-              <IconX className="size-4" />
-              <span>Batal</span>
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="gap-1.5">
-              {isSubmitting ? (
-                <Spinner className="size-4" />
-              ) : (
-                <IconKey className="size-4" />
-              )}
-              <span>Simpan Sandi Baru</span>
-            </Button>
-          </DialogFooter>
         </form>
+
+        <DialogFooter className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+            className="gap-1.5"
+          >
+            <IconX className="size-4" />
+            <span>Batal</span>
+          </Button>
+          <Button
+            type="submit"
+            form="change-password-form"
+            disabled={isSubmitting}
+            className="gap-1.5"
+          >
+            {isSubmitting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <IconKey className="size-4" />
+            )}
+            <span>Simpan Sandi Baru</span>
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

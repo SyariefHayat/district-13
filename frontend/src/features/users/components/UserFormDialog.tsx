@@ -133,7 +133,7 @@ export function UserFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
           {errorMsg && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive">
               {errorMsg}
@@ -243,28 +243,33 @@ export function UserFormDialog({
               disabled={isSubmitting}
             />
           </div>
-
-          <DialogFooter className="pt-2 gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="gap-1.5"
-            >
-              <IconX className="size-4" />
-              <span>Batal</span>
-            </Button>
-            <Button type="submit" disabled={isSubmitting} className="gap-1.5">
-              {isSubmitting ? (
-                <Spinner className="size-4" />
-              ) : (
-                <IconCheck className="size-4" />
-              )}
-              <span>{isEditing ? "Simpan Perubahan" : "Buat Akun"}</span>
-            </Button>
-          </DialogFooter>
         </form>
+
+        <DialogFooter className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+            className="gap-1.5"
+          >
+            <IconX className="size-4" />
+            <span>Batal</span>
+          </Button>
+          <Button
+            type="submit"
+            form="user-form"
+            disabled={isSubmitting}
+            className="gap-1.5"
+          >
+            {isSubmitting ? (
+              <Spinner className="size-4" />
+            ) : (
+              <IconCheck className="size-4" />
+            )}
+            <span>{isEditing ? "Simpan Perubahan" : "Buat Akun"}</span>
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
