@@ -30,6 +30,7 @@ export function UserPasswordDialog({
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
@@ -37,6 +38,7 @@ export function UserPasswordDialog({
     setPassword("");
     setConfirmPassword("");
     setShowPassword(false);
+    setShowConfirmPassword(false);
     setErrorMsg(null);
   }, [user, open]);
 
@@ -125,16 +127,31 @@ export function UserPasswordDialog({
             <Label htmlFor="confirm-password" className="text-xs font-medium">
               Konfirmasi Kata Sandi Baru
             </Label>
-            <Input
-              id="confirm-password"
-              type={showPassword ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Ulangi kata sandi baru"
-              disabled={isSubmitting}
-              autoComplete="new-password"
-              required
-            />
+            <div className="relative">
+              <Input
+                id="confirm-password"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Ulangi kata sandi baru"
+                disabled={isSubmitting}
+                autoComplete="new-password"
+                className="pr-10"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? (
+                  <IconEyeOff className="size-4" />
+                ) : (
+                  <IconEye className="size-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           <DialogFooter className="pt-2 gap-2 sm:gap-0">

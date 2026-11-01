@@ -1,4 +1,6 @@
 export { default as UserPage } from "./pages/UserPage";
+export { default as AddUserPage } from "./pages/AddUserPage";
+export { default as EditUserPage } from "./pages/EditUserPage";
 export * from "./data/userData";
 export * from "./hooks/useUserData";
 export * from "./components/UserHeader";

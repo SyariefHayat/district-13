@@ -1,44 +1,39 @@
 import * as React from "react";
+import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { UserHeader } from "../components/UserHeader";
 import { UserStatsCards } from "../components/UserStatsCards";
 import { UserTable } from "../components/UserTable";
-import { UserFormDialog } from "../components/UserFormDialog";
 import { UserPasswordDialog } from "../components/UserPasswordDialog";
 import { useUserData } from "../hooks/useUserData";
 import type { UserItem } from "../data/userData";
 
 export default function UserPage() {
+  const navigate = useNavigate();
   const {
     users,
     currentUser,
     isLoading,
     error,
     refetch,
-    createUser,
     updateUser,
     toggleUserStatus,
     deleteUser,
     deleteMultiple,
   } = useUserData();
 
-  const [formDialogOpen, setFormDialogOpen] = React.useState(false);
-  const [editingUser, setEditingUser] = React.useState<UserItem | null>(null);
-
   const [passwordDialogOpen, setPasswordDialogOpen] = React.useState(false);
   const [passwordTargetUser, setPasswordTargetUser] =
     React.useState<UserItem | null>(null);
 
   const handleOpenAdd = () => {
-    setEditingUser(null);
-    setFormDialogOpen(true);
+    navigate("/dashboard/users/new");
   };
 
   const handleOpenEdit = (user: UserItem) => {
-    setEditingUser(user);
-    setFormDialogOpen(true);
+    navigate(`/dashboard/users/${user.id}/edit`);
   };
 
   const handleOpenChangePassword = (user: UserItem) => {
@@ -112,23 +107,6 @@ export default function UserPage() {
         onDeleteUser={deleteUser}
         onDeleteMultiple={deleteMultiple}
         onExport={handleExport}
-      />
-
-      <UserFormDialog
-        open={formDialogOpen}
-        onOpenChange={setFormDialogOpen}
-        user={editingUser}
-        onSubmit={async (values) => {
-          if (editingUser) {
-            return await updateUser(editingUser.id, values);
-          } else {
-            return await createUser({
-              username: values.username,
-              password: values.password!,
-              role: values.role,
-            });
-          }
-        }}
       />
 
       <UserPasswordDialog
