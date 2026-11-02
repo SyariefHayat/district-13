@@ -8,6 +8,7 @@ import {
   ProductDetailPage,
 } from "./features/product";
 import { AddonPage } from "./features/addons";
+import { SchedulePage } from "./features/schedules";
 import { UserPage, AddUserPage, EditUserPage } from "./features/users";
 import {
   WarehousePage,
@@ -15,6 +16,7 @@ import {
   WarehouseRestockPage,
   WarehouseTransferPage,
 } from "./features/warehouse";
+import { SalesPage } from "./features/sales";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 
@@ -40,7 +42,8 @@ export const router = createBrowserRouter([
 
           // Payments & Transactions
           { path: "payments", element: <div>Dashboard Payments</div> },
-          { path: "transactions", element: <div>Dashboard Transactions</div> },
+          { path: "transactions", Component: SalesPage },
+          { path: "sales", Component: SalesPage },
 
           // Master Data & Management
           { path: "settings", element: <div>Dashboard Settings</div> },
@@ -55,7 +58,7 @@ export const router = createBrowserRouter([
           { path: "addons", Component: AddonPage },
 
           // Schedules & Shifts
-          { path: "schedules", element: <div>Dashboard Schedules</div> },
+          { path: "schedules", Component: SchedulePage },
           { path: "shifts", element: <div>Dashboard Shifts</div> },
 
           // Cashier & Cash Flow
