@@ -48,6 +48,39 @@ function areScheduleListsEqual(a: ScheduleItem[], b: ScheduleItem[]): boolean {
   return true;
 }
 
+async function parseJsonResponse<T>(
+  response: Response,
+  defaultError: string
+): Promise<T> {
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+
+  if (!response.ok) {
+    let message = `${defaultError} (${response.status})`;
+    if (isJson) {
+      try {
+        const body = await response.json();
+        if (body?.message) {
+          message = Array.isArray(body.message)
+            ? body.message.join(", ")
+            : String(body.message);
+        }
+      } catch {
+        // Fallback to default message
+      }
+    }
+    throw new Error(message);
+  }
+
+  if (!isJson) {
+    throw new Error(
+      "Respon server tidak valid (bukan JSON). Pastikan server backend aktif dan rute terdaftar."
+    );
+  }
+
+  return (await response.json()) as T;
+}
+
 export interface UseScheduleDataOptions {
   pollIntervalMs?: number;
 }
@@ -81,16 +114,10 @@ export function useScheduleData(options?: UseScheduleDataOptions) {
           signal: controller.signal,
         });
 
-        if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          const errDetail =
-            body?.message || `Gagal memuat jadwal shift (${response.status})`;
-          throw new Error(
-            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
-          );
-        }
-
-        const rawData = (await response.json()) as BackendSchedule[];
+        const rawData = await parseJsonResponse<BackendSchedule[]>(
+          response,
+          "Gagal memuat jadwal shift"
+        );
         const fresh = Array.isArray(rawData)
           ? rawData.map(mapBackendSchedule)
           : [];
@@ -172,16 +199,10 @@ export function useScheduleData(options?: UseScheduleDataOptions) {
           }),
         });
 
-        if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          const errDetail =
-            body?.message || `Gagal menambahkan jadwal (${response.status})`;
-          throw new Error(
-            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
-          );
-        }
-
-        const created = (await response.json()) as BackendSchedule;
+        const created = await parseJsonResponse<BackendSchedule>(
+          response,
+          "Gagal menambahkan jadwal"
+        );
         setSchedules((prev) => [mapBackendSchedule(created), ...prev]);
         toast.add({
           title: "Jadwal shift berhasil ditambahkan",
@@ -214,16 +235,10 @@ export function useScheduleData(options?: UseScheduleDataOptions) {
           body: JSON.stringify(input),
         });
 
-        if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          const errDetail =
-            body?.message || `Gagal memperbarui jadwal (${response.status})`;
-          throw new Error(
-            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
-          );
-        }
-
-        const updated = (await response.json()) as BackendSchedule;
+        const updated = await parseJsonResponse<BackendSchedule>(
+          response,
+          "Gagal memperbarui jadwal"
+        );
         setSchedules((prev) =>
           prev.map((s) => (s.id === id ? mapBackendSchedule(updated) : s))
         );
@@ -254,16 +269,10 @@ export function useScheduleData(options?: UseScheduleDataOptions) {
           body: JSON.stringify({ status }),
         });
 
-        if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          const errDetail =
-            body?.message || `Gagal memperbarui status (${response.status})`;
-          throw new Error(
-            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
-          );
-        }
-
-        const updated = (await response.json()) as BackendSchedule;
+        const updated = await parseJsonResponse<BackendSchedule>(
+          response,
+          "Gagal memperbarui status"
+        );
         setSchedules((prev) =>
           prev.map((s) => (s.id === id ? mapBackendSchedule(updated) : s))
         );
@@ -293,12 +302,7 @@ export function useScheduleData(options?: UseScheduleDataOptions) {
         });
 
         if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          const errDetail =
-            body?.message || `Gagal menghapus jadwal (${response.status})`;
-          throw new Error(
-            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
-          );
+          await parseJsonResponse(response, "Gagal menghapus jadwal");
         }
 
         setSchedules((prev) => prev.filter((s) => s.id !== id));
@@ -330,12 +334,7 @@ export function useScheduleData(options?: UseScheduleDataOptions) {
         });
 
         if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          const errDetail =
-            body?.message || `Gagal menghapus jadwal (${response.status})`;
-          throw new Error(
-            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
-          );
+          await parseJsonResponse(response, "Gagal menghapus jadwal");
         }
 
         setSchedules((prev) => prev.filter((s) => !ids.includes(s.id)));

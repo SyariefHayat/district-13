@@ -27,6 +27,8 @@ export default defineConfig({
       "/inventory": process.env.BACKEND_URL ?? "http://localhost:3000",
       "/transactions": process.env.BACKEND_URL ?? "http://localhost:3000",
       "/shifts": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/schedules": process.env.BACKEND_URL ?? "http://localhost:3000",
+      "/audit-logs": process.env.BACKEND_URL ?? "http://localhost:3000",
     },
   },
 });
