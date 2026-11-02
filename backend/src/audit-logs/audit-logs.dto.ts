@@ -18,6 +18,7 @@ export const AUDIT_ENTITY_TYPES = [
   'TRANSACTION',
   'SHIFT',
   'CASH_MOVEMENT',
+  'SCHEDULE',
 ] as const;
 export const AUDIT_ACTIONS = [
   'AUTH_LOGIN_SUCCEEDED',
@@ -50,6 +51,10 @@ export const AUDIT_ACTIONS = [
   'SHIFT_CLOSED_BY_SUPERVISOR',
   'CASH_MOVEMENT_IN_RECORDED',
   'CASH_MOVEMENT_OUT_RECORDED',
+  'SCHEDULE_CREATED',
+  'SCHEDULE_UPDATED',
+  'SCHEDULE_DELETED',
+  'SCHEDULES_BATCH_DELETED',
 ] as const;
 export class AuditLogsQueryDto {
   @IsOptional() @IsDateString() startDate?: string;

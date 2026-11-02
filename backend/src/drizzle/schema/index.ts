@@ -13,3 +13,4 @@ export * from './transactions.schema.js';
 export * from './auth-login-attempts.schema.js';
 export * from './auth-audit-logs.schema.js';
 export * from './audit-logs.schema.js';
+export * from './schedules.schema.js';

@@ -9,6 +9,7 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { AddonsModule } from './addons/addons.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { ShiftsModule } from './shifts/shifts.module.js';
+import { SchedulesModule } from './schedules/schedules.module.js';
 import { TransactionsModule } from './transactions/transactions.module.js';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
@@ -26,6 +27,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
     AddonsModule,
     InventoryModule,
     ShiftsModule,
+    SchedulesModule,
     TransactionsModule,
     ReportsModule,
     AuditLogsModule,

@@ -69,6 +69,7 @@ describe('role permission mapping', () => {
       PERMISSIONS.transactionsVoid,
       PERMISSIONS.transactionsReadAll,
       PERMISSIONS.reportsSalesRead,
+      PERMISSIONS.reportsDashboardSummaryRead,
       PERMISSIONS.reportsInventoryRead,
       PERMISSIONS.reportsCashRead,
       PERMISSIONS.reportsShiftsRead,
@@ -91,6 +92,7 @@ describe('role permission mapping', () => {
       PERMISSIONS.transactionsCreate,
       PERMISSIONS.transactionsReadOwn,
       PERMISSIONS.storeSettingsRead,
+      PERMISSIONS.reportsDashboardSummaryRead,
     ]);
   });
 

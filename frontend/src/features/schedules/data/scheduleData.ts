@@ -18,6 +18,46 @@ export interface ScheduleItem {
   updatedAt: string;
 }
 
+export interface BackendSchedule {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: "OWNER" | "ADMIN" | "CASHIER";
+  shiftType: ShiftType;
+  shiftName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: ScheduleStatus;
+  notes?: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export function mapBackendSchedule(s: BackendSchedule): ScheduleItem {
+  return {
+    id: s.id,
+    userId: s.userId,
+    userName: s.userName || "Karyawan",
+    userRole: s.userRole || "CASHIER",
+    shiftType: s.shiftType,
+    shiftName: s.shiftName,
+    date: s.date,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    status: s.status,
+    notes: s.notes || undefined,
+    createdAt:
+      typeof s.createdAt === "string"
+        ? s.createdAt
+        : new Date(s.createdAt).toISOString(),
+    updatedAt:
+      typeof s.updatedAt === "string"
+        ? s.updatedAt
+        : new Date(s.updatedAt).toISOString(),
+  };
+}
+
 export const SHIFT_TYPE_CONFIG: Record<
   ShiftType,
   {
@@ -115,96 +155,3 @@ export function formatScheduleDate(dateStr: string): string {
     return dateStr;
   }
 }
-
-export const INITIAL_SCHEDULES: ScheduleItem[] = [
-  {
-    id: "sch-1",
-    userId: "usr-1",
-    userName: "Budi Santoso",
-    userRole: "CASHIER",
-    shiftType: "MORNING",
-    shiftName: "Shift Pagi (Kasir 1)",
-    date: getTodayDateString(),
-    startTime: "07:00",
-    endTime: "16:00",
-    status: "ON_DUTY",
-    notes: "Buka kasir utama & cek stok awal",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "sch-2",
-    userId: "usr-2",
-    userName: "Siti Rahma",
-    userRole: "CASHIER",
-    shiftType: "AFTERNOON",
-    shiftName: "Shift Siang (Kasir 1)",
-    date: getTodayDateString(),
-    startTime: "15:00",
-    endTime: "24:00",
-    status: "SCHEDULED",
-    notes: "Tutup shift & setoran kas akhir",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "sch-3",
-    userId: "usr-3",
-    userName: "Ahmad Rizky",
-    userRole: "ADMIN",
-    shiftType: "FULLDAY",
-    shiftName: "Operasional & Gudang",
-    date: getTodayDateString(),
-    startTime: "08:00",
-    endTime: "17:00",
-    status: "ON_DUTY",
-    notes: "Penerimaan restock bahan baku",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "sch-4",
-    userId: "usr-4",
-    userName: "Dewi Lestari",
-    userRole: "CASHIER",
-    shiftType: "MORNING",
-    shiftName: "Shift Pagi (Kasir 2)",
-    date: getTodayDateString(),
-    startTime: "07:00",
-    endTime: "16:00",
-    status: "ON_DUTY",
-    notes: "Bantu peak hour sarapan",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "sch-5",
-    userId: "usr-5",
-    userName: "Eko Prasetyo",
-    userRole: "CASHIER",
-    shiftType: "AFTERNOON",
-    shiftName: "Shift Siang (Kasir 2)",
-    date: getTodayDateString(),
-    startTime: "15:00",
-    endTime: "24:00",
-    status: "SCHEDULED",
-    notes: "Standby kasir counter take-away",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "sch-6",
-    userId: "usr-6",
-    userName: "Fajar Nugraha",
-    userRole: "CASHIER",
-    shiftType: "NIGHT",
-    shiftName: "Shift Malam",
-    date: getTodayDateString(),
-    startTime: "23:00",
-    endTime: "08:00",
-    status: "SCHEDULED",
-    notes: "Shift malam & persiapan pembukaan",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];

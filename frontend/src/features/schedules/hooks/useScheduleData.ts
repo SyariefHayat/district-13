@@ -1,18 +1,18 @@
-import * as React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/toast";
 import {
-  INITIAL_SCHEDULES,
+  mapBackendSchedule,
+  type BackendSchedule,
   type ScheduleItem,
   type ScheduleStatus,
   type ShiftType,
 } from "../data/scheduleData";
 
-const STORAGE_KEY = "pos_shift_schedules";
-
 export interface CreateScheduleInput {
   userId: string;
-  userName: string;
-  userRole: "OWNER" | "ADMIN" | "CASHIER";
+  userName?: string;
+  userRole?: "OWNER" | "ADMIN" | "CASHIER";
   shiftType: ShiftType;
   shiftName: string;
   date: string;
@@ -22,66 +22,173 @@ export interface CreateScheduleInput {
   notes?: string;
 }
 
-export function useScheduleData() {
-  const [schedules, setSchedules] = React.useState<ScheduleItem[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored) as ScheduleItem[];
+function areScheduleListsEqual(a: ScheduleItem[], b: ScheduleItem[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const item1 = a[i];
+    const item2 = b[i];
+    if (
+      item1.id !== item2.id ||
+      item1.userId !== item2.userId ||
+      item1.userName !== item2.userName ||
+      item1.userRole !== item2.userRole ||
+      item1.shiftType !== item2.shiftType ||
+      item1.shiftName !== item2.shiftName ||
+      item1.date !== item2.date ||
+      item1.startTime !== item2.startTime ||
+      item1.endTime !== item2.endTime ||
+      item1.status !== item2.status ||
+      item1.notes !== item2.notes ||
+      item1.updatedAt !== item2.updatedAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export interface UseScheduleDataOptions {
+  pollIntervalMs?: number;
+}
+
+export function useScheduleData(options?: UseScheduleDataOptions) {
+  const pollIntervalMs = options?.pollIntervalMs ?? 5000;
+  const { authorizedFetch, user: currentUser } = useAuth();
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+  const isInitialLoad = useRef(true);
+
+  const fetchSchedules = useCallback(
+    async (silent = false) => {
+      if (!silent && isInitialLoad.current) {
+        setIsLoading(true);
       }
-    } catch {
-      // ignore
-    }
-    return INITIAL_SCHEDULES;
-  });
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+      setIsSyncing(true);
+      setError(null);
 
-  // Sync to local storage
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(schedules));
-    } catch {
-      // ignore
-    }
-  }, [schedules]);
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-  const refetch = React.useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Simulated fetch delay
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setSchedules(JSON.parse(stored) as ScheduleItem[]);
-      } else {
-        setSchedules(INITIAL_SCHEDULES);
+      try {
+        const response = await authorizedFetch("/schedules", {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal memuat jadwal shift (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
+
+        const rawData = (await response.json()) as BackendSchedule[];
+        const fresh = Array.isArray(rawData)
+          ? rawData.map(mapBackendSchedule)
+          : [];
+
+        if (!controller.signal.aborted) {
+          setSchedules((current) => {
+            if (areScheduleListsEqual(current, fresh)) {
+              return current;
+            }
+            return fresh;
+          });
+
+          setLastSyncedAt(new Date());
+          setError(null);
+          isInitialLoad.current = false;
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Terjadi kesalahan saat memuat jadwal shift.";
+        setError(message);
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+          setIsSyncing(false);
+        }
       }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Gagal memuat jadwal shift"
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [authorizedFetch]
+  );
 
-  const createSchedule = React.useCallback(
+  // Initial fetch and polling
+  useEffect(() => {
+    void fetchSchedules(false);
+
+    if (pollIntervalMs <= 0) return;
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void fetchSchedules(true);
+      }
+    }, pollIntervalMs);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void fetchSchedules(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
+      abortRef.current?.abort();
+    };
+  }, [fetchSchedules, pollIntervalMs]);
+
+  const createSchedule = useCallback(
     async (input: CreateScheduleInput): Promise<boolean> => {
       try {
-        const newSchedule: ScheduleItem = {
-          ...input,
-          id: `sch-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+        const response = await authorizedFetch("/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: input.userId,
+            shiftType: input.shiftType,
+            shiftName: input.shiftName,
+            date: input.date,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            status: input.status,
+            notes: input.notes,
+          }),
+        });
 
-        setSchedules((prev) => [newSchedule, ...prev]);
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal menambahkan jadwal (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
+
+        const created = (await response.json()) as BackendSchedule;
+        setSchedules((prev) => [mapBackendSchedule(created), ...prev]);
         toast.add({
           title: "Jadwal shift berhasil ditambahkan",
-          description: `Shift untuk ${input.userName} pada ${input.date} berhasil disimpan.`,
+          description: `Jadwal untuk ${created.userName} berhasil disimpan ke database.`,
         });
+
+        void fetchSchedules(true);
         return true;
       } catch (err) {
         toast.add({
@@ -92,29 +199,39 @@ export function useScheduleData() {
         return false;
       }
     },
-    []
+    [authorizedFetch, fetchSchedules]
   );
 
-  const updateSchedule = React.useCallback(
+  const updateSchedule = useCallback(
     async (
       id: string,
       input: Partial<CreateScheduleInput>
     ): Promise<boolean> => {
       try {
+        const response = await authorizedFetch(`/schedules/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal memperbarui jadwal (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
+
+        const updated = (await response.json()) as BackendSchedule;
         setSchedules((prev) =>
-          prev.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  ...input,
-                  updatedAt: new Date().toISOString(),
-                }
-              : item
-          )
+          prev.map((s) => (s.id === id ? mapBackendSchedule(updated) : s))
         );
         toast.add({
           title: "Jadwal shift berhasil diperbarui",
         });
+
+        void fetchSchedules(true);
         return true;
       } catch (err) {
         toast.add({
@@ -125,26 +242,36 @@ export function useScheduleData() {
         return false;
       }
     },
-    []
+    [authorizedFetch, fetchSchedules]
   );
 
-  const updateScheduleStatus = React.useCallback(
+  const updateScheduleStatus = useCallback(
     async (id: string, status: ScheduleStatus): Promise<boolean> => {
       try {
+        const response = await authorizedFetch(`/schedules/${id}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal memperbarui status (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
+
+        const updated = (await response.json()) as BackendSchedule;
         setSchedules((prev) =>
-          prev.map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  status,
-                  updatedAt: new Date().toISOString(),
-                }
-              : item
-          )
+          prev.map((s) => (s.id === id ? mapBackendSchedule(updated) : s))
         );
         toast.add({
           title: "Status jadwal berhasil diperbarui",
         });
+
+        void fetchSchedules(true);
         return true;
       } catch (err) {
         toast.add({
@@ -155,16 +282,31 @@ export function useScheduleData() {
         return false;
       }
     },
-    []
+    [authorizedFetch, fetchSchedules]
   );
 
-  const deleteSchedule = React.useCallback(
+  const deleteSchedule = useCallback(
     async (id: string): Promise<boolean> => {
       try {
-        setSchedules((prev) => prev.filter((item) => item.id !== id));
+        const response = await authorizedFetch(`/schedules/${id}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal menghapus jadwal (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
+
+        setSchedules((prev) => prev.filter((s) => s.id !== id));
         toast.add({
           title: "Jadwal shift berhasil dihapus",
         });
+
+        void fetchSchedules(true);
         return true;
       } catch (err) {
         toast.add({
@@ -175,16 +317,33 @@ export function useScheduleData() {
         return false;
       }
     },
-    []
+    [authorizedFetch, fetchSchedules]
   );
 
-  const deleteMultiple = React.useCallback(
+  const deleteMultiple = useCallback(
     async (ids: string[]): Promise<boolean> => {
       try {
-        setSchedules((prev) => prev.filter((item) => !ids.includes(item.id)));
+        const response = await authorizedFetch("/schedules/batch-delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal menghapus jadwal (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
+
+        setSchedules((prev) => prev.filter((s) => !ids.includes(s.id)));
         toast.add({
           title: `Berhasil menghapus ${ids.length} jadwal shift`,
         });
+
+        void fetchSchedules(true);
         return true;
       } catch (err) {
         toast.add({
@@ -195,14 +354,17 @@ export function useScheduleData() {
         return false;
       }
     },
-    []
+    [authorizedFetch, fetchSchedules]
   );
 
   return {
     schedules,
+    currentUser,
     isLoading,
+    isSyncing,
+    lastSyncedAt,
     error,
-    refetch,
+    refetch: () => fetchSchedules(false),
     createSchedule,
     updateSchedule,
     updateScheduleStatus,

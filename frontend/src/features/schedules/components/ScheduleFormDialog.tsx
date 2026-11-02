@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { useAuth } from "@/context/auth-context";
 import {
   getTodayDateString,
   SCHEDULE_STATUS_CONFIG,
@@ -27,6 +28,13 @@ import {
   type ShiftType,
 } from "../data/scheduleData";
 import type { CreateScheduleInput } from "../hooks/useScheduleData";
+
+interface UserOption {
+  id: string;
+  username: string;
+  role: "OWNER" | "ADMIN" | "CASHIER";
+  isActive: boolean;
+}
 
 interface ScheduleFormDialogProps {
   open: boolean;
@@ -41,7 +49,13 @@ export function ScheduleFormDialog({
   schedule,
   onSubmit,
 }: ScheduleFormDialogProps) {
+  const { authorizedFetch } = useAuth();
   const isEditing = Boolean(schedule);
+
+  const [availableUsers, setAvailableUsers] = React.useState<UserOption[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = React.useState(false);
+
+  const [selectedUserId, setSelectedUserId] = React.useState("");
   const [userName, setUserName] = React.useState("");
   const [userRole, setUserRole] = React.useState<"CASHIER" | "ADMIN" | "OWNER">(
     "CASHIER"
@@ -59,8 +73,32 @@ export function ScheduleFormDialog({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
+  // Fetch real employees from backend
+  React.useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setIsLoadingUsers(true);
+
+    authorizedFetch("/users")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: UserOption[]) => {
+        if (active && Array.isArray(data)) {
+          setAvailableUsers(data.filter((u) => u.isActive));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setIsLoadingUsers(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open, authorizedFetch]);
+
   React.useEffect(() => {
     if (schedule) {
+      setSelectedUserId(schedule.userId);
       setUserName(schedule.userName);
       setUserRole(schedule.userRole);
       setShiftType(schedule.shiftType);
@@ -70,6 +108,7 @@ export function ScheduleFormDialog({
       setStatus(schedule.status);
       setNotes(schedule.notes || "");
     } else {
+      setSelectedUserId("");
       setUserName("");
       setUserRole("CASHIER");
       setShiftType("MORNING");
@@ -89,14 +128,31 @@ export function ScheduleFormDialog({
     setEndTime(config.defaultEndTime);
   };
 
+  const handleUserSelect = (userId: string | null) => {
+    if (!userId) {
+      setSelectedUserId("");
+      return;
+    }
+    setSelectedUserId(userId);
+    const found = availableUsers.find((u) => u.id === userId);
+    if (found) {
+      setUserName(found.username);
+      setUserRole(found.role);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userName.trim()) {
-      setErrorMsg("Nama staf wajib diisi");
+    if (!selectedUserId) {
+      setErrorMsg("Pilih karyawan untuk jadwal shift");
       return;
     }
     if (!date) {
       setErrorMsg("Tanggal shift wajib diisi");
+      return;
+    }
+    if (!startTime || !endTime) {
+      setErrorMsg("Jam mulai dan jam selesai wajib diisi");
       return;
     }
 
@@ -106,14 +162,14 @@ export function ScheduleFormDialog({
     const shiftName = `${SHIFT_TYPE_CONFIG[shiftType].label.split(" ")[0]} (${userRole === "CASHIER" ? "Kasir" : userRole === "ADMIN" ? "Admin" : "Owner"})`;
 
     const success = await onSubmit({
-      userId: schedule ? schedule.userId : `usr-${Date.now()}`,
+      userId: selectedUserId,
       userName: userName.trim(),
       userRole,
       shiftType,
       shiftName,
       date,
-      startTime,
-      endTime,
+      startTime: startTime.trim(),
+      endTime: endTime.trim(),
       status,
       notes: notes.trim() || undefined,
     });
@@ -146,42 +202,37 @@ export function ScheduleFormDialog({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label htmlFor="userName" className="text-xs font-medium">
-                  Nama Staf <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="userName"
-                  placeholder="mis. Budi Santoso"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  className="h-9"
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                <Label htmlFor="userRole" className="text-xs font-medium">
-                  Peran
-                </Label>
-                <Select
-                  value={userRole}
-                  onValueChange={(val) =>
-                    setUserRole(val as "CASHIER" | "ADMIN" | "OWNER")
-                  }
-                  disabled={isSubmitting}
-                >
-                  <SelectTrigger id="userRole" className="h-9 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASHIER">Kasir (Cashier)</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                    <SelectItem value="OWNER">Owner</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="employeeSelect" className="text-xs font-medium">
+                Pilih Karyawan <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={selectedUserId}
+                onValueChange={handleUserSelect}
+                disabled={isSubmitting || isLoadingUsers}
+              >
+                <SelectTrigger id="employeeSelect" className="h-9 w-full">
+                  <SelectValue
+                    placeholder={
+                      isLoadingUsers
+                        ? "Memuat karyawan..."
+                        : "Pilih karyawan terdaftar..."
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.username} ({u.role})
+                    </SelectItem>
+                  ))}
+                  {availableUsers.length === 0 && !isLoadingUsers && (
+                    <SelectItem value="_empty" disabled>
+                      Tidak ada karyawan aktif
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -191,9 +242,9 @@ export function ScheduleFormDialog({
                 </Label>
                 <Select
                   value={shiftType}
-                  onValueChange={(val) =>
-                    handleShiftTypeChange(val as ShiftType)
-                  }
+                  onValueChange={(val) => {
+                    if (val) handleShiftTypeChange(val as ShiftType);
+                  }}
                   disabled={isSubmitting}
                 >
                   <SelectTrigger id="shiftType" className="h-9 w-full">
@@ -264,7 +315,9 @@ export function ScheduleFormDialog({
               </Label>
               <Select
                 value={status}
-                onValueChange={(val) => setStatus(val as ScheduleStatus)}
+                onValueChange={(val) => {
+                  if (val) setStatus(val as ScheduleStatus);
+                }}
                 disabled={isSubmitting}
               >
                 <SelectTrigger id="status" className="h-9 w-full">
