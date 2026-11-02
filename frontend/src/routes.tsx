@@ -8,7 +8,7 @@ import {
   ProductDetailPage,
 } from "./features/product";
 import { AddonPage } from "./features/addons";
-import { SchedulePage } from "./features/schedules";
+import { SchedulePage, AddSchedulePage } from "./features/schedules";
 import { UserPage, AddUserPage, EditUserPage } from "./features/users";
 import {
   WarehousePage,
@@ -59,6 +59,7 @@ export const router = createBrowserRouter([
 
           // Schedules & Shifts
           { path: "schedules", Component: SchedulePage },
+          { path: "schedules/new", Component: AddSchedulePage },
           { path: "shifts", element: <div>Dashboard Shifts</div> },
 
           // Cashier & Cash Flow

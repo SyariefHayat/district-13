@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
@@ -10,6 +11,7 @@ import { useScheduleData } from "../hooks/useScheduleData";
 import type { ScheduleItem } from "../data/scheduleData";
 
 export default function SchedulePage() {
+  const navigate = useNavigate();
   const {
     schedules,
     isLoading,
@@ -27,8 +29,7 @@ export default function SchedulePage() {
     React.useState<ScheduleItem | null>(null);
 
   const handleOpenAdd = () => {
-    setEditingSchedule(null);
-    setDialogOpen(true);
+    navigate("/dashboard/schedules/new");
   };
 
   const handleOpenEdit = (schedule: ScheduleItem) => {

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { IconDownload, IconPlus } from "@tabler/icons-react";
 
@@ -14,6 +15,16 @@ export function ScheduleHeader({
   onAddSchedule,
   onExport,
 }: ScheduleHeaderProps) {
+  const navigate = useNavigate();
+
+  const handleAddClick = () => {
+    if (onAddSchedule) {
+      onAddSchedule();
+    } else {
+      navigate("/dashboard/schedules/new");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
       <div className="flex flex-col gap-1">
@@ -38,7 +49,7 @@ export function ScheduleHeader({
         <Button
           variant="default"
           size="default"
-          onClick={onAddSchedule}
+          onClick={handleAddClick}
           className="gap-1.5 shadow-xs"
         >
           <IconPlus data-icon="inline-start" className="size-4" />

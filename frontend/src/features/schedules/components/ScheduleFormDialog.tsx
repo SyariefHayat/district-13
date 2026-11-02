@@ -96,6 +96,13 @@ export function ScheduleFormDialog({
     };
   }, [open, authorizedFetch]);
 
+  const userSelectItems = React.useMemo(() => {
+    return availableUsers.map((u) => ({
+      label: `${u.username} (${u.role})`,
+      value: u.id,
+    }));
+  }, [availableUsers]);
+
   React.useEffect(() => {
     if (schedule) {
       setSelectedUserId(schedule.userId);
@@ -207,6 +214,7 @@ export function ScheduleFormDialog({
                 Pilih Karyawan <span className="text-destructive">*</span>
               </Label>
               <Select
+                items={userSelectItems}
                 value={selectedUserId}
                 onValueChange={handleUserSelect}
                 disabled={isSubmitting || isLoadingUsers}
@@ -218,7 +226,9 @@ export function ScheduleFormDialog({
                         ? "Memuat karyawan..."
                         : "Pilih karyawan terdaftar..."
                     }
-                  />
+                  >
+                    {userName ? `${userName} (${userRole})` : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {availableUsers.map((u) => (
