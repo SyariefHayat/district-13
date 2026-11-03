@@ -8,6 +8,7 @@ import {
   ProductDetailPage,
 } from "./features/product";
 import { AddonPage } from "./features/addons";
+import { DiscountPage } from "./features/discounts";
 import { SchedulePage, AddSchedulePage } from "./features/schedules";
 import { UserPage, AddUserPage, EditUserPage } from "./features/users";
 import {
@@ -36,7 +37,7 @@ export const router = createBrowserRouter([
 
           // Reports & Financials
           { path: "reports", element: <div>Dashboard Reports</div> },
-          { path: "discounts", element: <div>Dashboard Discounts</div> },
+          { path: "discounts", Component: DiscountPage },
           { path: "audits", element: <div>Dashboard Audits</div> },
           { path: "profit", element: <div>Dashboard Profit</div> },
 

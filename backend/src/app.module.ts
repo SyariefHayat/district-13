@@ -16,6 +16,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './auth/guards/permissions.guard.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
+import { DiscountsModule } from './discounts/discounts.module.js';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
     TransactionsModule,
     ReportsModule,
     AuditLogsModule,
+    DiscountsModule,
   ],
   controllers: [AppController],
   providers: [
