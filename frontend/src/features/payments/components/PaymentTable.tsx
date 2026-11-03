@@ -15,7 +15,10 @@ import {
   IconLayoutColumns,
   IconPencil,
   IconQrcode,
+  IconToggleLeft,
+  IconToggleRight,
   IconTrash,
+  IconX,
 } from "@tabler/icons-react";
 import {
   columnFilteringFeature,
@@ -505,6 +508,11 @@ export function PaymentTable({
                     onClick={() => onToggleStatus?.(row.original.id)}
                     className="gap-2"
                   >
+                    {row.original.isActive ? (
+                      <IconToggleLeft className="size-4" />
+                    ) : (
+                      <IconToggleRight className="size-4" />
+                    )}
                     <span>
                       {row.original.isActive ? "Nonaktifkan" : "Aktifkan"}
                     </span>
@@ -661,9 +669,11 @@ export function PaymentTable({
               <Button
                 variant="outline"
                 size="sm"
+                className="gap-1.5"
                 onClick={() => table.resetRowSelection()}
               >
-                Batal
+                <IconX className="size-4" />
+                <span>Batal</span>
               </Button>
             ) : (
               filters.length > 0 && (
