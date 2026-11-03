@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { IconDownload, IconPlus } from "@tabler/icons-react";
 
@@ -14,6 +15,16 @@ export function DiscountHeader({
   onAddDiscount,
   onExport,
 }: DiscountHeaderProps) {
+  const navigate = useNavigate();
+
+  const handleAddClick = () => {
+    if (onAddDiscount) {
+      onAddDiscount();
+    } else {
+      navigate("/dashboard/discounts/new");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
       <div className="flex flex-col gap-1">
@@ -38,7 +49,7 @@ export function DiscountHeader({
         <Button
           variant="default"
           size="default"
-          onClick={onAddDiscount}
+          onClick={handleAddClick}
           className="gap-1.5 shadow-xs"
         >
           <IconPlus data-icon="inline-start" className="size-4" />

@@ -1,8 +1,11 @@
 export { default as DiscountPage } from "./pages/DiscountPage";
+export { default as AddDiscountPage } from "./pages/AddDiscountPage";
 export * from "./data/discountData";
 export * from "./hooks/useDiscountData";
+export * from "./schemas/discountFormSchema";
 export * from "./components/DiscountHeader";
 export * from "./components/DiscountStatsCards";
 export * from "./components/DiscountFilterBar";
 export * from "./components/DiscountTable";
 export * from "./components/DiscountFormDialog";
+export * from "./components/form";

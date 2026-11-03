@@ -1,15 +1,15 @@
-import * as React from "react";
+import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { DiscountHeader } from "../components/DiscountHeader";
 import { DiscountStatsCards } from "../components/DiscountStatsCards";
 import { DiscountTable } from "../components/DiscountTable";
-import { DiscountFormDialog } from "../components/DiscountFormDialog";
 import { useDiscountData } from "../hooks/useDiscountData";
 import type { DiscountItem } from "../data/discountData";
 
 export default function DiscountPage() {
+  const navigate = useNavigate();
   const {
     discounts,
     isLoading,
@@ -18,22 +18,14 @@ export default function DiscountPage() {
     toggleStatus,
     deleteDiscount,
     deleteMultiple,
-    createDiscount,
-    updateDiscount,
   } = useDiscountData();
 
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editingDiscount, setEditingDiscount] =
-    React.useState<DiscountItem | null>(null);
-
   const handleOpenAdd = () => {
-    setEditingDiscount(null);
-    setDialogOpen(true);
+    navigate("/dashboard/discounts/new");
   };
 
   const handleOpenEdit = (discount: DiscountItem) => {
-    setEditingDiscount(discount);
-    setDialogOpen(true);
+    navigate(`/dashboard/discounts/${discount.id}/edit`);
   };
 
   const handleExport = (selectedDiscounts?: DiscountItem[]) => {
@@ -94,19 +86,6 @@ export default function DiscountPage() {
         onDeleteDiscount={deleteDiscount}
         onDeleteMultiple={deleteMultiple}
         onExport={handleExport}
-      />
-
-      <DiscountFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        discount={editingDiscount}
-        onSubmit={async (values) => {
-          if (editingDiscount) {
-            return await updateDiscount(editingDiscount.id, values);
-          } else {
-            return await createDiscount(values);
-          }
-        }}
       />
     </div>
   );
