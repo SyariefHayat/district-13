@@ -7,6 +7,7 @@ import {
   IsString,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -37,31 +38,36 @@ export class CreateDiscountDto {
   value!: number;
 
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  minPurchase?: number;
+  minPurchase?: number | null;
 
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  maxDiscount?: number;
+  maxDiscount?: number | null;
 
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
   @IsString()
-  startDate?: string;
+  startDate?: string | null;
 
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
   @IsString()
-  endDate?: string;
+  endDate?: string | null;
 
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
   @IsOptional()
+  @ValidateIf((_, val) => val !== null && val !== undefined)
   @IsString()
   @MaxLength(255)
-  description?: string;
+  description?: string | null;
 }

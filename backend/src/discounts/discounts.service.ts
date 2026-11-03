@@ -157,11 +157,21 @@ export class DiscountsService {
           applyMode: input.applyMode ?? 'automatic',
           value: String(input.value),
           minPurchase:
-            input.minPurchase != null ? String(input.minPurchase) : '0',
+            input.minPurchase != null && !isNaN(Number(input.minPurchase))
+              ? String(input.minPurchase)
+              : '0',
           maxDiscount:
-            input.maxDiscount != null ? String(input.maxDiscount) : null,
-          startDate: input.startDate ? new Date(input.startDate) : null,
-          endDate: input.endDate ? new Date(input.endDate) : null,
+            input.maxDiscount != null && Number(input.maxDiscount) > 0
+              ? String(input.maxDiscount)
+              : null,
+          startDate:
+            input.startDate && input.startDate.trim()
+              ? new Date(input.startDate)
+              : null,
+          endDate:
+            input.endDate && input.endDate.trim()
+              ? new Date(input.endDate)
+              : null,
           isActive: input.isActive ?? true,
           description: input.description?.trim() || null,
         })
@@ -193,19 +203,26 @@ export class DiscountsService {
     }
     if (input.value !== undefined) valuesToUpdate.value = String(input.value);
     if (input.minPurchase !== undefined) {
-      valuesToUpdate.minPurchase = String(input.minPurchase);
+      valuesToUpdate.minPurchase =
+        input.minPurchase != null && !isNaN(Number(input.minPurchase))
+          ? String(input.minPurchase)
+          : '0';
     }
     if (input.maxDiscount !== undefined) {
       valuesToUpdate.maxDiscount =
-        input.maxDiscount != null ? String(input.maxDiscount) : null;
+        input.maxDiscount != null && Number(input.maxDiscount) > 0
+          ? String(input.maxDiscount)
+          : null;
     }
     if (input.startDate !== undefined) {
-      valuesToUpdate.startDate = input.startDate
-        ? new Date(input.startDate)
-        : null;
+      valuesToUpdate.startDate =
+        input.startDate && input.startDate.trim()
+          ? new Date(input.startDate)
+          : null;
     }
     if (input.endDate !== undefined) {
-      valuesToUpdate.endDate = input.endDate ? new Date(input.endDate) : null;
+      valuesToUpdate.endDate =
+        input.endDate && input.endDate.trim() ? new Date(input.endDate) : null;
     }
     if (input.isActive !== undefined) valuesToUpdate.isActive = input.isActive;
     if (input.description !== undefined) {
