@@ -412,12 +412,12 @@ export function SalesTable({
                   <DropdownMenuItem
                     onClick={() => {
                       void navigator.clipboard.writeText(tx.transactionNumber);
-                      toast.add({ title: "No. Transaksi berhasil disalin" });
+                      toast.add({ title: "Nomor transaksi berhasil disalin" });
                     }}
-                    className="gap-2 text-xs"
+                    className="gap-2 cursor-pointer"
                   >
                     <IconCopy className="size-4 text-muted-foreground" />
-                    <span>Salin No. Transaksi</span>
+                    <span>Salin Nomor Transaksi</span>
                   </DropdownMenuItem>
 
                   {tx.status === "COMPLETED" && (

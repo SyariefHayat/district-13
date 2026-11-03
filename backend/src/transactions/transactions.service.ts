@@ -344,8 +344,27 @@ export class TransactionsService {
     const limit = query.limit ?? 20;
     const [data, [total]] = await Promise.all([
       this.database.db
-        .select()
+        .select({
+          id: transactions.id,
+          transactionNumber: transactions.transactionNumber,
+          shiftId: transactions.shiftId,
+          userId: transactions.userId,
+          cashier: users.username,
+          subtotalAmount: transactions.subtotalAmount,
+          discountAmount: transactions.discountAmount,
+          discountReason: transactions.discountReason,
+          totalAmount: transactions.totalAmount,
+          paymentMethod: transactions.paymentMethod,
+          paidAmount: transactions.paidAmount,
+          changeAmount: transactions.changeAmount,
+          status: transactions.status,
+          voidedBy: transactions.voidedBy,
+          voidedAt: transactions.voidedAt,
+          voidReason: transactions.voidReason,
+          createdAt: transactions.createdAt,
+        })
         .from(transactions)
+        .leftJoin(users, eq(transactions.userId, users.id))
         .where(where)
         .orderBy(desc(transactions.createdAt))
         .limit(limit)

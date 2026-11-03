@@ -1,76 +1,203 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/toast";
 import {
-  type PaymentMethod,
+  mapBackendTransaction,
+  type BackendTransaction,
   type SaleTransaction,
-  type TransactionStatus,
   type SalesStats,
-  INITIAL_MOCK_TRANSACTIONS,
 } from "../data/salesData";
 
 export interface UseSalesDataOptions {
-  initialLimit?: number;
+  pollIntervalMs?: number;
 }
 
-export function useSalesData(_options?: UseSalesDataOptions) {
-  const [transactions, setTransactions] = useState<SaleTransaction[]>(
-    INITIAL_MOCK_TRANSACTIONS
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [error] = useState<string | null>(null);
+function areTransactionListsEqual(
+  a: SaleTransaction[],
+  b: SaleTransaction[]
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const item1 = a[i];
+    const item2 = b[i];
+    if (
+      item1.id !== item2.id ||
+      item1.status !== item2.status ||
+      item1.totalAmount !== item2.totalAmount ||
+      item1.voidReason !== item2.voidReason ||
+      item1.createdAt !== item2.createdAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
 
-  // Filter & Pagination States
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | TransactionStatus>(
-    "ALL"
-  );
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState<
-    "ALL" | PaymentMethod
-  >("ALL");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+export function useSalesData(options?: UseSalesDataOptions) {
+  const pollIntervalMs = options?.pollIntervalMs ?? 3000;
+  const { authorizedFetch } = useAuth();
 
+  const [transactions, setTransactions] = useState<SaleTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+  const isInitialLoad = useRef(true);
+
+  const fetchTransactions = useCallback(
+    async (silent = false) => {
+      if (!silent && isInitialLoad.current) {
+        setIsLoading(true);
+      }
+      setIsSyncing(true);
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const response = await authorizedFetch("/transactions?limit=100", {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal memuat transaksi (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
+
+        const json = await response.json();
+        const rawList: BackendTransaction[] = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json)
+            ? json
+            : [];
+        const freshTransactions = rawList.map(mapBackendTransaction);
+
+        // Update with authentic realtime data from backend
+        setTransactions((current) => {
+          if (areTransactionListsEqual(current, freshTransactions)) {
+            return current;
+          }
+          return freshTransactions;
+        });
+
+        setLastSyncedAt(new Date());
+        setError(null);
+      } catch (err: unknown) {
+        if ((err as Error)?.name === "AbortError") return;
+
+        setError(
+          err instanceof Error
+            ? `Backend: ${err.message}`
+            : "Terjadi kesalahan memuat data backend"
+        );
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+          setIsLoading(false);
+          setIsSyncing(false);
+          isInitialLoad.current = false;
+        }
+      }
+    },
+    [authorizedFetch]
+  );
+
+  // Initial load and realtime polling
   useEffect(() => {
-    // Simulating quick instant initialization
-    setIsLoading(false);
-  }, []);
+    void fetchTransactions(false);
 
-  // Single transaction detail fetcher
+    if (pollIntervalMs > 0) {
+      const interval = setInterval(() => {
+        void fetchTransactions(true);
+      }, pollIntervalMs);
+
+      return () => {
+        clearInterval(interval);
+        abortRef.current?.abort();
+      };
+    }
+  }, [fetchTransactions, pollIntervalMs]);
+
+  // Realtime single transaction detail fetcher
   const getTransactionDetail = useCallback(
     async (id: string): Promise<SaleTransaction | null> => {
-      const found = transactions.find((t) => t.id === id);
-      return found || null;
+      try {
+        const response = await authorizedFetch(`/transactions/${id}`);
+        if (!response.ok) {
+          throw new Error("Gagal mengambil rincian transaksi dari server");
+        }
+        const data: BackendTransaction = await response.json();
+        return mapBackendTransaction(data);
+      } catch {
+        const local = transactions.find((t) => t.id === id);
+        return local || null;
+      }
     },
-    [transactions]
+    [authorizedFetch, transactions]
   );
 
-  // Void a transaction locally
+  // Realtime void transaction to backend
   const voidTransaction = useCallback(
     async (id: string, reason: string): Promise<boolean> => {
-      setTransactions((prev) =>
-        prev.map((tx) =>
-          tx.id === id
-            ? {
-                ...tx,
-                status: "VOIDED",
-                voidReason: reason,
-                voidedAt: new Date().toISOString(),
-              }
-            : tx
-        )
-      );
+      try {
+        const response = await authorizedFetch(`/transactions/${id}/void`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        });
 
-      toast.add({
-        title: "Transaksi Berhasil Dibatalkan (Void)",
-        description: `Status transaksi telah diubah menjadi Dibatalkan.`,
-      });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          const errDetail =
+            body?.message || `Gagal membatalkan transaksi (${response.status})`;
+          throw new Error(
+            Array.isArray(errDetail) ? errDetail.join(", ") : String(errDetail)
+          );
+        }
 
-      return true;
+        toast.add({
+          title: "Transaksi Dibatalkan (Void)",
+          description:
+            "Status transaksi berhasil diperbarui di server backend.",
+        });
+
+        // Optimistically update local state & immediately re-sync from backend
+        setTransactions((prev) =>
+          prev.map((tx) =>
+            tx.id === id
+              ? {
+                  ...tx,
+                  status: "VOIDED",
+                  voidReason: reason,
+                  voidedAt: new Date().toISOString(),
+                }
+              : tx
+          )
+        );
+
+        await fetchTransactions(true);
+        return true;
+      } catch (err: unknown) {
+        toast.add({
+          title: "Gagal membatalkan transaksi",
+          description:
+            err instanceof Error ? err.message : "Kesalahan server backend",
+        });
+        return false;
+      }
     },
-    []
+    [authorizedFetch, fetchTransactions]
   );
 
-  // Compute stats
+  // Compute stats in realtime
   const stats: SalesStats = useMemo(() => {
     let totalRevenue = 0;
     let cashRevenue = 0;
@@ -99,30 +226,14 @@ export function useSalesData(_options?: UseSalesDataOptions) {
     };
   }, [transactions]);
 
-  const resetFilters = useCallback(() => {
-    setSearchQuery("");
-    setStatusFilter("ALL");
-    setPaymentMethodFilter("ALL");
-    setStartDate("");
-    setEndDate("");
-  }, []);
-
   return {
     transactions,
     isLoading,
+    isSyncing,
+    lastSyncedAt,
     error,
     stats,
-    searchQuery,
-    statusFilter,
-    paymentMethodFilter,
-    startDate,
-    endDate,
-    setSearchQuery,
-    setStatusFilter,
-    setPaymentMethodFilter,
-    setStartDate,
-    setEndDate,
-    resetFilters,
+    refetch: () => fetchTransactions(false),
     getTransactionDetail,
     voidTransaction,
   };
