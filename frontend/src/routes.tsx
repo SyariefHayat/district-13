@@ -18,6 +18,7 @@ import {
   WarehouseTransferPage,
 } from "./features/warehouse";
 import { SalesPage } from "./features/sales";
+import { PaymentPage } from "./features/payments";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 
@@ -44,7 +45,7 @@ export const router = createBrowserRouter([
           { path: "profit", element: <div>Dashboard Profit</div> },
 
           // Payments & Transactions
-          { path: "payments", element: <div>Dashboard Payments</div> },
+          { path: "payments", Component: PaymentPage },
           { path: "transactions", Component: SalesPage },
           { path: "sales", Component: SalesPage },
 
