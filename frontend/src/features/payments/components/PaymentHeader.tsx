@@ -4,6 +4,8 @@ import { IconDownload, IconPlus } from "@tabler/icons-react";
 interface PaymentHeaderProps {
   title?: string;
   description?: string;
+  isSyncing?: boolean;
+  lastSyncedAt?: Date | null;
   onAddPayment?: () => void;
   onExport?: () => void;
 }
@@ -11,15 +13,37 @@ interface PaymentHeaderProps {
 export function PaymentHeader({
   title = "Metode Pembayaran",
   description = "Kelola metode pembayaran dan saluran kasir.",
+  isSyncing,
+  lastSyncedAt,
   onAddPayment,
   onExport,
 }: PaymentHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-xl">
-          {title}
-        </h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-lg font-semibold leading-tight text-slate-900 dark:text-slate-100 sm:text-xl">
+            {title}
+          </h1>
+          {isSyncing ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span className="size-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Menyinkronkan...
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+              title={
+                lastSyncedAt
+                  ? `Terakhir disinkronkan: ${lastSyncedAt.toLocaleTimeString("id-ID")}`
+                  : "Live backend"
+              }
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Realtime Backend
+            </span>
+          )}
+        </div>
         <p className="text-sm text-slate-500 dark:text-slate-400 sm:text-base">
           {description}
         </p>
