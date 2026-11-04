@@ -14,8 +14,6 @@ export default function PaymentPage() {
   const {
     payments,
     isLoading,
-    isSyncing,
-    lastSyncedAt,
     error,
     refetch,
     toggleStatus,
@@ -82,8 +80,6 @@ export default function PaymentPage() {
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <PaymentHeader
-        isSyncing={isSyncing}
-        lastSyncedAt={lastSyncedAt}
         onExport={() => handleExport()}
         onAddPayment={handleOpenAdd}
       />

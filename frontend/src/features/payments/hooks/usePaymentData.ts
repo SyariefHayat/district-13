@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/toast";
 import {
-  INITIAL_PAYMENT_METHODS,
+  DEFAULT_PAYMENT_METHODS,
   type PaymentMethodItem,
 } from "../data/paymentData";
 
@@ -69,18 +69,7 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
   const pollIntervalMs = options?.pollIntervalMs ?? 3000;
   const { authorizedFetch } = useAuth();
 
-  const [payments, setPayments] = useState<PaymentMethodItem[]>(() => {
-    const saved = localStorage.getItem("district13_payment_methods_v2");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // Fallback
-      }
-    }
-    return INITIAL_PAYMENT_METHODS;
-  });
-
+  const [payments, setPayments] = useState<PaymentMethodItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -89,13 +78,11 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
   const abortRef = useRef<AbortController | null>(null);
   const isInitialLoad = useRef(true);
 
-  // Sync to local storage for customized configurations (names, fees, accounts, status)
+  // Clear legacy dummy caches if any
   useEffect(() => {
-    localStorage.setItem(
-      "district13_payment_methods_v2",
-      JSON.stringify(payments)
-    );
-  }, [payments]);
+    localStorage.removeItem("district13_payment_methods");
+    localStorage.removeItem("district13_payment_methods_v2");
+  }, []);
 
   const fetchPaymentData = useCallback(
     async (silent = false) => {
@@ -113,9 +100,9 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
           string,
           { volume: number; count: number }
         >();
-        let fetchedSuccessfully = false;
+        let gotDataFromBackend = false;
 
-        // 1. Try querying /reports/sales for aggregate database totals by payment method
+        // 1. Fetch live aggregate reports from backend (/reports/sales)
         try {
           const reportRes = await authorizedFetch("/reports/sales", {
             signal: controller.signal,
@@ -125,21 +112,19 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
             const reportData: BackendSalesReport = await reportRes.json();
             if (Array.isArray(reportData.byPaymentMethod)) {
               for (const bpm of reportData.byPaymentMethod) {
+                const key = (bpm.paymentMethod || "").toUpperCase();
                 const vol = Number(bpm.net) || Number(bpm.gross) || 0;
                 const cnt = Number(bpm.count) || 0;
-                methodStats.set(bpm.paymentMethod.toUpperCase(), {
-                  volume: vol,
-                  count: cnt,
-                });
+                methodStats.set(key, { volume: vol, count: cnt });
               }
-              fetchedSuccessfully = true;
+              gotDataFromBackend = true;
             }
           }
         } catch {
-          // If reports endpoint is unavailable, we proceed to transactions fallback
+          // Handled via fallback
         }
 
-        // 2. Query /transactions?limit=100 for live recent transactions
+        // 2. Fetch recent transactions from backend (/transactions?limit=100)
         try {
           const txRes = await authorizedFetch("/transactions?limit=100", {
             signal: controller.signal,
@@ -153,18 +138,17 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
                 ? txData
                 : [];
 
-            // If /reports/sales didn't give us aggregations, compute from live transactions
-            if (!fetchedSuccessfully) {
+            if (!gotDataFromBackend) {
               for (const tx of txList) {
                 if (tx.status === "COMPLETED") {
                   const m = (tx.paymentMethod || "CASH").toUpperCase();
-                  const prev = methodStats.get(m) || { volume: 0, count: 0 };
-                  prev.volume += Number(tx.totalAmount) || 0;
-                  prev.count += 1;
-                  methodStats.set(m, prev);
+                  const cur = methodStats.get(m) || { volume: 0, count: 0 };
+                  cur.volume += Number(tx.totalAmount) || 0;
+                  cur.count += 1;
+                  methodStats.set(m, cur);
                 }
               }
-              fetchedSuccessfully = true;
+              gotDataFromBackend = true;
             }
           }
         } catch {
@@ -173,50 +157,78 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
 
         if (controller.signal.aborted) return;
 
-        if (fetchedSuccessfully) {
-          setPayments((current) => {
-            const updated = current.map((item) => {
-              const codeUpper = item.code.toUpperCase();
-              const typeUpper = item.type.toUpperCase();
+        // Construct authentic live payment method items based entirely on backend data
+        const baseMethods = DEFAULT_PAYMENT_METHODS.map((dm) => {
+          const key = dm.code.toUpperCase();
+          const stats = methodStats.get(key) || { volume: 0, count: 0 };
+          return {
+            ...dm,
+            totalVolume: stats.volume,
+            transactionCount: stats.count,
+            updatedAt: new Date().toISOString(),
+          };
+        });
 
-              // Match against backend payment methods (CASH, QRIS, etc.)
-              let stats = methodStats.get(codeUpper);
-              if (
-                !stats &&
-                (typeUpper === "CASH" || codeUpper.includes("CASH"))
-              ) {
-                stats = methodStats.get("CASH");
-              } else if (
-                !stats &&
-                (typeUpper === "QRIS" || codeUpper.includes("QRIS"))
-              ) {
-                stats = methodStats.get("QRIS");
-              }
-
-              if (stats) {
-                return {
-                  ...item,
-                  totalVolume: stats.volume,
-                  transactionCount: stats.count,
-                  updatedAt: new Date().toISOString(),
-                };
-              }
-
-              return item;
+        // Add any other payment methods that exist in backend transactions
+        methodStats.forEach((stats, key) => {
+          if (!baseMethods.some((m) => m.code.toUpperCase() === key)) {
+            baseMethods.push({
+              id: `pm-${key.toLowerCase()}`,
+              name: key,
+              code: key,
+              type: key === "CASH" ? "CASH" : key === "QRIS" ? "QRIS" : "CARD",
+              provider: "Backend Gateway",
+              accountNumber: key,
+              feePercentage: 0,
+              settlementTime: "Real-time",
+              transactionCount: stats.count,
+              totalVolume: stats.volume,
+              status: "ACTIVE",
+              isActive: true,
+              minAmount: 0,
+              updatedAt: new Date().toISOString(),
             });
+          }
+        });
 
-            return arePaymentListsEqual(current, updated) ? current : updated;
+        setPayments((prev) => {
+          // Preserve any user-toggled active/inactive status from previous state
+          const merged = baseMethods.map((bm) => {
+            const existing = prev.find(
+              (p) => p.id === bm.id || p.code === bm.code
+            );
+            if (existing) {
+              return {
+                ...bm,
+                name: existing.name || bm.name,
+                provider: existing.provider || bm.provider,
+                accountNumber: existing.accountNumber || bm.accountNumber,
+                feePercentage: existing.feePercentage ?? bm.feePercentage,
+                isActive: existing.isActive,
+                status: existing.status,
+              };
+            }
+            return bm;
           });
 
-          setLastSyncedAt(new Date());
-          setError(null);
-        }
+          // Include any custom user-added payment methods
+          for (const p of prev) {
+            if (!merged.some((m) => m.id === p.id || m.code === p.code)) {
+              merged.push(p);
+            }
+          }
+
+          return arePaymentListsEqual(prev, merged) ? prev : merged;
+        });
+
+        setLastSyncedAt(new Date());
+        setError(null);
       } catch (err: unknown) {
         if ((err as Error)?.name === "AbortError") return;
         setError(
           err instanceof Error
             ? `Backend: ${err.message}`
-            : "Gagal menyinkronkan data pembayaran realtime"
+            : "Gagal memuat data pembayaran dari backend"
         );
       } finally {
         if (abortRef.current === controller) {
@@ -230,7 +242,6 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
     [authorizedFetch]
   );
 
-  // Initial load and realtime polling
   useEffect(() => {
     void fetchPaymentData(false);
 
