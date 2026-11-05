@@ -18,6 +18,7 @@ import {
   WarehouseTransferPage,
 } from "./features/warehouse";
 import { SalesPage } from "./features/sales";
+import { SalesReportPage } from "./features/reports";
 import { PaymentPage, AddPaymentPage } from "./features/payments";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
@@ -37,7 +38,7 @@ export const router = createBrowserRouter([
           { index: true, Component: OverviewPage },
 
           // Reports & Financials
-          { path: "reports", element: <div>Dashboard Reports</div> },
+          { path: "reports", Component: SalesReportPage },
           { path: "discounts", Component: DiscountPage },
           { path: "discounts/new", Component: AddDiscountPage },
           { path: "discounts/:id/edit", Component: AddDiscountPage },
