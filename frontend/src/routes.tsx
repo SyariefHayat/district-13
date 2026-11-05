@@ -23,6 +23,7 @@ import {
   ShiftReportPage,
   CashReportPage,
   ProfitReportPage,
+  CashierAuditPage,
 } from "./features/reports";
 import { PaymentPage, AddPaymentPage } from "./features/payments";
 import DashboardLayout from "./components/layouts/DashboardLayout";
@@ -47,8 +48,9 @@ export const router = createBrowserRouter([
           { path: "discounts", Component: DiscountPage },
           { path: "discounts/new", Component: AddDiscountPage },
           { path: "discounts/:id/edit", Component: AddDiscountPage },
-          { path: "audits", element: <div>Dashboard Audits</div> },
+          { path: "cashiers", Component: CashierAuditPage },
           { path: "profit", Component: ProfitReportPage },
+          { path: "audits", element: <div>Dashboard Audits</div> },
 
           // Payments & Transactions
           { path: "payments", Component: PaymentPage },
