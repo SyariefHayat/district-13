@@ -18,7 +18,7 @@ import {
   WarehouseTransferPage,
 } from "./features/warehouse";
 import { SalesPage } from "./features/sales";
-import { SalesReportPage } from "./features/reports";
+import { SalesReportPage, ShiftReportPage } from "./features/reports";
 import { PaymentPage, AddPaymentPage } from "./features/payments";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
@@ -67,7 +67,7 @@ export const router = createBrowserRouter([
           // Schedules & Shifts
           { path: "schedules", Component: SchedulePage },
           { path: "schedules/new", Component: AddSchedulePage },
-          { path: "shifts", element: <div>Dashboard Shifts</div> },
+          { path: "shifts", Component: ShiftReportPage },
 
           // Cashier & Cash Flow
           { path: "cash", element: <div>Dashboard Cash</div> },
