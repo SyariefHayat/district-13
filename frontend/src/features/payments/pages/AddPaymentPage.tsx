@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router";
 import {
+  IconAlertCircle,
   IconBuildingBank,
   IconCash,
   IconChevronDown,
@@ -342,6 +343,17 @@ export default function AddPaymentPage() {
     }
   }, [type]);
 
+  const selectedStatusLabel = React.useMemo(() => {
+    const found = STATUS_SELECT_ITEMS.find((s) => s.value === statusState);
+    if (!found) return undefined;
+    return (
+      <div className="flex items-center gap-2">
+        <span className={`size-2 rounded-full ${found.color}`} />
+        <span>{found.label}</span>
+      </div>
+    );
+  }, [statusState]);
+
   if (isEditing && isLoading && !hasLoadedInitial) {
     return (
       <div className="min-h-screen bg-[#09090b] text-zinc-100 flex items-center justify-center p-8">
@@ -350,6 +362,39 @@ export default function AddPaymentPage() {
           <p className="text-sm text-zinc-400">
             Memuat data metode pembayaran...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    isEditing &&
+    !isLoading &&
+    !hasLoadedInitial &&
+    !payments.some((p) => p.id === params.id)
+  ) {
+    return (
+      <div className="min-h-screen bg-[#09090b] text-zinc-100 flex items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <div className="p-3 rounded-full bg-destructive/10 text-destructive">
+            <IconAlertCircle className="size-8" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-white">
+              Metode Pembayaran Tidak Ditemukan
+            </h2>
+            <p className="text-sm text-zinc-400">
+              Metode pembayaran dengan ID tersebut tidak ditemukan atau telah
+              dihapus.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/dashboard/payments")}
+            className="mt-2"
+          >
+            Kembali ke Daftar Metode
+          </Button>
         </div>
       </div>
     );
@@ -457,7 +502,13 @@ export default function AddPaymentPage() {
         </div>
 
         {/* 2-Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submitWithStatus("published", false);
+          }}
+          className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+        >
           {/* LEFT COLUMN: Detail Saluran, Parameter, SOP (8 cols) */}
           <div className="lg:col-span-8 space-y-6">
             {/* Card 1: Detail Saluran Pembayaran */}
@@ -668,7 +719,7 @@ export default function AddPaymentPage() {
                   }}
                 >
                   <SelectTrigger className="w-full flex items-center justify-between text-xs md:text-sm">
-                    <SelectValue />
+                    <SelectValue>{selectedStatusLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent
                     alignItemWithTrigger={true}
@@ -881,7 +932,7 @@ export default function AddPaymentPage() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
