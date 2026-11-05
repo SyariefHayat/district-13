@@ -30,3 +30,14 @@ export * from "./components/CashReportFilterBar";
 export * from "./components/CashReportDetailDialog";
 export * from "./hooks/useCashReportData";
 export * from "./data/cashReportData";
+
+// Profit Analytics
+export { default as ProfitReportPage } from "./pages/ProfitReportPage";
+export * from "./pages/ProfitReportPage";
+export * from "./components/ProfitReportHeader";
+export * from "./components/ProfitReportStatsCards";
+export * from "./components/ProfitReportTable";
+export * from "./components/ProfitReportFilterBar";
+export * from "./components/ProfitReportDetailDialog";
+export * from "./hooks/useProfitReportData";
+export * from "./data/profitReportData";
