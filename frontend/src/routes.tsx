@@ -18,7 +18,11 @@ import {
   WarehouseTransferPage,
 } from "./features/warehouse";
 import { SalesPage } from "./features/sales";
-import { SalesReportPage, ShiftReportPage } from "./features/reports";
+import {
+  SalesReportPage,
+  ShiftReportPage,
+  CashReportPage,
+} from "./features/reports";
 import { PaymentPage, AddPaymentPage } from "./features/payments";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
@@ -70,7 +74,7 @@ export const router = createBrowserRouter([
           { path: "shifts", Component: ShiftReportPage },
 
           // Cashier & Cash Flow
-          { path: "cash", element: <div>Dashboard Cash</div> },
+          { path: "cash", Component: CashReportPage },
           { path: "stocks", Component: WarehousePage },
           { path: "stocks/restock", Component: WarehouseRestockPage },
           { path: "stocks/transfer", Component: WarehouseTransferPage },
