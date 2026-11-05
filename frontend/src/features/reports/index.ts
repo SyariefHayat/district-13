@@ -52,3 +52,14 @@ export * from "./components/CashierAuditFilterBar";
 export * from "./components/CashierAuditDetailDialog";
 export * from "./hooks/useCashierAuditData";
 export * from "./data/cashierAuditData";
+
+// Audit Log (Audit Aktivitas Sistem)
+export { default as AuditLogPage } from "./pages/AuditLogPage";
+export * from "./pages/AuditLogPage";
+export * from "./components/AuditLogHeader";
+export * from "./components/AuditLogStatsCards";
+export * from "./components/AuditLogTable";
+export * from "./components/AuditLogFilterBar";
+export * from "./components/AuditLogDetailDialog";
+export * from "./hooks/useAuditLogData";
+export * from "./data/auditLogData";
