@@ -1,16 +1,17 @@
 import * as React from "react";
+import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { PaymentHeader } from "../components/PaymentHeader";
 import { PaymentStatsCards } from "../components/PaymentStatsCards";
 import { PaymentTable } from "../components/PaymentTable";
-import { PaymentFormDialog } from "../components/PaymentFormDialog";
 import { PaymentDetailDialog } from "../components/PaymentDetailDialog";
 import { usePaymentData } from "../hooks/usePaymentData";
 import type { PaymentMethodItem } from "../data/paymentData";
 
 export default function PaymentPage() {
+  const navigate = useNavigate();
   const {
     payments,
     isLoading,
@@ -19,26 +20,18 @@ export default function PaymentPage() {
     toggleStatus,
     deletePayment,
     deleteMultiple,
-    createPayment,
-    updatePayment,
   } = usePaymentData();
-
-  const [formDialogOpen, setFormDialogOpen] = React.useState(false);
-  const [editingPayment, setEditingPayment] =
-    React.useState<PaymentMethodItem | null>(null);
 
   const [detailDialogOpen, setDetailDialogOpen] = React.useState(false);
   const [selectedPayment, setSelectedPayment] =
     React.useState<PaymentMethodItem | null>(null);
 
   const handleOpenAdd = () => {
-    setEditingPayment(null);
-    setFormDialogOpen(true);
+    navigate("/dashboard/payments/new");
   };
 
   const handleOpenEdit = (payment: PaymentMethodItem) => {
-    setEditingPayment(payment);
-    setFormDialogOpen(true);
+    navigate(`/dashboard/payments/${payment.id}/edit`);
   };
 
   const handleOpenDetail = (payment: PaymentMethodItem) => {
@@ -67,14 +60,6 @@ export default function PaymentPage() {
     toast.add({
       title: `Berhasil mengekspor ${listToExport.length} metode pembayaran`,
     });
-  };
-
-  const handleFormSubmit = async (values: any) => {
-    if (editingPayment) {
-      return await updatePayment(editingPayment.id, values);
-    } else {
-      return await createPayment(values);
-    }
   };
 
   return (
@@ -113,13 +98,6 @@ export default function PaymentPage() {
         onViewDetails={handleOpenDetail}
         onEditPayment={handleOpenEdit}
         onExport={handleExport}
-      />
-
-      <PaymentFormDialog
-        open={formDialogOpen}
-        onOpenChange={setFormDialogOpen}
-        payment={editingPayment}
-        onSubmit={handleFormSubmit}
       />
 
       <PaymentDetailDialog

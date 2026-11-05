@@ -1,4 +1,5 @@
 export { default as PaymentPage } from "./pages/PaymentPage";
+export { default as AddPaymentPage } from "./pages/AddPaymentPage";
 export * from "./data/paymentData";
 export * from "./hooks/usePaymentData";
 export * from "./components/PaymentHeader";

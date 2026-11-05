@@ -61,6 +61,45 @@ function arePaymentListsEqual(
   return true;
 }
 
+const CUSTOM_PAYMENTS_KEY = "district13_custom_payment_methods_v1";
+const OVERRIDES_KEY = "district13_payment_overrides_v1";
+
+function getStoredCustomPayments(): PaymentMethodItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_PAYMENTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function setStoredCustomPayments(items: PaymentMethodItem[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CUSTOM_PAYMENTS_KEY, JSON.stringify(items));
+  } catch {}
+}
+
+function getStoredOverrides(): Record<string, Partial<PaymentMethodItem>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setStoredOverrides(
+  overrides: Record<string, Partial<PaymentMethodItem>>
+) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+  } catch {}
+}
+
 export interface UsePaymentDataOptions {
   pollIntervalMs?: number;
 }
@@ -69,7 +108,15 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
   const pollIntervalMs = options?.pollIntervalMs ?? 3000;
   const { authorizedFetch } = useAuth();
 
-  const [payments, setPayments] = useState<PaymentMethodItem[]>([]);
+  const [payments, setPayments] = useState<PaymentMethodItem[]>(() => {
+    const custom = getStoredCustomPayments();
+    const overrides = getStoredOverrides();
+    const base = DEFAULT_PAYMENT_METHODS.map((bm) => {
+      const ovr = overrides[bm.id] || overrides[bm.code];
+      return ovr ? { ...bm, ...ovr } : bm;
+    });
+    return [...base, ...custom];
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
@@ -191,34 +238,64 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
           }
         });
 
+        const customItems = getStoredCustomPayments();
+        const overrides = getStoredOverrides();
+
         setPayments((prev) => {
-          // Preserve any user-toggled active/inactive status from previous state
-          const merged = baseMethods.map((bm) => {
-            const existing = prev.find(
+          // 1. Merge base methods with any live state and persistent overrides
+          const mergedBase: PaymentMethodItem[] = baseMethods.map((bm) => {
+            const persistentOvr = overrides[bm.id] || overrides[bm.code];
+            const liveState = prev.find(
               (p) => p.id === bm.id || p.code === bm.code
             );
-            if (existing) {
-              return {
-                ...bm,
-                name: existing.name || bm.name,
-                provider: existing.provider || bm.provider,
-                accountNumber: existing.accountNumber || bm.accountNumber,
-                feePercentage: existing.feePercentage ?? bm.feePercentage,
-                isActive: existing.isActive,
-                status: existing.status,
-              };
-            }
-            return bm;
+
+            return {
+              ...bm,
+              name: liveState?.name || persistentOvr?.name || bm.name,
+              provider:
+                liveState?.provider || persistentOvr?.provider || bm.provider,
+              accountNumber:
+                liveState?.accountNumber ??
+                persistentOvr?.accountNumber ??
+                bm.accountNumber,
+              feePercentage:
+                liveState?.feePercentage ??
+                persistentOvr?.feePercentage ??
+                bm.feePercentage,
+              settlementTime:
+                liveState?.settlementTime ||
+                persistentOvr?.settlementTime ||
+                bm.settlementTime,
+              minAmount:
+                liveState?.minAmount ??
+                persistentOvr?.minAmount ??
+                bm.minAmount,
+              description:
+                liveState?.description ??
+                persistentOvr?.description ??
+                bm.description,
+              isActive:
+                liveState?.isActive ?? persistentOvr?.isActive ?? bm.isActive,
+              status: liveState?.status ?? persistentOvr?.status ?? bm.status,
+            };
           });
 
-          // Include any custom user-added payment methods
-          for (const p of prev) {
-            if (!merged.some((m) => m.id === p.id || m.code === p.code)) {
-              merged.push(p);
+          // 2. Include custom user-added payment methods
+          const combined: PaymentMethodItem[] = [...mergedBase];
+          for (const ci of customItems) {
+            if (!combined.some((m) => m.id === ci.id || m.code === ci.code)) {
+              combined.push(ci);
             }
           }
 
-          return arePaymentListsEqual(prev, merged) ? prev : merged;
+          // 3. Keep any in-memory additions that haven't persisted yet
+          for (const p of prev) {
+            if (!combined.some((m) => m.id === p.id || m.code === p.code)) {
+              combined.push(p);
+            }
+          }
+
+          return arePaymentListsEqual(prev, combined) ? prev : combined;
         });
 
         setLastSyncedAt(new Date());
@@ -266,10 +343,36 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
       prev.map((item) => {
         if (item.id === id) {
           const nextActive = !item.isActive;
+          const nextStatus = nextActive ? "ACTIVE" : "INACTIVE";
+
+          const customList = getStoredCustomPayments();
+          if (customList.some((c) => c.id === id)) {
+            setStoredCustomPayments(
+              customList.map((c) =>
+                c.id === id
+                  ? {
+                      ...c,
+                      isActive: nextActive,
+                      status: nextStatus,
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : c
+              )
+            );
+          } else {
+            const overrides = getStoredOverrides();
+            overrides[id] = {
+              ...overrides[id],
+              isActive: nextActive,
+              status: nextStatus,
+            };
+            setStoredOverrides(overrides);
+          }
+
           return {
             ...item,
             isActive: nextActive,
-            status: nextActive ? "ACTIVE" : "INACTIVE",
+            status: nextStatus,
             updatedAt: new Date().toISOString(),
           };
         }
@@ -279,11 +382,17 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
   }, []);
 
   const deletePayment = useCallback((id: string) => {
+    const customList = getStoredCustomPayments();
+    const updatedCustom = customList.filter((p) => p.id !== id);
+    setStoredCustomPayments(updatedCustom);
     setPayments((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const deleteMultiple = useCallback((ids: string[]) => {
     const idSet = new Set(ids);
+    const customList = getStoredCustomPayments();
+    const updatedCustom = customList.filter((p) => !idSet.has(p.id));
+    setStoredCustomPayments(updatedCustom);
     setPayments((prev) => prev.filter((p) => !idSet.has(p.id)));
   }, []);
 
@@ -302,7 +411,16 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
           totalVolume: 0,
           updatedAt: new Date().toISOString(),
         };
-        setPayments((prev) => [newItem, ...prev]);
+        const currentCustom = getStoredCustomPayments();
+        const updatedCustom = [
+          newItem,
+          ...currentCustom.filter((c) => c.code !== newItem.code),
+        ];
+        setStoredCustomPayments(updatedCustom);
+        setPayments((prev) => [
+          newItem,
+          ...prev.filter((p) => p.code !== newItem.code),
+        ]);
         toast.add({
           title: `Metode ${newItem.name} berhasil ditambahkan`,
         });
@@ -323,6 +441,21 @@ export function usePaymentData(options?: UsePaymentDataOptions) {
       data: Partial<Omit<PaymentMethodItem, "id" | "updatedAt">>
     ) => {
       try {
+        const currentCustom = getStoredCustomPayments();
+        const isCustom = currentCustom.some((p) => p.id === id);
+        if (isCustom) {
+          const updatedCustom = currentCustom.map((p) =>
+            p.id === id
+              ? { ...p, ...data, updatedAt: new Date().toISOString() }
+              : p
+          );
+          setStoredCustomPayments(updatedCustom);
+        } else {
+          const overrides = getStoredOverrides();
+          overrides[id] = { ...overrides[id], ...data };
+          setStoredOverrides(overrides);
+        }
+
         setPayments((prev) =>
           prev.map((item) =>
             item.id === id

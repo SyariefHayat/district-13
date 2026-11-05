@@ -18,7 +18,7 @@ import {
   WarehouseTransferPage,
 } from "./features/warehouse";
 import { SalesPage } from "./features/sales";
-import { PaymentPage } from "./features/payments";
+import { PaymentPage, AddPaymentPage } from "./features/payments";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 
@@ -46,6 +46,8 @@ export const router = createBrowserRouter([
 
           // Payments & Transactions
           { path: "payments", Component: PaymentPage },
+          { path: "payments/new", Component: AddPaymentPage },
+          { path: "payments/:id/edit", Component: AddPaymentPage },
           { path: "transactions", Component: SalesPage },
           { path: "sales", Component: SalesPage },
 
