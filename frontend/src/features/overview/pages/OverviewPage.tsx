@@ -12,6 +12,8 @@ import {
 } from "date-fns";
 import { type DateRange } from "react-day-picker";
 
+import { useAuth } from "@/context/auth-context";
+import { CashierDashboardPage } from "@/features/cashier";
 import { OverviewStatsCards } from "@/features/overview/components/OverviewStatsCards";
 import { ChartBarInteractive } from "@/features/overview/components/ChartBarInteractive";
 import { OverviewHeader } from "../components/OverviewHeader";
@@ -25,7 +27,7 @@ import {
   type ProductItem,
 } from "../data/overviewData";
 
-export default function OverviewPage() {
+function OwnerAdminOverview() {
   const [today] = React.useState(() => new Date());
   const [date, setDate] = React.useState<DateRange | undefined>(() => ({
     from: today,
@@ -206,4 +208,14 @@ export default function OverviewPage() {
       </div>
     </div>
   );
+}
+
+export default function OverviewPage() {
+  const { user } = useAuth();
+
+  if (user?.role === "CASHIER") {
+    return <CashierDashboardPage />;
+  }
+
+  return <OwnerAdminOverview />;
 }

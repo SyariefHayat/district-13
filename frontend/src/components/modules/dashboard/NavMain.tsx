@@ -16,12 +16,15 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { dashboardMenu } from "@/constants/dashboard-menu";
+import { useAuth } from "@/context/auth-context";
 
 import { MenuSearch } from "./MenuSearch";
 
 export function NavMain() {
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  const userRole = user?.role ?? "CASHIER";
 
   const toggleMenu = (title: string) => {
     setOpenMenus((open) =>
@@ -30,6 +33,19 @@ export function NavMain() {
         : [...open, title]
     );
   };
+
+  const visibleMenuItems = dashboardMenu
+    .filter((item) => !item.roles || item.roles.includes(userRole))
+    .map((item) => {
+      if ("items" in item) {
+        const visibleSub = item.items.filter(
+          (sub) => !sub.roles || sub.roles.includes(userRole)
+        );
+        return { ...item, items: visibleSub };
+      }
+      return item;
+    })
+    .filter((item) => !("items" in item) || item.items.length > 0);
 
   return (
     <SidebarGroup>
@@ -40,7 +56,7 @@ export function NavMain() {
         <div>
           <SidebarGroupLabel>Menu Utama</SidebarGroupLabel>
           <SidebarMenu>
-            {dashboardMenu.map((item) => (
+            {visibleMenuItems.map((item) => (
               <SidebarMenuItem key={item.title} className="mb-1">
                 <SidebarMenuButton
                   tooltip={item.title}

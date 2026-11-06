@@ -13,10 +13,13 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { dashboardMenu } from "@/constants/dashboard-menu";
+import { useAuth } from "@/context/auth-context";
 
 export function MenuSearch() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userRole = user?.role ?? "CASHIER";
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -29,6 +32,19 @@ export function MenuSearch() {
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
+
+  const visibleMenuItems = dashboardMenu
+    .filter((item) => !item.roles || item.roles.includes(userRole))
+    .map((item) => {
+      if ("items" in item) {
+        const visibleSub = item.items.filter(
+          (sub) => !sub.roles || sub.roles.includes(userRole)
+        );
+        return { ...item, items: visibleSub };
+      }
+      return item;
+    })
+    .filter((item) => !("items" in item) || item.items.length > 0);
 
   return (
     <>
@@ -57,7 +73,7 @@ export function MenuSearch() {
           <CommandList>
             <CommandEmpty>Menu tidak ditemukan.</CommandEmpty>
             <CommandGroup heading="Navigasi">
-              {dashboardMenu.flatMap((item) => {
+              {visibleMenuItems.flatMap((item) => {
                 const links = "items" in item ? item.items : [item];
                 const MenuIcon = item.icon;
 
