@@ -28,6 +28,7 @@ import {
 } from "./features/reports";
 import { PaymentPage, AddPaymentPage } from "./features/payments";
 import { CashierDashboardPage } from "./features/cashier";
+import { AdminDashboardPage } from "./features/admin";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 
@@ -86,6 +87,7 @@ export const router = createBrowserRouter([
           { path: "stocks/movements", Component: WarehouseMovementsPage },
           { path: "warehouse", Component: WarehousePage },
           { path: "cashier", Component: CashierDashboardPage },
+          { path: "admin", Component: AdminDashboardPage },
 
           // Support
           { path: "help", element: <div>Dashboard Help</div> },

@@ -14,6 +14,7 @@ import { type DateRange } from "react-day-picker";
 
 import { useAuth } from "@/context/auth-context";
 import { CashierDashboardPage } from "@/features/cashier";
+import { AdminDashboardPage } from "@/features/admin";
 import { OverviewStatsCards } from "@/features/overview/components/OverviewStatsCards";
 import { ChartBarInteractive } from "@/features/overview/components/ChartBarInteractive";
 import { OverviewHeader } from "../components/OverviewHeader";
@@ -215,6 +216,10 @@ export default function OverviewPage() {
 
   if (user?.role === "CASHIER") {
     return <CashierDashboardPage />;
+  }
+
+  if (user?.role === "ADMIN") {
+    return <AdminDashboardPage />;
   }
 
   return <OwnerAdminOverview />;
