@@ -89,6 +89,11 @@ export const dashboardMenu: readonly MenuItem[] = [
     roles: ["OWNER", "ADMIN", "CASHIER"],
     items: [
       {
+        title: "Point of Sale (POS)",
+        url: "/dashboard/pos",
+        roles: ["OWNER", "ADMIN", "CASHIER"],
+      },
+      {
         title: "Penjualan",
         url: "/dashboard/transactions",
         roles: ["OWNER", "ADMIN", "CASHIER"],

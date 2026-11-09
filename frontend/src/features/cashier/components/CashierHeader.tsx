@@ -1,8 +1,10 @@
+import { useNavigate } from "react-router";
 import {
   IconArrowDownLeft,
   IconDoorEnter,
   IconDoorExit,
   IconRefresh,
+  IconReceipt2,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,7 @@ export function CashierHeader({
   onCloseShiftClick,
   onCashMovementClick,
 }: CashierHeaderProps) {
+  const navigate = useNavigate();
   const isShiftOpen = Boolean(currentShift && !currentShift.closedAt);
 
   return (
@@ -82,6 +85,15 @@ export function CashierHeader({
           ) : (
             <>
               <Button
+                size="sm"
+                onClick={() => navigate("/dashboard/pos")}
+                className="h-9 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs"
+              >
+                <IconReceipt2 className="size-4" />
+                <span>Buka Terminal POS</span>
+              </Button>
+
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={onCashMovementClick}
@@ -134,7 +146,16 @@ export function CashierHeader({
           </div>
         </div>
 
-        {!isShiftOpen && (
+        {isShiftOpen ? (
+          <Button
+            size="sm"
+            variant="link"
+            onClick={() => navigate("/dashboard/pos")}
+            className="h-auto p-0 text-xs font-semibold text-emerald-700 dark:text-emerald-300"
+          >
+            Menuju Terminal POS Kasir &rarr;
+          </Button>
+        ) : (
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">
               Buka shift untuk mulai mencatat modal kas & transaksi penjualan.
