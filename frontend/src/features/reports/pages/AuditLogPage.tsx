@@ -10,7 +10,8 @@ import { useAuditLogData } from "../hooks/useAuditLogData";
 import type { AuditLogItem } from "../data/auditLogData";
 
 export default function AuditLogPage() {
-  const { summary, logs, isLoading, error, refetch } = useAuditLogData();
+  const { summary, logs, isLoading, isSyncing, error, refetch } =
+    useAuditLogData();
 
   const [selectedLog, setSelectedLog] = React.useState<AuditLogItem | null>(
     null
@@ -62,7 +63,11 @@ export default function AuditLogPage() {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <AuditLogHeader onExport={() => handleExport()} />
+      <AuditLogHeader
+        onExport={() => handleExport()}
+        onRefresh={() => void refetch()}
+        isRefreshing={isSyncing}
+      />
 
       {error && (
         <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center justify-between">

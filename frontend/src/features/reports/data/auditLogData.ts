@@ -203,9 +203,94 @@ export const SAMPLE_AUDIT_LOGS: AuditLogItem[] = [
   },
 ];
 
+export interface BackendAuditLog {
+  id: string;
+  userId: string | null;
+  username: string | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  description: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export function mapBackendAuditLog(item: BackendAuditLog): AuditLogItem {
+  const meta = item.metadata || {};
+  return {
+    id: item.id,
+    userId: item.userId,
+    userName:
+      item.username ||
+      (typeof meta.userName === "string" ? meta.userName : "") ||
+      (typeof meta.username === "string" ? meta.username : "") ||
+      (typeof meta.cashierName === "string" ? meta.cashierName : "") ||
+      "Sistem",
+    userRole:
+      (typeof meta.userRole === "string" ? meta.userRole : undefined) ||
+      (typeof meta.role === "string" ? meta.role : undefined),
+    action: item.action,
+    entityType: item.entityType,
+    entityId: item.entityId,
+    description: item.description,
+    metadata: item.metadata,
+    ipAddress:
+      (typeof meta.ipAddress === "string" ? meta.ipAddress : undefined) ||
+      (typeof meta.ip === "string" ? meta.ip : undefined) ||
+      "-",
+    createdAt: item.createdAt,
+  };
+}
+
+export function calculateAuditLogSummary(
+  logs: AuditLogItem[],
+  totalOverride?: number
+): AuditLogSummary {
+  let securityEvents = 0;
+  let transactionEvents = 0;
+  let dataChangeEvents = 0;
+
+  for (const log of logs) {
+    if (log.action.startsWith("AUTH_") || log.entityType === "SESSION") {
+      securityEvents++;
+    } else if (
+      log.action.startsWith("TRANSACTION") ||
+      log.action.startsWith("SHIFT") ||
+      log.action.startsWith("CASH") ||
+      ["TRANSACTION", "SHIFT", "CASH_MOVEMENT"].includes(log.entityType)
+    ) {
+      transactionEvents++;
+    } else if (
+      log.action.startsWith("PRODUCT") ||
+      log.action.startsWith("CATEGORY") ||
+      log.action.startsWith("ADDON") ||
+      log.action.startsWith("INVENTORY") ||
+      log.action.startsWith("USER") ||
+      log.action.startsWith("SCHEDULE") ||
+      [
+        "PRODUCT",
+        "CATEGORY",
+        "ADDON",
+        "INVENTORY",
+        "USER",
+        "SCHEDULE",
+      ].includes(log.entityType)
+    ) {
+      dataChangeEvents++;
+    }
+  }
+
+  return {
+    totalLogs: totalOverride !== undefined ? totalOverride : logs.length,
+    securityEvents,
+    transactionEvents,
+    dataChangeEvents,
+  };
+}
+
 export const SAMPLE_AUDIT_LOG_SUMMARY: AuditLogSummary = {
-  totalLogs: 10,
-  securityEvents: 3,
-  transactionEvents: 4,
-  dataChangeEvents: 3,
+  totalLogs: 0,
+  securityEvents: 0,
+  transactionEvents: 0,
+  dataChangeEvents: 0,
 };
