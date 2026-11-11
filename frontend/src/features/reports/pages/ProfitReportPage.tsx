@@ -10,8 +10,15 @@ import { useProfitReportData } from "../hooks/useProfitReportData";
 import type { ProductProfitItem } from "../data/profitReportData";
 
 export default function ProfitReportPage() {
-  const { summary, products, categories, isLoading, error, refetch } =
-    useProfitReportData();
+  const {
+    summary,
+    products,
+    categories,
+    isLoading,
+    isSyncing,
+    error,
+    refetch,
+  } = useProfitReportData();
 
   const [selectedProduct, setSelectedProduct] =
     React.useState<ProductProfitItem | null>(null);
@@ -62,7 +69,11 @@ export default function ProfitReportPage() {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <ProfitReportHeader onExport={() => handleExport()} />
+      <ProfitReportHeader
+        onExport={() => handleExport()}
+        onRefresh={() => void refetch()}
+        isRefreshing={isSyncing}
+      />
 
       {error && (
         <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center justify-between">

@@ -1,16 +1,21 @@
 import { Button } from "@/components/ui/button";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload, IconRefresh } from "@tabler/icons-react";
+import { Spinner } from "@/components/ui/spinner";
 
 interface ProfitReportHeaderProps {
   title?: string;
   description?: string;
   onExport?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export function ProfitReportHeader({
   title = "Analitik Profit",
   description = "Analisis laba kotor, margin keuntungan, dan profitabilitas produk.",
   onExport,
+  onRefresh,
+  isRefreshing = false,
 }: ProfitReportHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
@@ -24,6 +29,22 @@ export function ProfitReportHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {onRefresh && (
+          <Button
+            variant="outline"
+            size="default"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="gap-1.5 shadow-xs"
+          >
+            {isRefreshing ? (
+              <Spinner className="size-4" />
+            ) : (
+              <IconRefresh className="size-4" />
+            )}
+            <span>Segarkan</span>
+          </Button>
+        )}
         <Button
           variant="outline"
           size="default"

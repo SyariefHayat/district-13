@@ -5,10 +5,14 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { Permissions } from '../auth/decorators/permissions.decorator.js';
+import {
+  AnyPermissions,
+  Permissions,
+} from '../auth/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../auth/permissions/permissions.js';
 import { OverviewQueryDto } from './dto/overview-query.dto.js';
 import { ReportQueryDto } from './dto/report-query.dto.js';
+import { ProfitQueryDto } from './dto/profit-query.dto.js';
 import { ReportsService } from './reports.service.js';
 
 @Controller('reports')
@@ -26,6 +30,12 @@ export class ReportsController {
   @Permissions(PERMISSIONS.reportsDashboardSummaryRead)
   overview(@Query() q: OverviewQueryDto) {
     return this.reports.overview(q);
+  }
+
+  @Get('profit')
+  @AnyPermissions(PERMISSIONS.reportsProfitRead, PERMISSIONS.reportsSalesRead)
+  profit(@Query() q: ProfitQueryDto) {
+    return this.reports.profit(q);
   }
 
   @Get('sales')

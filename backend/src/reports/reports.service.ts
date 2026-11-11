@@ -14,11 +14,12 @@ import {
 } from '../drizzle/schema/index.js';
 import type { ReportQueryDto } from './dto/report-query.dto.js';
 import type { OverviewQueryDto } from './dto/overview-query.dto.js';
+import type { ProfitQueryDto } from './dto/profit-query.dto.js';
 
 @Injectable()
 export class ReportsService {
   constructor(private readonly database: DatabaseService) {}
-  private dateFilter(q: ReportQueryDto, column: any) {
+  private dateFilter(q: { startDate?: string; endDate?: string }, column: any) {
     if (
       q.startDate &&
       q.endDate &&
@@ -483,5 +484,189 @@ export class ReportsService {
       .orderBy(
         sql`DATE(${transactions.createdAt} at time zone 'Asia/Jakarta')`,
       );
+  }
+
+  async profit(q: ProfitQueryDto) {
+    const whereFilters = [
+      ...this.dateFilter(q, transactions.createdAt),
+      eq(transactions.status, 'COMPLETED'),
+    ];
+    if (q.categoryId) {
+      whereFilters.push(eq(products.categoryId, q.categoryId));
+    }
+    if (q.category && q.category !== 'Semua Kategori') {
+      whereFilters.push(eq(categories.name, q.category));
+    }
+    const where = and(...whereFilters);
+
+    // 1. Overall Summary
+    const [summaryResult] = await this.database.db
+      .select({
+        totalRevenue: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}), 0)`,
+        totalCogs: sql<string>`coalesce(sum(${transactionItems.quantity} * coalesce(${products.costPrice}, 0)), 0)`,
+        totalUnitsSold: sql<number>`coalesce(sum(${transactionItems.quantity}), 0)::int`,
+        productCount: sql<number>`count(distinct ${transactionItems.productId})::int`,
+      })
+      .from(transactionItems)
+      .innerJoin(
+        transactions,
+        eq(transactionItems.transactionId, transactions.id),
+      )
+      .innerJoin(products, eq(transactionItems.productId, products.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(where);
+
+    // Transaction discount total in period
+    const [discountResult] = await this.database.db
+      .select({
+        totalDiscount: sql<string>`coalesce(sum(${transactions.discountAmount}), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          ...this.dateFilter(q, transactions.createdAt),
+          eq(transactions.status, 'COMPLETED'),
+        ),
+      );
+
+    const totalRev = Number(summaryResult?.totalRevenue || 0);
+    const totalCogs = Number(summaryResult?.totalCogs || 0);
+    const totalDiscount = Number(discountResult?.totalDiscount || 0);
+    const grossProfit = totalRev - totalCogs;
+    const netProfit = grossProfit - totalDiscount;
+    const profitMargin = totalRev > 0 ? (grossProfit / totalRev) * 100 : 0;
+
+    // 2. Product-level breakdown (paginated)
+    const productRowsPromise = this.database.db
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: sql<string>`coalesce(${products.sku}, '')`,
+        category: sql<string>`coalesce(${categories.name}, 'Umum')`,
+        categoryId: categories.id,
+        sellingPrice: sql<string>`coalesce(${products.price}, 0)`,
+        costPrice: sql<string>`coalesce(${products.costPrice}, 0)`,
+        unitsSold: sql<number>`coalesce(sum(${transactionItems.quantity}), 0)::int`,
+        totalRevenue: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}), 0)`,
+        totalCogs: sql<string>`coalesce(sum(${transactionItems.quantity} * coalesce(${products.costPrice}, 0)), 0)`,
+        grossProfit: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}) - sum(${transactionItems.quantity} * coalesce(${products.costPrice}, 0)), 0)`,
+      })
+      .from(transactionItems)
+      .innerJoin(
+        transactions,
+        eq(transactionItems.transactionId, transactions.id),
+      )
+      .innerJoin(products, eq(transactionItems.productId, products.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(where)
+      .groupBy(
+        products.id,
+        products.name,
+        products.sku,
+        products.price,
+        products.costPrice,
+        categories.name,
+        categories.id,
+      )
+      .orderBy(desc(sql`sum(${transactionItems.subtotalAmount})`))
+      .limit(q.limit)
+      .offset((q.page - 1) * q.limit);
+
+    const totalProductsCountPromise = this.database.db
+      .select({
+        total: sql<number>`count(distinct ${transactionItems.productId})::int`,
+      })
+      .from(transactionItems)
+      .innerJoin(
+        transactions,
+        eq(transactionItems.transactionId, transactions.id),
+      )
+      .innerJoin(products, eq(transactionItems.productId, products.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(where);
+
+    // 3. Category-level breakdown
+    const categoryRowsPromise = this.database.db
+      .select({
+        category: sql<string>`coalesce(${categories.name}, 'Umum')`,
+        categoryId: categories.id,
+        unitsSold: sql<number>`coalesce(sum(${transactionItems.quantity}), 0)::int`,
+        totalRevenue: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}), 0)`,
+        totalCogs: sql<string>`coalesce(sum(${transactionItems.quantity} * coalesce(${products.costPrice}, 0)), 0)`,
+        grossProfit: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}) - sum(${transactionItems.quantity} * coalesce(${products.costPrice}, 0)), 0)`,
+      })
+      .from(transactionItems)
+      .innerJoin(
+        transactions,
+        eq(transactionItems.transactionId, transactions.id),
+      )
+      .innerJoin(products, eq(transactionItems.productId, products.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(where)
+      .groupBy(categories.name, categories.id)
+      .orderBy(desc(sql`sum(${transactionItems.subtotalAmount})`));
+
+    const [productRows, [totalCount], categoryRows] = await Promise.all([
+      productRowsPromise,
+      totalProductsCountPromise,
+      categoryRowsPromise,
+    ]);
+
+    const mappedProducts = productRows.map((p) => {
+      const pRev = Number(p.totalRevenue || 0);
+      const pCogs = Number(p.totalCogs || 0);
+      const pGross = Number(p.grossProfit || 0);
+      const pMargin = pRev > 0 ? (pGross / pRev) * 100 : 0;
+      return {
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        category: p.category,
+        categoryId: p.categoryId,
+        unitsSold: Number(p.unitsSold || 0),
+        sellingPrice: Number(p.sellingPrice || 0),
+        costPrice: Number(p.costPrice || 0),
+        totalRevenue: pRev,
+        totalCogs: pCogs,
+        grossProfit: pGross,
+        profitMargin: Number(pMargin.toFixed(1)),
+      };
+    });
+
+    const mappedCategories = categoryRows.map((c) => {
+      const cRev = Number(c.totalRevenue || 0);
+      const cCogs = Number(c.totalCogs || 0);
+      const cGross = Number(c.grossProfit || 0);
+      const cMargin = cRev > 0 ? (cGross / cRev) * 100 : 0;
+      return {
+        category: c.category,
+        categoryId: c.categoryId,
+        unitsSold: Number(c.unitsSold || 0),
+        totalRevenue: cRev,
+        totalCogs: cCogs,
+        grossProfit: cGross,
+        profitMargin: Number(cMargin.toFixed(1)),
+      };
+    });
+
+    return {
+      summary: {
+        totalRevenue: totalRev,
+        netRevenue: totalRev - totalDiscount,
+        totalCogs,
+        grossProfit,
+        netProfit,
+        profitMargin: Number(profitMargin.toFixed(1)),
+        totalUnitsSold: Number(summaryResult?.totalUnitsSold || 0),
+        productCount: Number(summaryResult?.productCount || 0),
+      },
+      products: {
+        data: mappedProducts,
+        page: q.page,
+        limit: q.limit,
+        total: Number(totalCount?.total || 0),
+      },
+      byCategory: mappedCategories,
+    };
   }
 }
