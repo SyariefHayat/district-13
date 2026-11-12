@@ -74,4 +74,44 @@ describe('ReportsController authorization', () => {
     expect(result.summary.grossProfit).toBe(600000);
     expect(result.summary.profitMargin).toBe(60.0);
   });
+
+  it('protects cashier performance endpoint with reports permissions', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'cashiers')).toEqual([
+      PERMISSIONS.reportsCashierPerformanceRead,
+    ]);
+
+    expect(
+      roleHasPermission('OWNER', PERMISSIONS.reportsCashierPerformanceRead),
+    ).toBe(true);
+    expect(
+      roleHasPermission('ADMIN', PERMISSIONS.reportsCashierPerformanceRead),
+    ).toBe(true);
+    expect(
+      roleHasPermission('CASHIER', PERMISSIONS.reportsCashierPerformanceRead),
+    ).toBe(false);
+  });
+
+  it('delegates cashiers query to ReportsService', async () => {
+    const mockService = {
+      cashierPerformance: vi.fn().mockResolvedValue({
+        summary: {
+          totalCashiers: 2,
+          totalTransactions: 50,
+          totalSales: 5000000,
+          totalDifference: 0,
+          averageAccuracy: 100,
+          totalVoidCount: 0,
+          totalVoidAmount: 0,
+        },
+        cashiers: { data: [], page: 1, limit: 10, total: 2 },
+      }),
+    };
+
+    const controller = new ReportsController(mockService as any);
+    const query = { page: 1, limit: 10 };
+    const result = await controller.cashiers(query as any);
+
+    expect(mockService.cashierPerformance).toHaveBeenCalledWith(query);
+    expect(result.summary.totalCashiers).toBe(2);
+  });
 });

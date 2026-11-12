@@ -669,4 +669,191 @@ export class ReportsService {
       byCategory: mappedCategories,
     };
   }
+
+  async cashierPerformance(q: ReportQueryDto) {
+    const shiftFilters = this.dateFilter(q, shifts.openedAt);
+    const txFilters = this.dateFilter(q, transactions.createdAt);
+
+    if (q.userId) {
+      shiftFilters.push(eq(shifts.userId, q.userId));
+      txFilters.push(eq(transactions.userId, q.userId));
+    }
+
+    // 1. Get all relevant cashier users
+    const userFilters = [];
+    if (q.userId) {
+      userFilters.push(eq(users.id, q.userId));
+    } else {
+      userFilters.push(eq(users.role, 'CASHIER'));
+    }
+
+    const cashierUsers = await this.database.db
+      .select({
+        id: users.id,
+        username: users.username,
+        role: users.role,
+      })
+      .from(users)
+      .where(and(...userFilters));
+
+    // 2. Fetch shifts aggregation per user in period
+    const shiftsAgg = await this.database.db
+      .select({
+        userId: shifts.userId,
+        totalShifts: sql<number>`count(*)::int`,
+        cashExpected: sql<string>`coalesce(sum(${shifts.expectedCash}), 0)`,
+        cashActual: sql<string>`coalesce(sum(${shifts.closingCash}), 0)`,
+        cashDifference: sql<string>`coalesce(sum(${shifts.cashDifference}), 0)`,
+        lastShiftDate: sql<string>`max(${shifts.closedAt})`,
+      })
+      .from(shifts)
+      .where(and(...shiftFilters, sql`${shifts.closedAt} is not null`))
+      .groupBy(shifts.userId);
+
+    // 3. Fetch completed & voided transactions aggregation per user in period
+    const txCompletedAgg = await this.database.db
+      .select({
+        userId: transactions.userId,
+        totalTransactions: sql<number>`count(*)::int`,
+        totalSales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        discountCount: sql<number>`count(case when ${transactions.discountAmount} > 0 then 1 end)::int`,
+        discountAmount: sql<string>`coalesce(sum(${transactions.discountAmount}), 0)`,
+        lastTxDate: sql<string>`max(${transactions.createdAt})`,
+      })
+      .from(transactions)
+      .where(and(...txFilters, eq(transactions.status, 'COMPLETED')))
+      .groupBy(transactions.userId);
+
+    const txVoidAgg = await this.database.db
+      .select({
+        userId: transactions.userId,
+        voidCount: sql<number>`count(*)::int`,
+        voidAmount: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+      })
+      .from(transactions)
+      .where(and(...txFilters, eq(transactions.status, 'VOIDED')))
+      .groupBy(transactions.userId);
+
+    const shiftsMap = new Map(shiftsAgg.map((s) => [s.userId, s]));
+    const txMap = new Map(txCompletedAgg.map((t) => [t.userId, t]));
+    const voidMap = new Map(txVoidAgg.map((v) => [v.userId, v]));
+
+    const items = cashierUsers.map((u, idx) => {
+      const s = shiftsMap.get(u.id);
+      const t = txMap.get(u.id);
+      const v = voidMap.get(u.id);
+
+      const totalShifts = Number(s?.totalShifts || 0);
+      const totalTransactions = Number(t?.totalTransactions || 0);
+      const totalSales = Number(t?.totalSales || 0);
+      const cashExpected = Number(s?.cashExpected || 0);
+      const cashActual = Number(s?.cashActual || 0);
+      const cashDifference = Number(s?.cashDifference || 0);
+
+      const voidCount = Number(v?.voidCount || 0);
+      const voidAmount = Number(v?.voidAmount || 0);
+      const discountCount = Number(t?.discountCount || 0);
+      const discountAmount = Number(t?.discountAmount || 0);
+
+      let accuracyRate = 100;
+      if (cashExpected > 0) {
+        const diffRatio = (Math.abs(cashDifference) / cashExpected) * 100;
+        accuracyRate = Math.max(0, Number((100 - diffRatio).toFixed(1)));
+      }
+
+      let auditStatus: 'NORMAL' | 'WARNING' | 'CRITICAL' = 'NORMAL';
+      if (
+        Math.abs(cashDifference) > 50000 ||
+        accuracyRate < 95 ||
+        voidCount >= 5
+      ) {
+        auditStatus = 'CRITICAL';
+      } else if (
+        Math.abs(cashDifference) > 10000 ||
+        accuracyRate < 99 ||
+        voidCount >= 3
+      ) {
+        auditStatus = 'WARNING';
+      }
+
+      let notes = 'Rekonsiliasi kas baik tanpa selisih signifikan.';
+      if (cashDifference === 0 && totalShifts > 0) {
+        notes = 'Rekonsiliasi kas sempurna tanpa selisih.';
+      } else if (auditStatus === 'WARNING') {
+        notes =
+          'Selisih kas berulang atau terdapat pembatalan transaksi, perlu evaluasi.';
+      } else if (auditStatus === 'CRITICAL') {
+        notes =
+          'Selisih kas signifikan melampaui batas toleransi, perlu audit khusus.';
+      }
+
+      const cashierCode = `KSR-${String(idx + 1).padStart(3, '0')}`;
+      const lastAuditDate =
+        s?.lastShiftDate || t?.lastTxDate || new Date().toISOString();
+
+      return {
+        id: `ca-${u.id.slice(0, 8)}`,
+        cashierId: u.id,
+        cashierName: u.username,
+        cashierCode,
+        role: u.role === 'CASHIER' ? 'Kasir' : u.role,
+        totalShifts,
+        totalTransactions,
+        totalSales,
+        cashExpected,
+        cashActual,
+        cashDifference,
+        accuracyRate,
+        voidCount,
+        voidAmount,
+        discountCount,
+        discountAmount,
+        auditStatus,
+        lastAuditDate,
+        notes,
+      };
+    });
+
+    // Summary
+    const totalTransactions = items.reduce(
+      (sum, i) => sum + i.totalTransactions,
+      0,
+    );
+    const totalSales = items.reduce((sum, i) => sum + i.totalSales, 0);
+    const totalDifference = items.reduce((sum, i) => sum + i.cashDifference, 0);
+    const totalVoidCount = items.reduce((sum, i) => sum + i.voidCount, 0);
+    const totalVoidAmount = items.reduce((sum, i) => sum + i.voidAmount, 0);
+    const avgAccuracy =
+      items.length > 0
+        ? Number(
+            (
+              items.reduce((sum, i) => sum + i.accuracyRate, 0) / items.length
+            ).toFixed(1),
+          )
+        : 100;
+
+    const summary = {
+      totalCashiers: items.length,
+      totalTransactions,
+      totalSales,
+      totalDifference,
+      averageAccuracy: avgAccuracy,
+      totalVoidCount,
+      totalVoidAmount,
+    };
+
+    // Pagination
+    const offset = (q.page - 1) * q.limit;
+    const paginatedItems = items.slice(offset, offset + q.limit);
+
+    return {
+      summary,
+      cashiers: {
+        data: paginatedItems,
+        page: q.page,
+        limit: q.limit,
+        total: items.length,
+      },
+    };
+  }
 }

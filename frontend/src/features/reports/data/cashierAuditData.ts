@@ -204,12 +204,43 @@ export const SAMPLE_CASHIER_AUDITS: CashierAuditItem[] = [
   },
 ];
 
+export const calculateCashierAuditSummary = (
+  items: CashierAuditItem[]
+): CashierAuditSummary => {
+  const totalTransactions = items.reduce(
+    (sum, i) => sum + i.totalTransactions,
+    0
+  );
+  const totalSales = items.reduce((sum, i) => sum + i.totalSales, 0);
+  const totalDifference = items.reduce((sum, i) => sum + i.cashDifference, 0);
+  const totalVoidCount = items.reduce((sum, i) => sum + i.voidCount, 0);
+  const totalVoidAmount = items.reduce((sum, i) => sum + i.voidAmount, 0);
+  const averageAccuracy =
+    items.length > 0
+      ? Number(
+          (
+            items.reduce((sum, i) => sum + i.accuracyRate, 0) / items.length
+          ).toFixed(1)
+        )
+      : 100;
+
+  return {
+    totalCashiers: items.length,
+    totalTransactions,
+    totalSales,
+    totalDifference,
+    averageAccuracy,
+    totalVoidCount,
+    totalVoidAmount,
+  };
+};
+
 export const SAMPLE_CASHIER_AUDIT_SUMMARY: CashierAuditSummary = {
-  totalCashiers: 8,
-  totalTransactions: 2885,
-  totalSales: 104500000,
-  totalDifference: -205000,
-  averageAccuracy: 99.5,
-  totalVoidCount: 21,
-  totalVoidAmount: 605000,
+  totalCashiers: 0,
+  totalTransactions: 0,
+  totalSales: 0,
+  totalDifference: 0,
+  averageAccuracy: 100,
+  totalVoidCount: 0,
+  totalVoidAmount: 0,
 };

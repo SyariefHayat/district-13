@@ -10,7 +10,7 @@ import { useCashierAuditData } from "../hooks/useCashierAuditData";
 import type { CashierAuditItem } from "../data/cashierAuditData";
 
 export default function CashierAuditPage() {
-  const { summary, cashiers, isLoading, error, refetch } =
+  const { summary, cashiers, isLoading, isSyncing, error, refetch } =
     useCashierAuditData();
 
   const [selectedCashier, setSelectedCashier] =
@@ -68,7 +68,11 @@ export default function CashierAuditPage() {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <CashierAuditHeader onExport={() => handleExport()} />
+      <CashierAuditHeader
+        onExport={() => handleExport()}
+        onRefresh={() => void refetch()}
+        isRefreshing={isSyncing}
+      />
 
       {error && (
         <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center justify-between">

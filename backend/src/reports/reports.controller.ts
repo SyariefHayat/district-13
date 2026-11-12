@@ -58,4 +58,10 @@ export class ReportsController {
   shifts(@Query() q: ReportQueryDto) {
     return this.reports.shifts(q);
   }
+
+  @Get('cashiers')
+  @Permissions(PERMISSIONS.reportsCashierPerformanceRead)
+  cashiers(@Query() q: ReportQueryDto) {
+    return this.reports.cashierPerformance(q);
+  }
 }
