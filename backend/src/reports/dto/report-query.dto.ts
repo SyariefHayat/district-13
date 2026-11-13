@@ -22,4 +22,5 @@ export class ReportQueryDto {
     'WAREHOUSE' | 'DISPLAY';
   @IsOptional() @IsUUID() shiftId?: string;
   @IsOptional() @IsIn(['OPEN', 'CLOSED']) status?: 'OPEN' | 'CLOSED';
+  @IsOptional() @IsIn(['IN', 'OUT']) type?: 'IN' | 'OUT';
 }

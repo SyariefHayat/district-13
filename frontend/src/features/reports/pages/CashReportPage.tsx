@@ -10,7 +10,7 @@ import { useCashReportData } from "../hooks/useCashReportData";
 import type { CashMovementItem } from "../data/cashReportData";
 
 export default function CashReportPage() {
-  const { summary, movements, users, isLoading, error, refetch } =
+  const { summary, movements, users, isLoading, isSyncing, error, refetch } =
     useCashReportData();
 
   const [selectedMovement, setSelectedMovement] =
@@ -59,7 +59,11 @@ export default function CashReportPage() {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <CashReportHeader onExport={() => handleExport()} />
+      <CashReportHeader
+        onExport={() => handleExport()}
+        onRefresh={() => void refetch()}
+        isRefreshing={isSyncing}
+      />
 
       {error && (
         <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center justify-between">

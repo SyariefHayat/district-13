@@ -185,17 +185,51 @@ export class ReportsService {
       .from(transactions)
       .innerJoin(shifts, eq(shifts.id, transactions.shiftId))
       .where(base);
-    const movementFilters = this.dateFilter(q, cashMovements.createdAt);
-    if (q.shiftId) movementFilters.push(eq(cashMovements.shiftId, q.shiftId));
-    if (q.userId) movementFilters.push(eq(shifts.userId, q.userId));
+
+    const movementDateFilters = this.dateFilter(q, cashMovements.createdAt);
+    const summaryMovementFilters = [...movementDateFilters];
+    if (q.shiftId)
+      summaryMovementFilters.push(eq(cashMovements.shiftId, q.shiftId));
+    if (q.userId)
+      summaryMovementFilters.push(eq(cashMovements.recordedBy, q.userId));
+
+    const listMovementFilters = [...summaryMovementFilters];
+    if (q.type) listMovementFilters.push(eq(cashMovements.type, q.type));
+
     const [moves] = await this.database.db
       .select({
         cashIn: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='IN'),0)`,
         cashOut: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='OUT'),0)`,
+        inCount: sql<number>`count(*) filter (where ${cashMovements.type}='IN')`,
+        outCount: sql<number>`count(*) filter (where ${cashMovements.type}='OUT')`,
+        totalCount: count(),
       })
       .from(cashMovements)
-      .innerJoin(shifts, eq(shifts.id, cashMovements.shiftId))
-      .where(and(...movementFilters));
+      .where(and(...summaryMovementFilters));
+
+    const movementRows = this.database.db
+      .select({
+        id: cashMovements.id,
+        shiftId: cashMovements.shiftId,
+        recordedBy: cashMovements.recordedBy,
+        username: users.username,
+        type: cashMovements.type,
+        amount: sql<string>`${cashMovements.amount}::text`,
+        description: cashMovements.description,
+        createdAt: cashMovements.createdAt,
+      })
+      .from(cashMovements)
+      .leftJoin(users, eq(users.id, cashMovements.recordedBy))
+      .where(and(...listMovementFilters))
+      .orderBy(desc(cashMovements.createdAt))
+      .limit(q.limit)
+      .offset((q.page - 1) * q.limit);
+
+    const movementTotalQuery = this.database.db
+      .select({ total: count() })
+      .from(cashMovements)
+      .where(and(...listMovementFilters));
+
     const rows = this.database.db
       .select({
         transaction: transactions,
@@ -213,11 +247,54 @@ export class ReportsService {
       .from(transactions)
       .innerJoin(shifts, eq(shifts.id, transactions.shiftId))
       .where(base);
-    const [data, [n]] = await Promise.all([rows, total]);
+
+    const [moveData, [moveCount], data, [n]] = await Promise.all([
+      movementRows,
+      movementTotalQuery,
+      rows,
+      total,
+    ]);
+
+    const cashInVal = Number(moves?.cashIn || 0);
+    const cashOutVal = Number(moves?.cashOut || 0);
+    const netCashFlow = cashInVal - cashOutVal;
+
     return {
-      ...summary,
-      ...moves,
+      cashSales: summary.cashSales,
+      qrisSales: summary.qrisSales,
       voidCount: Number(summary.voidCount),
+      voidValue: summary.voidValue,
+      cashIn: moves?.cashIn || '0',
+      cashOut: moves?.cashOut || '0',
+      netCashFlow: netCashFlow.toFixed(2),
+      inCount: Number(moves?.inCount || 0),
+      outCount: Number(moves?.outCount || 0),
+      totalCount: Number(moves?.totalCount || 0),
+      summary: {
+        cashSales: summary.cashSales,
+        qrisSales: summary.qrisSales,
+        voidCount: Number(summary.voidCount),
+        voidValue: summary.voidValue,
+      },
+      moves: {
+        cashIn: moves?.cashIn || '0',
+        cashOut: moves?.cashOut || '0',
+      },
+      movements: {
+        data: moveData.map((m) => ({
+          id: m.id,
+          shiftId: m.shiftId,
+          recordedBy: m.recordedBy,
+          username: m.username,
+          type: m.type,
+          amount: Number(m.amount) || 0,
+          description: m.description || '',
+          createdAt: m.createdAt,
+        })),
+        page: q.page,
+        limit: q.limit,
+        total: Number(moveCount.total),
+      },
       transactions: {
         data,
         page: q.page,

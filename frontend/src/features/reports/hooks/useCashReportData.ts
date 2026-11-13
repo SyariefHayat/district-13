@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import {
+  calculateCashSummary,
+  mapBackendCashMovement,
   SAMPLE_CASH_MOVEMENTS,
   SAMPLE_CASH_SUMMARY,
   type BackendCashReportResponse,
@@ -32,10 +34,14 @@ export function useCashReportData(options?: UseCashReportDataOptions) {
 
   const [summary, setSummary] =
     useState<CashReportSummary>(SAMPLE_CASH_SUMMARY);
-  const [movements] = useState<CashMovementItem[]>(SAMPLE_CASH_MOVEMENTS);
+  const [movements, setMovements] = useState<CashMovementItem[]>(
+    SAMPLE_CASH_MOVEMENTS
+  );
   const [users, setUsers] =
     useState<Array<{ id: string; name: string }>>(DEFAULT_USERS);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
   const [error, setError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<CashReportFilters>({});
@@ -82,6 +88,7 @@ export function useCashReportData(options?: UseCashReportDataOptions) {
       if (!silent && isInitialLoad.current) {
         setIsLoading(true);
       }
+      setIsSyncing(true);
       setError(null);
 
       abortRef.current?.abort();
@@ -94,6 +101,7 @@ export function useCashReportData(options?: UseCashReportDataOptions) {
         params.set("limit", String(pagination.limit));
         if (filters.startDate) params.set("startDate", filters.startDate);
         if (filters.endDate) params.set("endDate", filters.endDate);
+        if (filters.type) params.set("type", filters.type);
         if (filters.userId) params.set("userId", filters.userId);
 
         const response = await authorizedFetch(
@@ -109,8 +117,20 @@ export function useCashReportData(options?: UseCashReportDataOptions) {
 
         const data: BackendCashReportResponse = await response.json();
 
-        // If backend returns cash summary numbers
-        if (data.cashIn !== undefined || data.cashOut !== undefined) {
+        const userMap = new Map<string, string>();
+        users.forEach((u) => userMap.set(u.id, u.name));
+
+        if (data.movements?.data && Array.isArray(data.movements.data)) {
+          const mapped = data.movements.data.map((m) =>
+            mapBackendCashMovement(m, userMap)
+          );
+          setMovements(mapped);
+          setSummary(calculateCashSummary(mapped, data));
+          setPagination((prev) => ({
+            ...prev,
+            total: Number(data.movements?.total ?? mapped.length),
+          }));
+        } else if (data.cashIn !== undefined || data.cashOut !== undefined) {
           const cashInVal = Number(data.cashIn) || 0;
           const cashOutVal = Number(data.cashOut) || 0;
           setSummary((prev) => ({
@@ -123,10 +143,13 @@ export function useCashReportData(options?: UseCashReportDataOptions) {
                 : prev.netCashFlow,
           }));
         }
+
+        setLastSyncedAt(new Date());
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
       } finally {
         setIsLoading(false);
+        setIsSyncing(false);
         isInitialLoad.current = false;
       }
     },
@@ -136,7 +159,9 @@ export function useCashReportData(options?: UseCashReportDataOptions) {
       pagination.limit,
       filters.startDate,
       filters.endDate,
+      filters.type,
       filters.userId,
+      users,
     ]
   );
 
@@ -178,6 +203,8 @@ export function useCashReportData(options?: UseCashReportDataOptions) {
     movements,
     users,
     isLoading,
+    isSyncing,
+    lastSyncedAt,
     error,
     filters,
     pagination,

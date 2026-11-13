@@ -20,6 +20,17 @@ export interface CashReportSummary {
   outCount: number;
 }
 
+export interface BackendCashMovement {
+  id: string;
+  shiftId: string;
+  recordedBy: string;
+  username?: string;
+  type: CashMovementType;
+  amount: number | string;
+  description?: string;
+  createdAt: string;
+}
+
 export interface BackendCashReportResponse {
   cashSales?: string | number;
   qrisSales?: string | number;
@@ -27,6 +38,26 @@ export interface BackendCashReportResponse {
   voidValue?: string | number;
   cashIn?: string | number;
   cashOut?: string | number;
+  netCashFlow?: string | number;
+  inCount?: number;
+  outCount?: number;
+  totalCount?: number;
+  summary?: {
+    cashSales?: string | number;
+    qrisSales?: string | number;
+    voidCount?: number;
+    voidValue?: string | number;
+  };
+  moves?: {
+    cashIn?: string | number;
+    cashOut?: string | number;
+  };
+  movements?: {
+    data: BackendCashMovement[];
+    page: number;
+    limit: number;
+    total: number;
+  };
   transactions?: {
     data: Array<{
       transaction: {
@@ -162,9 +193,56 @@ export const SAMPLE_CASH_MOVEMENTS: CashMovementItem[] = [
   },
 ];
 
+export const mapBackendCashMovement = (
+  item: BackendCashMovement,
+  userMap?: Map<string, string>
+): CashMovementItem => {
+  return {
+    id: item.id,
+    shiftId: item.shiftId,
+    recordedBy: item.recordedBy,
+    recordedByName: userMap?.get(item.recordedBy) || item.username || "Kasir",
+    type: item.type,
+    amount: Number(item.amount) || 0,
+    description: item.description || "-",
+    createdAt: item.createdAt,
+  };
+};
+
 export const calculateCashSummary = (
-  items: CashMovementItem[]
+  items: CashMovementItem[],
+  backendData?: BackendCashReportResponse
 ): CashReportSummary => {
+  if (backendData?.cashIn !== undefined && backendData?.cashOut !== undefined) {
+    const totalCashIn = Number(backendData.cashIn) || 0;
+    const totalCashOut = Number(backendData.cashOut) || 0;
+    const netCashFlow =
+      backendData.netCashFlow !== undefined
+        ? Number(backendData.netCashFlow)
+        : totalCashIn - totalCashOut;
+    const inCount =
+      backendData.inCount !== undefined
+        ? Number(backendData.inCount)
+        : items.filter((m) => m.type === "IN").length;
+    const outCount =
+      backendData.outCount !== undefined
+        ? Number(backendData.outCount)
+        : items.filter((m) => m.type === "OUT").length;
+    const totalCount =
+      backendData.totalCount !== undefined
+        ? Number(backendData.totalCount)
+        : items.length;
+
+    return {
+      totalCashIn,
+      totalCashOut,
+      netCashFlow,
+      totalCount,
+      inCount,
+      outCount,
+    };
+  }
+
   const totalCashIn = items
     .filter((m) => m.type === "IN")
     .reduce((sum, m) => sum + m.amount, 0);

@@ -49,7 +49,10 @@ export class ReportsController {
     return this.reports.inventory(q);
   }
   @Get('cash')
-  @Permissions(PERMISSIONS.reportsCashRead)
+  @AnyPermissions(
+    PERMISSIONS.reportsCashRead,
+    PERMISSIONS.reportsCashMovementsRead,
+  )
   cash(@Query() q: ReportQueryDto) {
     return this.reports.cash(q);
   }

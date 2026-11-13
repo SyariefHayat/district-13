@@ -114,4 +114,62 @@ describe('ReportsController authorization', () => {
     expect(mockService.cashierPerformance).toHaveBeenCalledWith(query);
     expect(result.summary.totalCashiers).toBe(2);
   });
+
+  it('protects cash movements report endpoint with reports permissions', () => {
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'cash')).toEqual([
+      PERMISSIONS.reportsCashRead,
+      PERMISSIONS.reportsCashMovementsRead,
+    ]);
+
+    expect(roleHasPermission('OWNER', PERMISSIONS.reportsCashRead)).toBe(true);
+    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsCashRead)).toBe(true);
+    expect(
+      roleHasPermission('ADMIN', PERMISSIONS.reportsCashMovementsRead),
+    ).toBe(true);
+    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsCashRead)).toBe(
+      false,
+    );
+    expect(
+      roleHasPermission('CASHIER', PERMISSIONS.reportsCashMovementsRead),
+    ).toBe(false);
+  });
+
+  it('delegates cash report query to ReportsService', async () => {
+    const mockService = {
+      cash: vi.fn().mockResolvedValue({
+        cashIn: '500000',
+        cashOut: '100000',
+        netCashFlow: '400000.00',
+        inCount: 2,
+        outCount: 1,
+        totalCount: 3,
+        movements: {
+          data: [
+            {
+              id: 'cm-1',
+              shiftId: 's-1',
+              recordedBy: 'u-1',
+              username: 'admin',
+              type: 'IN',
+              amount: 500000,
+              description: 'Modal awal',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          page: 1,
+          limit: 10,
+          total: 1,
+        },
+      }),
+    };
+
+    const controller = new ReportsController(mockService as any);
+    const query = { page: 1, limit: 10, type: 'IN' as const };
+    const result = await controller.cash(query as any);
+
+    expect(mockService.cash).toHaveBeenCalledWith(query);
+    expect(result.cashIn).toBe('500000');
+    expect(result.movements.data).toHaveLength(1);
+    expect(result.movements.data[0].amount).toBe(500000);
+  });
 });
