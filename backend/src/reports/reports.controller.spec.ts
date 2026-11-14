@@ -172,4 +172,61 @@ describe('ReportsController authorization', () => {
     expect(result.movements.data).toHaveLength(1);
     expect(result.movements.data[0].amount).toBe(500000);
   });
+
+  it('protects shifts report endpoint with reports permissions', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'shifts')).toEqual([
+      PERMISSIONS.reportsShiftsRead,
+    ]);
+
+    expect(roleHasPermission('OWNER', PERMISSIONS.reportsShiftsRead)).toBe(
+      true,
+    );
+    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsShiftsRead)).toBe(
+      true,
+    );
+    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsShiftsRead)).toBe(
+      false,
+    );
+  });
+
+  it('delegates shifts report query to ReportsService', async () => {
+    const mockService = {
+      shifts: vi.fn().mockResolvedValue({
+        summary: {
+          totalShifts: 1,
+          openShifts: 0,
+          closedShifts: 1,
+          totalClosingCash: 1500000,
+          totalCashDifference: 0,
+          totalTransactions: 25,
+        },
+        data: [
+          {
+            id: 'sh-1',
+            userId: 'u-1',
+            username: 'kasir1',
+            openedAt: new Date().toISOString(),
+            closedAt: new Date().toISOString(),
+            openingCash: 300000,
+            expectedCash: 1500000,
+            closingCash: 1500000,
+            cashDifference: 0,
+            transactionCount: 25,
+          },
+        ],
+        page: 1,
+        limit: 10,
+        total: 1,
+      }),
+    };
+
+    const controller = new ReportsController(mockService as any);
+    const query = { page: 1, limit: 10, status: 'CLOSED' as const };
+    const result = await controller.shifts(query as any);
+
+    expect(mockService.shifts).toHaveBeenCalledWith(query);
+    expect(result.summary.totalShifts).toBe(1);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].username).toBe('kasir1');
+  });
 });

@@ -330,18 +330,51 @@ export class ReportsService {
       .select({ total: count() })
       .from(shifts)
       .where(where);
-    const [data, [n]] = await Promise.all([rows, total]);
+    const summaryStatsQuery = this.database.db
+      .select({
+        totalShifts: count(),
+        openShifts: sql<number>`count(*) filter (where ${shifts.closedAt} is null)`,
+        closedShifts: sql<number>`count(*) filter (where ${shifts.closedAt} is not null)`,
+        totalClosingCash: sql<string>`coalesce(sum(case when ${shifts.closedAt} is not null then ${shifts.closingCash} else ${shifts.openingCash} end), 0)`,
+        totalCashDifference: sql<string>`coalesce(sum(${shifts.cashDifference} filter (where ${shifts.closedAt} is not null)), 0)`,
+        totalTransactions: sql<number>`coalesce(sum((select count(*)::int from ${transactions} where ${transactions.shiftId}=${shifts.id} and ${transactions.status}='COMPLETED')), 0)`,
+      })
+      .from(shifts)
+      .where(where);
+
+    const [data, [n], [summaryStats]] = await Promise.all([
+      rows,
+      total,
+      summaryStatsQuery,
+    ]);
+
     return {
+      summary: {
+        totalShifts: Number(summaryStats?.totalShifts || 0),
+        openShifts: Number(summaryStats?.openShifts || 0),
+        closedShifts: Number(summaryStats?.closedShifts || 0),
+        totalClosingCash: Number(summaryStats?.totalClosingCash || 0),
+        totalCashDifference: Number(summaryStats?.totalCashDifference || 0),
+        totalTransactions: Number(summaryStats?.totalTransactions || 0),
+      },
       data: data.map(
         ({ shift, username, transactionCount, calculatedExpectedCash }) => ({
           ...shift,
           username,
+          openingCash: Number(shift.openingCash) || 0,
+          expectedCash:
+            Number(
+              shift.closedAt ? shift.expectedCash : calculatedExpectedCash,
+            ) || 0,
+          closingCash:
+            shift.closedAt && shift.closingCash !== null
+              ? Number(shift.closingCash)
+              : null,
+          cashDifference:
+            shift.closedAt && shift.cashDifference !== null
+              ? Number(shift.cashDifference)
+              : null,
           transactionCount: Number(transactionCount),
-          expectedCash: shift.closedAt
-            ? shift.expectedCash
-            : calculatedExpectedCash,
-          closingCash: shift.closedAt ? shift.closingCash : null,
-          cashDifference: shift.closedAt ? shift.cashDifference : null,
         }),
       ),
       page: q.page,

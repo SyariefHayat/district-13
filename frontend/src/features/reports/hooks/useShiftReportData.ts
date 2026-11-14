@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import {
   calculateShiftSummary,
+  mapBackendShiftReportItem,
   SAMPLE_SHIFT_REPORT_ITEMS,
   SAMPLE_SHIFT_REPORT_SUMMARY,
   type BackendShiftReportResponse,
@@ -40,6 +41,8 @@ export function useShiftReportData(options?: UseShiftReportDataOptions) {
   const [users, setUsers] =
     useState<Array<{ id: string; name: string }>>(DEFAULT_USERS);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
   const [error, setError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<ShiftReportFilters>({});
@@ -86,6 +89,7 @@ export function useShiftReportData(options?: UseShiftReportDataOptions) {
       if (!silent && isInitialLoad.current) {
         setIsLoading(true);
       }
+      setIsSyncing(true);
       setError(null);
 
       abortRef.current?.abort();
@@ -114,42 +118,28 @@ export function useShiftReportData(options?: UseShiftReportDataOptions) {
 
         const json: BackendShiftReportResponse = await response.json();
 
-        if (json.data && json.data.length > 0) {
+        if (json.data && Array.isArray(json.data)) {
           const userMap = new Map<string, string>();
           users.forEach((u) => userMap.set(u.id, u.name));
 
-          const mappedShifts: ShiftReportItem[] = json.data.map((s) => ({
-            id: s.id,
-            userId: s.userId,
-            username: s.username,
-            cashierName: userMap.get(s.userId) || s.username || "Kasir",
-            openedAt: s.openedAt,
-            closedAt: s.closedAt,
-            openingCash: Number(s.openingCash) || 0,
-            expectedCash: Number(s.expectedCash) || 0,
-            closingCash:
-              s.closingCash !== null && s.closingCash !== undefined
-                ? Number(s.closingCash)
-                : null,
-            cashDifference:
-              s.cashDifference !== null && s.cashDifference !== undefined
-                ? Number(s.cashDifference)
-                : null,
-            transactionCount: Number(s.transactionCount) || 0,
-            status: s.closedAt ? "CLOSED" : "OPEN",
-          }));
+          const mappedShifts: ShiftReportItem[] = json.data.map((s) =>
+            mapBackendShiftReportItem(s, userMap)
+          );
 
           setShifts(mappedShifts);
-          setSummary(calculateShiftSummary(mappedShifts));
+          setSummary(calculateShiftSummary(mappedShifts, json.summary));
           setPagination((prev) => ({
             ...prev,
             total: Number(json.total ?? mappedShifts.length),
           }));
         }
+
+        setLastSyncedAt(new Date());
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
       } finally {
         setIsLoading(false);
+        setIsSyncing(false);
         isInitialLoad.current = false;
       }
     },
@@ -203,6 +193,8 @@ export function useShiftReportData(options?: UseShiftReportDataOptions) {
     shifts,
     users,
     isLoading,
+    isSyncing,
+    lastSyncedAt,
     error,
     filters,
     pagination,

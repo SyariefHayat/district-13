@@ -23,6 +23,7 @@ export interface ShiftReportSummary {
 }
 
 export interface BackendShiftReportResponse {
+  summary?: ShiftReportSummary;
   data: Array<{
     id: string;
     userId: string;
@@ -180,9 +181,37 @@ export const SAMPLE_SHIFT_REPORT_ITEMS: ShiftReportItem[] = [
   },
 ];
 
+export const mapBackendShiftReportItem = (
+  s: BackendShiftReportResponse["data"][number],
+  userMap?: Map<string, string>
+): ShiftReportItem => ({
+  id: s.id,
+  userId: s.userId,
+  username: s.username,
+  cashierName: userMap?.get(s.userId) || s.username || "Kasir",
+  openedAt: s.openedAt,
+  closedAt: s.closedAt,
+  openingCash: Number(s.openingCash) || 0,
+  expectedCash: Number(s.expectedCash) || 0,
+  closingCash:
+    s.closingCash !== null && s.closingCash !== undefined
+      ? Number(s.closingCash)
+      : null,
+  cashDifference:
+    s.cashDifference !== null && s.cashDifference !== undefined
+      ? Number(s.cashDifference)
+      : null,
+  transactionCount: Number(s.transactionCount) || 0,
+  status: s.closedAt ? "CLOSED" : "OPEN",
+});
+
 export const calculateShiftSummary = (
-  items: ShiftReportItem[]
+  items: ShiftReportItem[],
+  backendSummary?: ShiftReportSummary
 ): ShiftReportSummary => {
+  if (backendSummary) {
+    return backendSummary;
+  }
   const totalShifts = items.length;
   const openShifts = items.filter((s) => s.status === "OPEN").length;
   const closedShifts = items.filter((s) => s.status === "CLOSED").length;
