@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gte, lt, sql, sum } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lt, sql, sum } from 'drizzle-orm';
 import { DatabaseService } from '../drizzle/database/database.service.js';
 import {
   cashMovements,
@@ -63,8 +63,24 @@ export class ReportsService {
       .from(transactions)
       .where(where);
     const rows = this.database.db
-      .select()
+      .select({
+        id: transactions.id,
+        transactionNumber: transactions.transactionNumber,
+        shiftId: transactions.shiftId,
+        userId: transactions.userId,
+        cashierUsername: users.username,
+        subtotalAmount: transactions.subtotalAmount,
+        discountAmount: transactions.discountAmount,
+        discountReason: transactions.discountReason,
+        totalAmount: transactions.totalAmount,
+        paymentMethod: transactions.paymentMethod,
+        paidAmount: transactions.paidAmount,
+        changeAmount: transactions.changeAmount,
+        status: transactions.status,
+        createdAt: transactions.createdAt,
+      })
       .from(transactions)
+      .leftJoin(users, eq(users.id, transactions.userId))
       .where(where)
       .orderBy(desc(transactions.createdAt))
       .limit(q.limit)
@@ -74,6 +90,47 @@ export class ReportsService {
       .from(transactions)
       .where(where);
     const [data, [n]] = await Promise.all([rows, total]);
+
+    const txIds = data.map((t) => t.id);
+    const itemsMap: Record<string, any[]> = {};
+    if (txIds.length > 0) {
+      const items = await this.database.db
+        .select({
+          id: transactionItems.id,
+          transactionId: transactionItems.transactionId,
+          productId: transactionItems.productId,
+          productName: transactionItems.productName,
+          quantity: transactionItems.quantity,
+          unitPrice: transactionItems.unitPrice,
+          subtotalAmount: transactionItems.subtotalAmount,
+        })
+        .from(transactionItems)
+        .where(inArray(transactionItems.transactionId, txIds));
+
+      for (const item of items) {
+        if (!itemsMap[item.transactionId]) {
+          itemsMap[item.transactionId] = [];
+        }
+        itemsMap[item.transactionId].push({
+          id: item.id,
+          productName: item.productName,
+          quantity: Number(item.quantity) || 1,
+          unitPrice: Number(item.unitPrice) || 0,
+          subtotalAmount: Number(item.subtotalAmount) || 0,
+        });
+      }
+    }
+
+    const mappedData = data.map((t) => ({
+      ...t,
+      subtotalAmount: Number(t.subtotalAmount) || 0,
+      discountAmount: Number(t.discountAmount) || 0,
+      totalAmount: Number(t.totalAmount) || 0,
+      paidAmount: Number(t.paidAmount) || 0,
+      changeAmount: Number(t.changeAmount) || 0,
+      items: itemsMap[t.id] || [],
+    }));
+
     return {
       grossSales: totals.gross,
       discountTotal: totals.discount,
@@ -100,7 +157,7 @@ export class ReportsService {
         )
         .groupBy(transactions.paymentMethod),
       transactions: {
-        data,
+        data: mappedData,
         page: q.page,
         limit: q.limit,
         total: Number(n.total),

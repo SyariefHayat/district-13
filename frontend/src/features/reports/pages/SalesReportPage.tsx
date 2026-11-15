@@ -10,7 +10,7 @@ import { useSalesReportData } from "../hooks/useSalesReportData";
 import type { SalesReportItem } from "../data/salesReportData";
 
 export default function SalesReportPage() {
-  const { summary, transactions, users, isLoading, error, refetch } =
+  const { summary, transactions, users, isLoading, isSyncing, error, refetch } =
     useSalesReportData();
 
   const [selectedTransaction, setSelectedTransaction] =
@@ -62,7 +62,11 @@ export default function SalesReportPage() {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <SalesReportHeader onExport={() => handleExport()} />
+      <SalesReportHeader
+        onExport={() => handleExport()}
+        onRefresh={() => void refetch()}
+        isRefreshing={isSyncing}
+      />
 
       {error && (
         <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center justify-between">

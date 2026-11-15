@@ -58,20 +58,56 @@ export interface BackendSalesReportResponse {
       transactionNumber: string;
       shiftId: string;
       userId: string;
+      cashierUsername?: string;
       subtotalAmount: string | number;
       discountAmount: string | number;
+      discountReason?: string | null;
       totalAmount: string | number;
       paymentMethod: string;
       paidAmount: string | number;
       changeAmount: string | number;
       status: string;
       createdAt: string;
+      items?: Array<{
+        id: string;
+        productName: string;
+        quantity: number;
+        unitPrice: number;
+        subtotalAmount: number;
+      }>;
     }>;
     page: number;
     limit: number;
     total: number;
   };
 }
+
+export const mapBackendSalesReportItem = (
+  t: BackendSalesReportResponse["transactions"]["data"][number],
+  userMap?: Map<string, string>
+): SalesReportItem => ({
+  id: t.id,
+  transactionNumber: t.transactionNumber,
+  shiftId: t.shiftId,
+  userId: t.userId,
+  cashierName: userMap?.get(t.userId) || t.cashierUsername || "Kasir",
+  subtotalAmount: Number(t.subtotalAmount) || 0,
+  discountAmount: Number(t.discountAmount) || 0,
+  discountReason: t.discountReason,
+  totalAmount: Number(t.totalAmount) || 0,
+  paymentMethod: t.paymentMethod,
+  paidAmount: Number(t.paidAmount) || 0,
+  changeAmount: Number(t.changeAmount) || 0,
+  status: t.status,
+  createdAt: t.createdAt,
+  items: t.items?.map((it) => ({
+    id: it.id,
+    productName: it.productName,
+    quantity: Number(it.quantity) || 1,
+    unitPrice: Number(it.unitPrice) || 0,
+    subtotalAmount: Number(it.subtotalAmount) || 0,
+  })),
+});
 
 export const formatIDR = (value: number): string =>
   new Intl.NumberFormat("id-ID", {

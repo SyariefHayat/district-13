@@ -229,4 +229,58 @@ describe('ReportsController authorization', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0].username).toBe('kasir1');
   });
+
+  it('protects sales report endpoint with reports permissions', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'sales')).toEqual([
+      PERMISSIONS.reportsSalesRead,
+    ]);
+
+    expect(roleHasPermission('OWNER', PERMISSIONS.reportsSalesRead)).toBe(true);
+    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsSalesRead)).toBe(true);
+    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsSalesRead)).toBe(
+      false,
+    );
+  });
+
+  it('delegates sales report query to ReportsService', async () => {
+    const mockService = {
+      sales: vi.fn().mockResolvedValue({
+        grossSales: '1000000',
+        discountTotal: '50000',
+        netSales: '950000',
+        transactionCount: 10,
+        averageTransactionValue: '95000.00',
+        byPaymentMethod: [
+          {
+            paymentMethod: 'CASH',
+            gross: '500000',
+            discount: '25000',
+            net: '475000',
+            count: 5,
+          },
+        ],
+        transactions: {
+          data: [
+            {
+              id: 'tx-1',
+              transactionNumber: 'TRX-001',
+              totalAmount: 95000,
+              items: [],
+            },
+          ],
+          page: 1,
+          limit: 10,
+          total: 1,
+        },
+      }),
+    };
+
+    const controller = new ReportsController(mockService as any);
+    const query = { page: 1, limit: 10 };
+    const result = await controller.sales(query as any);
+
+    expect(mockService.sales).toHaveBeenCalledWith(query);
+    expect(result.grossSales).toBe('1000000');
+    expect(result.transactions.data).toHaveLength(1);
+  });
 });

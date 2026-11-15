@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import {
+  mapBackendSalesReportItem,
   SAMPLE_SALES_REPORT_SUMMARY,
   SAMPLE_SALES_REPORT_TRANSACTIONS,
   type BackendSalesReportResponse,
@@ -112,33 +113,19 @@ export function useSalesReportData(options?: UseSalesReportDataOptions) {
         );
 
         if (!response.ok) {
-          // If endpoint fails (e.g. mock environment / dev), retain sample data
           return;
         }
 
         const data: BackendSalesReportResponse = await response.json();
 
-        // If backend has real transactions, map and display them
-        if (data.transactions?.data && data.transactions.data.length > 0) {
+        if (data.transactions?.data && Array.isArray(data.transactions.data)) {
           const userMap = new Map<string, string>();
           users.forEach((u) => userMap.set(u.id, u.name));
 
           const mappedTransactions: SalesReportItem[] =
-            data.transactions.data.map((t) => ({
-              id: t.id,
-              transactionNumber: t.transactionNumber,
-              shiftId: t.shiftId,
-              userId: t.userId,
-              cashierName: userMap.get(t.userId) || "Kasir",
-              subtotalAmount: Number(t.subtotalAmount) || 0,
-              discountAmount: Number(t.discountAmount) || 0,
-              totalAmount: Number(t.totalAmount) || 0,
-              paymentMethod: t.paymentMethod,
-              paidAmount: Number(t.paidAmount) || 0,
-              changeAmount: Number(t.changeAmount) || 0,
-              status: t.status,
-              createdAt: t.createdAt,
-            }));
+            data.transactions.data.map((t) =>
+              mapBackendSalesReportItem(t, userMap)
+            );
 
           setTransactions(mappedTransactions);
           setSummary({
@@ -158,14 +145,15 @@ export function useSalesReportData(options?: UseSalesReportDataOptions) {
 
           setPagination((prev) => ({
             ...prev,
-            total: Number(data.transactions?.total ?? 0),
+            total: Number(
+              data.transactions?.total ?? mappedTransactions.length
+            ),
           }));
         }
 
         setLastSyncedAt(new Date());
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
-        // Don't override sample data with error banner on simple dev/demo
       } finally {
         setIsLoading(false);
         setIsSyncing(false);
@@ -188,7 +176,6 @@ export function useSalesReportData(options?: UseSalesReportDataOptions) {
     void fetchSalesReport(false);
   }, [fetchSalesReport]);
 
-  // Periodic silent polling
   useEffect(() => {
     if (pollIntervalMs <= 0) return;
     const interval = setInterval(() => {
