@@ -170,7 +170,7 @@ export function PosCart({
 
                   <button
                     onClick={() => onRemoveItem(item.cartItemId)}
-                    className="text-muted-foreground hover:text-destructive p-1 rounded-md transition-colors"
+                    className="text-muted-foreground hover:text-destructive p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md transition-colors"
                     title="Hapus item"
                   >
                     <IconTrash className="size-4" />
@@ -240,25 +240,25 @@ export function PosCart({
                     <Button
                       variant="outline"
                       size="icon"
-                      className="size-6 rounded-md"
+                      className="min-h-[44px] min-w-[44px] rounded-md"
                       onClick={() => onUpdateQuantity(item.cartItemId, -1)}
                     >
-                      <IconMinus className="size-3" />
+                      <IconMinus className="size-4" />
                     </Button>
-                    <span className="w-6 text-center font-bold text-xs">
+                    <span className="w-8 text-center font-bold text-sm">
                       {item.quantity}
                     </span>
                     <Button
                       variant="outline"
                       size="icon"
-                      className="size-6 rounded-md"
+                      className="min-h-[44px] min-w-[44px] rounded-md"
                       onClick={() => onUpdateQuantity(item.cartItemId, 1)}
                       disabled={
                         item.displayStock > 0 &&
                         item.quantity >= item.displayStock
                       }
                     >
-                      <IconPlus className="size-3" />
+                      <IconPlus className="size-4" />
                     </Button>
                   </div>
 

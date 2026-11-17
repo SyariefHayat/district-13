@@ -2,6 +2,7 @@ import {
   PERMISSIONS,
   ROLE_PERMISSIONS,
   roleHasPermission,
+  type Permission,
 } from './permissions.js';
 
 describe('role permission mapping', () => {
@@ -100,7 +101,7 @@ describe('role permission mapping', () => {
   });
 
   it('grants owner all registered permissions except cashier-only actions', () => {
-    const cashierOnly = [
+    const cashierOnly: readonly Permission[] = [
       PERMISSIONS.transactionsCreate,
       PERMISSIONS.shiftsOpen,
     ];

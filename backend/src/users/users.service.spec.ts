@@ -144,7 +144,9 @@ describe('UsersService', () => {
       update: vi.fn(),
     };
     const service = new UsersService({
-      db: { transaction: (callback) => callback(tx) },
+      db: {
+        transaction: (callback: (trx: unknown) => unknown) => callback(tx),
+      },
     } as never);
 
     await expect(
@@ -182,7 +184,9 @@ describe('UsersService', () => {
       delete: vi.fn(() => ({ where: async () => undefined })),
     };
     const service = new UsersService({
-      db: { transaction: (callback) => callback(tx) },
+      db: {
+        transaction: (callback: (trx: unknown) => unknown) => callback(tx),
+      },
     } as never);
 
     await expect(service.remove('user-2', 'owner-1')).resolves.toEqual({

@@ -97,12 +97,16 @@ describe('TransactionsService void concurrency rules', () => {
         .mockReturnValueOnce(shiftLockQuery),
       update: vi.fn(),
     };
-    const service = new TransactionsService({
-      db: {
-        transaction: (callback: (transaction: unknown) => unknown) =>
-          callback(tx),
-      },
-    } as never);
+    const service = new TransactionsService(
+      {
+        db: {
+          transaction: (callback: (transaction: unknown) => unknown) =>
+            callback(tx),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+    );
 
     await expect(
       service.void('transaction-id', 'test reason', {

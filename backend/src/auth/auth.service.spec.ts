@@ -55,7 +55,11 @@ describe('AuthService', () => {
     };
     const service = new AuthService(database as never, jwtService as never);
 
-    const result = await service.login('owner', 'correct password');
+    const result = await service.login(
+      'owner',
+      'correct password',
+      '127.0.0.1',
+    );
 
     expect(result.accessToken).toBe('signed-access-token');
     expect(result.refreshToken).toBeTruthy();
@@ -117,7 +121,9 @@ describe('AuthService', () => {
         database as never,
         { signAsync: vi.fn() } as never,
       );
-      await expect(service.login('owner', 'correct')).rejects.toMatchObject({
+      await expect(
+        service.login('owner', 'correct', '127.0.0.1'),
+      ).rejects.toMatchObject({
         status: 401,
         message: 'Invalid username or password',
       });
@@ -202,7 +208,7 @@ describe('AuthService', () => {
       database as never,
       { signAsync: vi.fn() } as never,
     );
-    await expect(service.login('owner', 'secret')).rejects.toThrow(
+    await expect(service.login('owner', 'secret', '127.0.0.1')).rejects.toThrow(
       'database unavailable',
     );
   });

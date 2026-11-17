@@ -1,154 +1,116 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Modul Backend API & Database — District 13
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+RESTful API backend untuk sistem POS dan manajemen toko District 13 dibangun menggunakan **NestJS 12**, **PostgreSQL 16**, dan **Drizzle ORM**.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 🏛️ Arsitektur & Konvensi API (SDD 6.7)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### 1. Prefiks Global & Kompatibilitas Rute (`/api/v1`)
 
-## Authentication API
+- Seluruh rute API inti menggunakan prefix global `/api/v1` (contoh: `/api/v1/auth/login`, `/api/v1/products`).
+- **Backward Compatibility**: Backend dilengkapi URL-rewrite middleware transparan. Request yang datang ke rute langsung (misal `/auth/login` atau `/products`) otomatis diteruskan ke `/api/v1/*`, sehingga kompatibel penuh dengan klien frontend dan koleksi Postman yang ada.
+- Rute sistem dikecualikan dari prefix: `GET /` dan `GET /health*`.
 
-- `POST /auth/login` accepts `{ "username": "...", "password": "..." }` and returns `{ "accessToken": "...", "expiresIn": 900 }`. The opaque refresh token is set in the `HttpOnly` `refresh_token` cookie.
-- `POST /auth/refresh` requires the refresh cookie and a matching `X-CSRF-Token` header, rotates the cookie, and returns a new access token with `expiresIn`.
-- `POST /auth/logout` requires the refresh cookie and a matching `X-CSRF-Token` header, revokes the session represented by the refresh cookie, and returns `204 No Content` after clearing both cookies. Protected requests validate the session on every request, so session revocation immediately invalidates associated access tokens.
-- `GET /users` lists accounts (`users.read`: OWNER, ADMIN). `POST /users` creates `{ "username": "...", "password": "...", "role": "OWNER|ADMIN|CASHIER" }` (`users.create`: OWNER). `PATCH /users/:id` updates account fields under the role rules below. `PATCH /users/:id/status` accepts `{ "isActive": true|false }` and only changes cashier status (`users.update_cashier_profile`: OWNER). `DELETE /users/:id` permanently removes an account (`users.delete`: OWNER).
+### 2. Format Respon Galat Baku (SDD 6.7)
 
-For `PATCH /users/:id`, OWNER and ADMIN can update only their own password. OWNER can update another ADMIN's username or password, and can fully update a CASHIER's username, password, role, and active status. ADMIN can update only a CASHIER's username and password. CASHIER cannot update accounts. Password changes revoke the target user's refresh sessions. The ACL's “name” field refers to the account username; the database has no separate display-name field.
+Seluruh HTTP exceptions dan unhandled exceptions difilter melalui `HttpExceptionFilter` dan menghasilkan struktur JSON seragam berbahasa Indonesia:
 
-## Authorization
-
-Authorization uses a central permission catalog and role-to-permission mapping in `src/auth/permissions/permissions.ts`. Controllers declare required permissions with `@Permissions(...)`; `@AnyPermissions(...)` allows a route to accept one of several permissions while its service enforces the target-specific rule. `PermissionsGuard` checks these declarations against the authenticated user's role. The full catalog is defined centrally so future backend modules can use the same permission names.
-
-Permissions do not replace resource-level checks. Services must still enforce conditions such as a cashier only accessing their own transactions or opening a shift only when assigned that day. Schedule, shift, transaction, reporting, and store-settings controllers are not implemented yet, so their catalog permissions are not attached to endpoints. Device management and device permissions are not part of this implementation.
-
-## Inventory API
-
-- `GET /inventory/dashboard` returns paginated stock by product and location plus total stock for `WAREHOUSE` and `DISPLAY` (`inventory.read_dashboard`: OWNER, ADMIN).
-- `GET /inventory/movements` returns paginated movement history, newest first (`inventory.read_movements`: OWNER, ADMIN).
-- `POST /inventory/restock` accepts `{ "productId": "...", "quantity": 10 }` and adds stock to `WAREHOUSE` (`inventory.restock`: OWNER).
-- `POST /inventory/transfer-to-display` accepts `{ "productId": "...", "quantity": 3 }` and transfers stock from `WAREHOUSE` to `DISPLAY` (`inventory.transfer_to_display`: OWNER, ADMIN).
-
-Inventory writes require an active product, a positive integer quantity, and sufficient warehouse stock for transfers. Stock changes and their movement records are written atomically. CASHIER has no inventory permissions. Sales movements are recorded when transaction processing is implemented; this API does not create sales or accept direct `SALE` movements.
-
-Access tokens last 15 minutes and protected requests load the active session and current user role from PostgreSQL. Refresh sessions have an absolute seven day lifetime; rotating a refresh token does not extend that deadline. Concurrent refresh requests are single use: only the request that atomically replaces the stored token hash succeeds. Cookies use `SameSite=Lax` and `Secure` in production; the refresh cookie uses Path `/auth` and the readable `csrf_token` cookie uses Path `/`. Login failures are limited to five attempts per IP/username within 15 minutes and are recorded as `AUTH_LOGIN_FAILED` without storing the submitted username.
-
-Set `ACCESS_TOKEN_SECRET` to a secret with at least 32 bytes, along with `DATABASE_URL`, before starting the backend. Optional token lifetime settings are `ACCESS_TOKEN_TTL_SECONDS` and `REFRESH_TOKEN_TTL_SECONDS`.
-
-Password hashes use Argon2.
-
-## Project setup
-
-```bash
-$ npm install
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validasi data gagal",
+    "details": ["username tidak boleh kosong", "password minimal 6 karakter"],
+    "request_id": "8f9a2b53-4328-4e86-a365-c7d6dfef5581"
+  }
+}
 ```
 
-## Compile and run the project
+#### Katalog Kode Galat Baku:
+
+| Status | Kode Galat (`code`)     | Pesan Baku                                                 |
+| :----- | :---------------------- | :--------------------------------------------------------- |
+| `400`  | `VALIDATION_ERROR`      | Permintaan tidak valid atau data yang dikirimkan salah     |
+| `401`  | `UNAUTHORIZED`          | Autentikasi gagal atau sesi telah berakhir                 |
+| `403`  | `FORBIDDEN`             | Akses ditolak: Anda tidak memiliki izin untuk tindakan ini |
+| `404`  | `NOT_FOUND`             | Sumber daya yang diminta tidak ditemukan                   |
+| `409`  | `CONFLICT`              | Terjadi konflik pada data yang dikirimkan                  |
+| `422`  | `UNPROCESSABLE_ENTITY`  | Permintaan tidak dapat diproses                            |
+| `429`  | `TOO_MANY_REQUESTS`     | Terlalu banyak permintaan, silakan coba beberapa saat lagi |
+| `500`  | `INTERNAL_SERVER_ERROR` | Terjadi kesalahan internal pada server                     |
+
+### 3. Pelacakan Header `X-Request-Id`
+
+- Setiap request ditautkan dengan UUID `X-Request-Id` melalui `RequestIdMiddleware`.
+- Klien dapat menyertakan header `X-Request-Id` sendiri untuk distributed tracing. Jika tidak ada, backend akan men-generate UUID baru dan mengembalikannya di respon header `X-Request-Id`.
+- `request_id` selalu disertakan pada payload galat dan log Pino untuk memudahkan investigasi insiden.
+
+### 4. Structured JSON Logging (Pino Format)
+
+- Seluruh logging sistem menggunakan format JSON terstruktur via `PinoLoggerService`.
+- Bidang standar: `time`, `level`, `module`, `message`, dan `req_id`.
+- **Penyensoran Kredensial Otomatis**: Bidang sensitif seperti `password`, `token`, `accessToken`, `refreshToken`, `authorization`, dan `secret` otomatis disensor menjadi `[REDACTED]`.
+
+### 5. Health Check Endpoints
+
+- `GET /health`: Liveness probe untuk orchestrator kontainer / Docker Compose.
+  ```json
+  { "status": "ok", "timestamp": "2026-11-17T12:00:00.000Z", "uptime": 142 }
+  ```
+- `GET /health/ready`: Readiness probe yang menguji koneksi langsung ke PostgreSQL (`SELECT 1`).
+  - Mengembalikan HTTP `200` jika database terhubung:
+    ```json
+    { "status": "ok", "database": "connected", "timestamp": "..." }
+    ```
+  - Mengembalikan HTTP `503 Service Unavailable` jika database terputus.
+
+---
+
+## 🗄️ Manajemen Database & Migrasi (Drizzle ORM)
+
+Skema database didefinisikan menggunakan Drizzle ORM di `src/drizzle/schema/` dan migrasi SQL berversi tersimpan di `drizzle/`.
+
+### Perintah Database:
 
 ```bash
-# development
-$ npm run start
+# Menghasilkan file migrasi SQL baru dari schema TypeScript
+npm run db:generate
 
-# watch mode
-$ npm run start:dev
+# Menjalankan migrasi berulang (idempotent migration runner)
+npm run db:migrate:run
 
-# production mode
-$ npm run start:prod
+# Mengisi database dengan data awal sintetis
+npm run db:seed
+
+# Membuka antarmuka Drizzle Studio di browser
+npm run db:studio
 ```
 
-## Run tests
+---
+
+## 🔑 Autentikasi & Otorisasi (RBAC)
+
+- `POST /auth/login`: Menerima `{ username, password }`, mengembalikan access token (15 menit) dan menetapkan refresh token di `HttpOnly` cookie.
+- `POST /auth/refresh`: Memerlukan cookie refresh dan header `X-CSRF-Token`, merotasi token refresh.
+- `POST /auth/logout`: Mencabut sesi refresh token aktif.
+- Password di-hash menggunakan algoritma modern **Argon2id**.
+- Role-Based Access Control (**RBAC**) mendukung peran: `OWNER`, `ADMIN`, `CASHIER` dengan permission catalog terpusat di `src/auth/permissions/permissions.ts`.
+
+---
+
+## 🧪 Pengujian & Kualitas Kode
 
 ```bash
-# unit tests
-$ npm run test
+# Oxlint type-aware linting
+npm run lint
 
-# e2e tests
-$ npm run test:e2e
+# TypeScript strict type checking
+npm run typecheck
 
-# test coverage
-$ npm run test:cov
+# Menjalankan unit test Vitest
+npm test
+
+# Menjalankan pengujian Postman lokal
+# Gunakan collection di ../postman/collections dengan env ../postman/environments/local.example.environment.yaml
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
-```bash
-$ npm install @nestjs/observe
-```
-
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
-
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

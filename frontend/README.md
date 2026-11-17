@@ -1,35 +1,77 @@
-# React + TypeScript + Vite
+# Modul Frontend PWA — District 13
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Aplikasi antarmuka Progressive Web App (PWA) untuk Kasir, Admin Toko, dan Pemilik District 13 dibangun menggunakan **React 19**, **Vite**, **Tailwind CSS v4**, dan **shadcn/ui**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📱 Fitur & Arsitektur PWA
 
-## React Compiler
+- **Arsitektur Local-First**: Responsif, cepat, dan siap beroperasi dengan dukungan Web Storage & outbox sinkronisasi offline.
+- **Standar PWA (Progressive Web App)**:
+  - Konfigurasi Web App Manifest di `public/manifest.json`.
+  - Mode tampilan `standalone` (pengalaman aplikasi native layar penuh).
+  - Tema warna `#0f172a` dengan dukungan dark/light theme otomatis.
+- **Target Sentuh Kasir Ergonomis**: Seluruh tombol interaksi kasir (pemilihan produk, stepper jumlah, tombol hapus, checkout) dirancang dengan ukuran target sentuh minimal **≥ 44px** (`min-h-[44px] min-w-[44px]`) untuk menghindari _misclick_ saat digunakan di tablet kasir.
+- **Bahasa Antarmuka**: 100% menggunakan Bahasa Indonesia.
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+---
 
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
+## 🛠️ Helper Pemformatan Baku (`src/lib/formatters.ts`)
 
-## Expanding the Oxlint configuration
+Untuk menjaga konsistensi di seluruh tampilan toko, gunakan helper terpusat:
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+```typescript
+import { formatRupiah, formatWibDate } from "@/lib/formatters";
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+// Format mata uang Rupiah bulat tanpa desimal:
+formatRupiah(15000); // "Rp 15.000"
+formatRupiah(0); // "Rp 0"
+
+// Format tanggal dan waktu Waktu Indonesia Barat (WIB):
+formatWibDate(new Date()); // "17 Nov 2026, 19.00"
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+## 👥 Mode Tampilan & Hak Akses (Role Guards)
+
+Aplikasi memiliki 3 mode tampilan utama yang terlindungi melalui autentikasi:
+
+1. **Mode Kasir (`/dashboard/cashier`, `/pos`)**: Antarmuka Point of Sale dioptimalkan untuk sentuhan cepat pada tablet, pembukaan shift, pencatatan transaksi kasir, dan integrasi cetak struk.
+2. **Mode Admin (`/dashboard/admin`, `/products`, `/stocks`)**: Pengawasan stok gudang, transfer display, manajemen produk & add-on, serta jadwal staf.
+3. **Mode Pemilik (`/dashboard`, `/reports`, `/profit`, `/audits`)**: Analitik laba/rugi, laporan shift & audit penjualan, serta pengaturan pengguna & toko.
+
+---
+
+## 📲 Pengujian Tablet di Jaringan Lokal (LAN / Wi-Fi)
+
+Untuk menguji langsung antarmuka kasir pada Tablet:
+
+1. Jalankan dev server Vite:
+   ```bash
+   npm run dev -- --host 0.0.0.0
+   ```
+2. Pastikan Tablet dan PC pengembang terhubung ke Wi-Fi yang sama.
+3. Buka browser tablet pada:
+   ```
+   http://<IP_KOMPUTER_HOST>:5173
+   ```
+4. Verifikasi bahwa target tombol sentuh nyaman digunakan (≥ 44px) dan responsif.
+
+---
+
+## 🧪 Skrip & Kualitas Kode
+
+```bash
+# Menjalankan Vite development server
+npm run dev
+
+# Menjalankan Oxlint linter
+npm run lint
+
+# TypeScript strict type checking
+npm run typecheck
+
+# Membangun bundel produksi
+npm run build
+```

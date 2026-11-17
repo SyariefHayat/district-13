@@ -11,7 +11,11 @@ function requireEnv(name: string): string {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT) || 4000,
-  databaseUrl: requireEnv('DATABASE_URL'),
+  databaseUrl:
+    process.env.DATABASE_URL ??
+    (process.env.NODE_ENV === 'test'
+      ? 'postgres://postgres:postgres@localhost:5432/district13_test'
+      : requireEnv('DATABASE_URL')),
   accessTokenSecret:
     process.env.ACCESS_TOKEN_SECRET ??
     (process.env.NODE_ENV === 'test'

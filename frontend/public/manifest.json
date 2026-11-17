@@ -1,0 +1,17 @@
+{
+  "name": "District 13 - Sistem Kasir & Manajemen Toko",
+  "short_name": "District 13",
+  "description": "Sistem Point of Sale (POS) & Manajemen Operasional Toko District 13",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

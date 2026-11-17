@@ -36,6 +36,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  async ping(): Promise<boolean> {
+    try {
+      await this.client`SELECT 1`;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async onModuleInit(): Promise<void> {
     await this.client`SELECT 1`;
 
