@@ -1,35 +1,38 @@
-# Modul Backend API & Database — District 13
+# Backend API & Database Module — District 13
 
-RESTful API backend untuk sistem POS dan manajemen toko District 13 dibangun menggunakan **NestJS 12**, **PostgreSQL 16**, dan **Drizzle ORM**.
+The RESTful API engine for District 13 POS & Store Management, built with **NestJS 12**, **PostgreSQL 16**, and **Drizzle ORM**.
 
 ---
 
-## 🏛️ Arsitektur & Konvensi API (SDD 6.7)
+## 🏛️ API Architecture & Standards (SDD 6.7)
 
-### 1. Prefiks Global & Kompatibilitas Rute (`/api/v1`)
+### 1. Global Prefix & Backward-Compatible Routing (`/api/v1`)
 
-- Seluruh rute API inti menggunakan prefix global `/api/v1` (contoh: `/api/v1/auth/login`, `/api/v1/products`).
-- **Backward Compatibility**: Backend dilengkapi URL-rewrite middleware transparan. Request yang datang ke rute langsung (misal `/auth/login` atau `/products`) otomatis diteruskan ke `/api/v1/*`, sehingga kompatibel penuh dengan klien frontend dan koleksi Postman yang ada.
-- Rute sistem dikecualikan dari prefix: `GET /` dan `GET /health*`.
+- All core business routes are mounted under the global prefix `/api/v1` (e.g., `/api/v1/auth/login`, `/api/v1/products`).
+- **Seamless Compatibility**: A transparent URL rewrite middleware allows legacy clients and existing Postman collections to call unprefixed routes (e.g., `/auth/login`, `/products`) without breaking changes.
+- Root and health check routes (`GET /`, `GET /health`, `GET /health/ready`) are served directly.
 
-### 2. Format Respon Galat Baku (SDD 6.7)
+### 2. Standardized Error Response (SDD 6.7)
 
-Seluruh HTTP exceptions dan unhandled exceptions difilter melalui `HttpExceptionFilter` dan menghasilkan struktur JSON seragam berbahasa Indonesia:
+All HTTP exceptions and unexpected errors are intercepted by `HttpExceptionFilter` and formatted into a uniform JSON response:
 
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "Validasi data gagal",
-    "details": ["username tidak boleh kosong", "password minimal 6 karakter"],
+    "message": "Data validation failed",
+    "details": [
+      "username must not be empty",
+      "password must be at least 6 characters"
+    ],
     "request_id": "8f9a2b53-4328-4e86-a365-c7d6dfef5581"
   }
 }
 ```
 
-#### Katalog Kode Galat Baku:
+#### Standard Error Catalog:
 
-| Status | Kode Galat (`code`)     | Pesan Baku                                                 |
+| Status | Error Code (`code`)     | Default Message                                            |
 | :----- | :---------------------- | :--------------------------------------------------------- |
 | `400`  | `VALIDATION_ERROR`      | Permintaan tidak valid atau data yang dikirimkan salah     |
 | `401`  | `UNAUTHORIZED`          | Autentikasi gagal atau sesi telah berakhir                 |
@@ -40,66 +43,62 @@ Seluruh HTTP exceptions dan unhandled exceptions difilter melalui `HttpException
 | `429`  | `TOO_MANY_REQUESTS`     | Terlalu banyak permintaan, silakan coba beberapa saat lagi |
 | `500`  | `INTERNAL_SERVER_ERROR` | Terjadi kesalahan internal pada server                     |
 
-### 3. Pelacakan Header `X-Request-Id`
+### 3. Distributed Tracing with `X-Request-Id`
 
-- Setiap request ditautkan dengan UUID `X-Request-Id` melalui `RequestIdMiddleware`.
-- Klien dapat menyertakan header `X-Request-Id` sendiri untuk distributed tracing. Jika tidak ada, backend akan men-generate UUID baru dan mengembalikannya di respon header `X-Request-Id`.
-- `request_id` selalu disertakan pada payload galat dan log Pino untuk memudahkan investigasi insiden.
+- Every incoming request is assigned a UUID `X-Request-Id` via `RequestIdMiddleware`.
+- Clients can provide an `X-Request-Id` header for cross-service tracing. If omitted, the server automatically generates one.
+- The `request_id` is always propagated into the response headers, error payloads, and Pino logs for fast diagnostics.
 
 ### 4. Structured JSON Logging (Pino Format)
 
-- Seluruh logging sistem menggunakan format JSON terstruktur via `PinoLoggerService`.
-- Bidang standar: `time`, `level`, `module`, `message`, dan `req_id`.
-- **Penyensoran Kredensial Otomatis**: Bidang sensitif seperti `password`, `token`, `accessToken`, `refreshToken`, `authorization`, dan `secret` otomatis disensor menjadi `[REDACTED]`.
+- Powered by `PinoLoggerService`, emitting single-line JSON logs with: `time`, `level`, `module`, `message`, and `req_id`.
+- **Automatic Sensitive Field Redaction**: Keys matching `password`, `token`, `accessToken`, `refreshToken`, `secret`, `authorization`, and `cookie` are masked to `[REDACTED]`.
 
 ### 5. Health Check Endpoints
 
-- `GET /health`: Liveness probe untuk orchestrator kontainer / Docker Compose.
+- `GET /health`: Liveness probe for Docker Compose / container orchestrators.
   ```json
-  { "status": "ok", "timestamp": "2026-11-17T12:00:00.000Z", "uptime": 142 }
+  { "status": "ok", "timestamp": "2026-11-18T12:00:00.000Z", "uptime": 142 }
   ```
-- `GET /health/ready`: Readiness probe yang menguji koneksi langsung ke PostgreSQL (`SELECT 1`).
-  - Mengembalikan HTTP `200` jika database terhubung:
-    ```json
-    { "status": "ok", "database": "connected", "timestamp": "..." }
-    ```
-  - Mengembalikan HTTP `503 Service Unavailable` jika database terputus.
+- `GET /health/ready`: Readiness probe verifying live database connectivity (`SELECT 1`).
+  - Returns HTTP `200` with `{ "status": "ok", "database": "connected" }` when healthy.
+  - Returns HTTP `503 Service Unavailable` if database connection drops.
 
 ---
 
-## 🗄️ Manajemen Database & Migrasi (Drizzle ORM)
+## 🗄️ Database Management & Migrations (Drizzle ORM)
 
-Skema database didefinisikan menggunakan Drizzle ORM di `src/drizzle/schema/` dan migrasi SQL berversi tersimpan di `drizzle/`.
+Database schemas are defined in `src/drizzle/schema/` using Drizzle ORM, with versioned SQL migrations located in `drizzle/`.
 
-### Perintah Database:
+### Database Commands:
 
 ```bash
-# Menghasilkan file migrasi SQL baru dari schema TypeScript
+# Generate new SQL migration files from TypeScript schemas
 npm run db:generate
 
-# Menjalankan migrasi berulang (idempotent migration runner)
+# Execute migrations programmatically (idempotent runner)
 npm run db:migrate:run
 
-# Mengisi database dengan data awal sintetis
+# Populate initial demo data (catalog, categories, users, inventory)
 npm run db:seed
 
-# Membuka antarmuka Drizzle Studio di browser
+# Launch visual Drizzle Studio web interface
 npm run db:studio
 ```
 
 ---
 
-## 🔑 Autentikasi & Otorisasi (RBAC)
+## 🔑 Authentication & Role-Based Access Control (RBAC)
 
-- `POST /auth/login`: Menerima `{ username, password }`, mengembalikan access token (15 menit) dan menetapkan refresh token di `HttpOnly` cookie.
-- `POST /auth/refresh`: Memerlukan cookie refresh dan header `X-CSRF-Token`, merotasi token refresh.
-- `POST /auth/logout`: Mencabut sesi refresh token aktif.
-- Password di-hash menggunakan algoritma modern **Argon2id**.
-- Role-Based Access Control (**RBAC**) mendukung peran: `OWNER`, `ADMIN`, `CASHIER` dengan permission catalog terpusat di `src/auth/permissions/permissions.ts`.
+- `POST /auth/login`: Accepts `{ username, password }`, returns a 15-minute access token and sets an opaque refresh token in an `HttpOnly` cookie.
+- `POST /auth/refresh`: Requires the refresh cookie and a matching `X-CSRF-Token` header, rotating tokens.
+- `POST /auth/logout`: Revokes active refresh sessions and clears cookies.
+- Passwords are encrypted using **Argon2id**.
+- RBAC supports three user tiers: `OWNER`, `ADMIN`, and `CASHIER`, enforced with route guards (`JwtAuthGuard`, `PermissionsGuard`) and a central permission catalog in `src/auth/permissions/permissions.ts`.
 
 ---
 
-## 🧪 Pengujian & Kualitas Kode
+## 🧪 Testing & Code Quality
 
 ```bash
 # Oxlint type-aware linting
@@ -108,9 +107,9 @@ npm run lint
 # TypeScript strict type checking
 npm run typecheck
 
-# Menjalankan unit test Vitest
+# Execute Vitest test suite
 npm test
 
-# Menjalankan pengujian Postman lokal
-# Gunakan collection di ../postman/collections dengan env ../postman/environments/local.example.environment.yaml
+# Run Postman test collections locally
+# Collections are located in ../postman/collections with environment ../postman/environments/local.example.environment.yaml
 ```

@@ -1,16 +1,16 @@
-# Modul Infrastruktur, Cloud Provisioning & Deploy — District 13
+# Infrastructure, Cloud Provisioning & Deployment — District 13
 
-Direktori ini berisi konfigurasi dan panduan operasional infrastruktur untuk pengembangan lokal maupun rilis staging/produksi cloud District 13.
+This directory houses infrastructure configuration and operational runbooks for both local containerized development and cloud staging/production environments.
 
 ---
 
-## ☁️ Arsitektur Cloud Staging & Produksi
+## ☁️ Staging & Production Cloud Architecture
 
-Arsitektur District 13 dirancang agar tangguh, aman, dan hemat biaya operasional:
+District 13 is engineered for high availability, security, and low operational overhead:
 
 ```
                   ┌──────────────────────┐
-                  │    Tablet Kasir      │
+                  │    Cashier Tablet    │
                   │ (PWA Chrome/Android) │
                   └──────────┬───────────┘
                              │ HTTPS
@@ -28,53 +28,53 @@ Arsitektur District 13 dirancang agar tangguh, aman, dan hemat biaya operasional
 ```
 
 1. **Frontend PWA (Vercel)**:
-   - Hosting statis berbasis Global Edge CDN dengan otomatis HTTPS.
-   - Konfigurasi rewrite SPA di `frontend/vercel.json`.
+   - Global Edge CDN static hosting with automated SSL/TLS certificates.
+   - SPA rewrite rules defined in `frontend/vercel.json`.
 2. **Backend API & Reverse Proxy (Railway + Caddy)**:
-   - Reverse proxy Caddy menangani terminasi TLS, kompresi respons zstd/gzip, serta security headers.
-   - Mengarahkan traffic ke service NestJS di port internal 3000.
+   - Caddy handles TLS termination, response compression (zstd/gzip), and security headers.
+   - Forwards traffic to the NestJS API service on internal port 3000.
 3. **Database (Supabase PostgreSQL 16)**:
-   - Managed PostgreSQL dengan connection pooler PgBouncer bawaan.
+   - Managed PostgreSQL database equipped with connection pooling.
 
 ---
 
-## 💰 Verifikasi Batas Anggaran Operasional (Pagu Rp 250.000/bulan)
+## 💰 Operational Cloud Budget Verification (Max Rp 250,000 / Month Cap)
 
-Sesuai kriteria penerimaan issue **T-07 (COST-01 & COST-02)**, seluruh estimasi biaya layanan cloud telah diverifikasi secara rinci:
+In accordance with issue **T-07 (COST-01 & COST-02)**, all cloud service tier costs have been verified:
 
-| Layanan         | Paket / Tier  | Alokasi Resource                                         | Estimasi Biaya Bulanan    |
-| :-------------- | :------------ | :------------------------------------------------------- | :------------------------ |
-| **Supabase**    | Free Tier     | 500 MB Database, 2 GB egress/bln, automatic daily backup | **Rp 0** ($0/bulan)       |
-| **Vercel**      | Hobby Plan    | Unlimited bandwidth wajar, edge CDN, otomatis SSL        | **Rp 0** ($0/bulan)       |
-| **Railway**     | Hobby Plan    | 512 MB - 1 GB RAM, Shared vCPU untuk API container       | **~Rp 80.000** ($5/bulan) |
-| **Domain Toko** | .my.id / .com | Custom domain tahunan (~Rp 150.000/tahun)                | **~Rp 12.500** /bulan     |
-| **TOTAL**       |               |                                                          | **~Rp 92.500 / bulan**    |
+| Service           | Plan / Tier   | Allocated Resources                                         | Estimated Monthly Cost    |
+| :---------------- | :------------ | :---------------------------------------------------------- | :------------------------ |
+| **Supabase**      | Free Tier     | 500 MB Database, 2 GB egress/month, automated daily backups | **Rp 0** ($0/month)       |
+| **Vercel**        | Hobby Plan    | Reasonable bandwidth, edge CDN, automated SSL               | **Rp 0** ($0/month)       |
+| **Railway**       | Hobby Plan    | 512 MB - 1 GB RAM, Shared vCPU for API container            | **~Rp 80,000** ($5/month) |
+| **Custom Domain** | .my.id / .com | Annual store domain registration (~Rp 150,000/year)         | **~Rp 12,500** /month     |
+| **TOTAL**         |               |                                                             | **~Rp 92,500 / month**    |
 
-> **Kesimpulan**: Total biaya operasional aktual adalah **~Rp 92.500/bulan**, jauh di bawah pagu anggaran maksimal sebesar **Rp 250.000/bulan**.
-
----
-
-## 🔒 Persyaratan HTTPS & Web Bluetooth Printer
-
-Koneksi **HTTPS** adalah prasyarat mutlak sistem District 13 karena:
-
-1. **Service Worker & PWA**: Browser modern hanya mengizinkan registrasi Service Worker pada konteks aman (`https://` atau `http://localhost`).
-2. **Web Bluetooth API**: Komunikasi nirkabel dengan printer struk termal kasir (**EPPOS EP-RPP02**) diblokir oleh browser jika halaman tidak disajikan lewat HTTPS.
+> **Conclusion**: The verified actual operational cost is **~Rp 92,500/month**, well below the maximum budget limit of **Rp 250,000/month**.
 
 ---
 
-## 💻 Panduan Akses Tablet Kasir via Wi-Fi Lokal (LAN)
+## 🔒 HTTPS & Thermal Bluetooth Printer Requirements
 
-Untuk pengujian kasir lokal menggunakan tablet tanpa internet luar:
+An **HTTPS** connection is mandatory in production because:
 
-1. Pastikan kedua perangkat berada dalam satu Wi-Fi lokal.
-2. Jalankan stack dengan Docker Compose:
+1. **Service Workers & PWA**: Modern browsers restrict Service Worker registration to secure origins (`https://` or `http://localhost`).
+2. **Web Bluetooth API**: Direct wireless pairing with thermal POS receipt printers (**EPPOS EP-RPP02**) is blocked by browsers when served over unencrypted HTTP.
+
+---
+
+## 💻 Local Cashier Tablet Access via Wi-Fi (LAN)
+
+For local store testing using a tablet without external internet:
+
+1. Ensure both devices are connected to the same local Wi-Fi router.
+2. Start the stack with Docker Compose:
    ```bash
    docker compose up -d
    ```
-3. Cek alamat IP lokal komputer server:
+3. Check the host computer's local IP address:
    - Linux: `hostname -I | awk '{print $1}'`
    - macOS: `ipconfig getifaddr en0`
    - Windows: `ipconfig`
-4. Buka browser tablet: `http://<IP_KOMPUTER>:5173`.
-5. Semua tombol interaksi kasir telah memenuhi target sentuh minimum ≥ 44px.
+4. Open the tablet browser to: `http://<HOST_IP>:5173`.
+5. All buttons adhere to ergonomic touch target standards (≥ 44px).

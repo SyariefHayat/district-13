@@ -1,93 +1,103 @@
-# District 13 — Point of Sale (POS) & Manajemen Toko
+# District 13 — Point of Sale (POS) & Store Management
 
-Sistem Point of Sale (POS) dan manajemen operasional toko District 13 berbasis monorepo modern, dirancang dengan arsitektur **Local-First PWA** dan backend **NestJS + Drizzle ORM** yang tangguh, cepat, serta hemat biaya operasional.
+A modern, full-stack Point of Sale (POS) and store operations management system for District 13. Built on a **Local-First PWA** architecture and an enterprise-grade **NestJS + Drizzle ORM + PostgreSQL** backend, engineered for low operational overhead, high reliability, and speed.
 
 ---
 
-## 🏗️ Arsitektur Monorepo
+## 🏗️ Monorepo Architecture
 
 ```
 district-13/
-├── frontend/             # Aplikasi PWA Kasir, Admin, & Pemilik (React 19, Vite, Tailwind v4, shadcn/ui)
-├── backend/              # RESTful API Engine (NestJS 12, Drizzle ORM, PostgreSQL 16)
-├── deploy/               # Konfigurasi reverse proxy Caddy & deployment Railway
-├── postman/              # Koleksi pengujian otomatis API & spesifikasi lingkungan
-├── scripts/              # Utilitas automasi (seed issues, generator data)
-├── docker-compose.yml    # Stack kontainer pengembangan lokal
-└── README.md             # Panduan root monorepo
+├── frontend/             # Cashier, Admin, & Owner PWA application (React 19, Vite, Tailwind CSS v4, shadcn/ui)
+├── backend/              # Core RESTful API engine (NestJS 12, Drizzle ORM, PostgreSQL 16)
+├── deploy/               # Caddy reverse proxy & Railway deployment configurations
+├── postman/              # API test suites & environment definitions
+├── scripts/              # Project initialization & tooling scripts
+├── docker-compose.yml    # Local development multi-container stack
+└── README.md             # Monorepo documentation
 ```
 
 ---
 
-## 🚀 Panduan Memulai Cepat (Quickstart)
+## 🚀 Quickstart Guide
 
-### Prasyarat Sistem
+### Prerequisites
 
-- **Node.js**: `v22.x` atau lebih baru
-- **npm**: `v10.x` atau lebih baru
-- **Docker & Docker Compose**: untuk menjalankan PostgreSQL dan stack terisolasi
+- **Node.js**: `v22.x` or newer
+- **npm**: `v10.x` or newer
+- **Docker & Docker Desktop** (with WSL 2 integration enabled if on Windows)
 
-### 1. Menjalankan Seluruh Stack dengan Docker Compose
+### 1. Run the Entire Stack with Docker Compose
 
-Jalankan satu perintah untuk menyalakan PostgreSQL, Backend API, dan Frontend PWA:
+Spin up PostgreSQL, the NestJS API, and the Vite Frontend in isolated containers:
 
 ```bash
 docker compose up -d
 ```
 
-Layanan akan tersedia di:
+Services will be accessible at:
 
 - **Frontend PWA**: `http://localhost:5173`
-- **Backend API**: `http://localhost:3000` (Health: `http://localhost:3000/health`)
+- **Backend API**: `http://localhost:3000` (Health Check: `http://localhost:3000/health`)
 - **PostgreSQL**: `localhost:5432` (db: `district13`, user: `postgres`, password: `postgres_password`)
 
-### 2. Seeding Data Contoh Sintetis
+### 2. Database Migration & Sample Data Seeding
 
-Setelah database menyala, jalankan seeder data awal:
+Run migrations and populate the database with initial synthetic demo data:
 
 ```bash
-npm run db:seed
+# Apply schema migrations
+docker compose exec api npm run db:migrate:run
+
+# Seed sample catalog, store categories, cashier, and inventory stock
+docker compose exec api npm run db:seed
 ```
 
-Data sintetis (pengguna owner, admin, kasir, kategori, produk, dan stok) akan otomatis terisi.
+### 3. Default Login Credentials
+
+Once seeded, use these accounts to sign in at `http://localhost:5173`:
+
+- **Owner**: `owner` / `password123`
+- **Admin**: `admin` / `password123`
+- **Cashier**: `kasir` / `password123`
 
 ---
 
-## 📱 Akses Tablet Kasir via Jaringan Lokal (LAN / Wi-Fi)
+## 📱 Cashier Tablet Access via Local Network (LAN / Wi-Fi)
 
-Frontend Vite telah dikonfigurasi untuk mendengarkan pada seluruh antarmuka jaringan (`0.0.0.0:5173`).
+The Vite frontend server is configured to bind to `0.0.0.0:5173`, enabling access from tablets (Android / iPad) on the same Wi-Fi network:
 
-1. Pastikan komputer host dan Tablet kasir (Android / iPad) terhubung ke jaringan Wi-Fi yang sama.
-2. Cari alamat IP lokal komputer host:
-   - **Linux / macOS**: `ip route get 1 | awk '{print $7}'` atau `ifconfig`
-   - **Windows**: `ipconfig` (lihat IPv4 Address)
-3. Di browser tablet (disarankan Google Chrome untuk dukungan Web Bluetooth printer):
+1. Connect the host computer and tablet to the same local Wi-Fi.
+2. Find the host computer's local IP address:
+   - **Linux / macOS**: `hostname -I | awk '{print $1}'` or `ifconfig`
+   - **Windows (PowerShell)**: `ipconfig` (check IPv4 Address)
+3. Open Google Chrome on the tablet and navigate to:
    ```
-   http://<IP_KOMPUTER_HOST>:5173
+   http://<HOST_IP_ADDRESS>:5173
    ```
-4. Tambahkan ke Layar Utama (_Install PWA_) melalui menu browser untuk pengalaman aplikasi kasir layar penuh.
+4. Select **"Install App"** or **"Add to Home Screen"** for full-screen PWA mode. All cashier action buttons are optimized with touch targets ≥ 44px.
 
 ---
 
-## 🛠️ Perintah Kerja Monorepo
+## 🛠️ Monorepo Command Reference
 
-| Perintah              | Deskripsi                                                       |
-| :-------------------- | :-------------------------------------------------------------- |
-| `npm run lint`        | Menjalankan Oxlint di seluruh frontend dan backend (0 galat)    |
-| `npm run typecheck`   | Validasi tipe TypeScript strict di semua paket (`tsc --noEmit`) |
-| `npm test`            | Menjalankan rangkaian pengujian Vitest                          |
-| `npm run build`       | Menghasilkan bundel produksi untuk frontend dan backend         |
-| `npm run docker:up`   | Menyalakan stack Docker Compose di background                   |
-| `npm run docker:down` | Menghentikan seluruh kontainer Docker Compose                   |
-| `npm run db:seed`     | Mengisi database dengan data contoh sintetis                    |
+| Command               | Description                                                         |
+| :-------------------- | :------------------------------------------------------------------ |
+| `npm run lint`        | Runs Oxlint across both frontend and backend (0 errors)             |
+| `npm run typecheck`   | Strict TypeScript validation across all workspaces (`tsc --noEmit`) |
+| `npm test`            | Executes backend Vitest unit & integration test suites              |
+| `npm run build`       | Builds production bundles for frontend and backend                  |
+| `npm run docker:up`   | Starts all Docker Compose services in the background                |
+| `npm run docker:down` | Stops and removes Docker Compose containers                         |
+| `npm run db:seed`     | Populates the database with synthetic demo data                     |
 
 ---
 
-## 📚 Dokumentasi Terdistribusi Per Modul
+## 📚 Co-located Module Documentation
 
-Untuk panduan mendalam setiap modul, silakan baca dokumentasi terkait di lokasinya masing-masing:
+For detailed architectural and developer guides, consult each module's respective documentation:
 
-- **[Modul Backend & API](backend/README.md)**: Standar API `/api/v1`, format galat SDD 6.7, logging Pino JSON, pelacakan `X-Request-Id`, endpoint health check, dan migrasi Drizzle.
-- **[Modul Frontend PWA](frontend/README.md)**: Arsitektur React 19, helper Rupiah/WIB, konfigurasi PWA manifest, dan ergonomi sentuh kasir ≥ 44px.
-- **[Modul CI & Workflow](.github/workflows/README.md)**: Quality gates CI, caching dependensi npm, dan aturan pull request.
-- **[Modul Infrastruktur & Cloud Deploy](deploy/README.md)**: Stack Docker Compose, panduan LAN tablet, reverse proxy Caddy TLS, dan audit anggaran cloud bulanan (< Rp 250.000).
+- **[Backend & Database Module](backend/README.md)**: API `/api/v1` standards, SDD 6.7 error format, Pino JSON logging, `X-Request-Id` tracing, health endpoints, and Drizzle migrations.
+- **[Frontend PWA Module](frontend/README.md)**: React 19 architecture, currency & WIB date formatters, Web App Manifest, and cashier touch ergonomical standards.
+- **[CI & Automation Module](.github/workflows/README.md)**: Continuous integration quality gates, npm caching, and branch protection requirements.
+- **[Deployment & Infrastructure Module](deploy/README.md)**: Docker Compose setup, Caddy reverse proxy TLS, and cloud infrastructure budgeting (< Rp 250,000/month).

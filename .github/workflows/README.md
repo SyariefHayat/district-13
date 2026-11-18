@@ -1,39 +1,38 @@
-# Modul CI & Otomasi Alur Kerja (.github/workflows)
+# CI & Workflow Automation Module (.github/workflows)
 
-Direktori ini berisi konfigurasi otomasi GitHub Actions untuk menjaga integritas, keamanan, dan kualitas kode pada monorepo District 13.
+This directory contains GitHub Actions workflows ensuring code quality, security, and build integrity across the District 13 monorepo.
 
 ---
 
-## 🛠️ Alur Kerja CI (`ci.yml`)
+## 🛠️ Continuous Integration Pipeline (`ci.yml`)
 
-Workflow `ci.yml` dieksekusi secara otomatis setiap kali ada:
+The `ci.yml` pipeline triggers automatically on:
 
-- **Push** ke branch `master` atau `main`
-- **Pull Request** yang menargetkan branch `master` atau `main`
+- **Push** to `master` or `main` branches
+- **Pull Request** targeting `master` or `main` branches
 
-### 4 Quality Gates Wajib:
+### 4 Mandatory Quality Gates:
 
 1. **Code Quality (Oxlint)**:
-   - Menjalankan linter berkecepatan tinggi Oxlint di root, frontend, dan backend.
-   - **Kriteria Penerimaan (AC)**: 0 galat / lint errors.
+   - High-performance linting across root, frontend, and backend.
+   - **Acceptance Criteria (AC)**: 0 lint errors.
 
 2. **TypeScript Strict Typecheck**:
-   - Memvalidasi konsistensi tipe TypeScript di frontend (`tsc -b --noEmit`) dan backend (`tsc --noEmit`).
-   - Mencegah _runtime type errors_ sebelum masuk ke lingkungan produksi.
+   - Comprehensive type verification in frontend (`tsc -b --noEmit`) and backend (`tsc --noEmit`).
+   - Blocks runtime type issues before reaching staging or production.
 
 3. **Automated Unit Tests (Vitest)**:
-   - Menjalankan rangkaian unit test Vitest di backend.
-   - Menggunakan konfigurasi mock environment testing (`NODE_ENV=test`, token secrets, dan isolated database mock).
+   - Executes backend Vitest suites using a dedicated testing environment (`NODE_ENV=test`).
 
 4. **Dependency Security Audit (`npm audit`)**:
-   - Menguji seluruh paket dependensi di root, frontend, dan backend.
-   - **Threshold**: Otomatis menggagalkan pipeline jika ditemukan kerentanan berstatus `high` atau `critical`.
+   - Audits root, frontend, and backend dependencies.
+   - **Threshold**: Automatically fails the build if high or critical vulnerabilities are introduced (`--audit-level=high`).
 
 ---
 
-## 🔒 Kebijakan Branch Protection (Status Check Wajib)
+## 🔒 Branch Protection Policy (Required Status Checks)
 
-Sesuai spesifikasi proyek M0-INF (T-03):
+As specified in M0-INF (T-03):
 
-- Status checks dari workflow `CI Pipeline` (`lint`, `typecheck`, `test`, `security`) **wajib dikonfigurasi sebagai required status checks** pada branch `main` dan `master` di repositori GitHub.
-- Pull Request dengan kegagalan tipe atau linting tidak dapat di-_merge_ ke branch utama.
+- The status checks from `CI Pipeline` (`lint`, `typecheck`, `test`, `security`) **must be configured as required status checks** on `main` and `master` branches in GitHub repository settings.
+- Pull requests with linting or type errors cannot be merged.
