@@ -5,7 +5,7 @@ WORKDIR /app
 # Dependencies stage
 FROM base AS deps
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Development stage
 FROM base AS development
