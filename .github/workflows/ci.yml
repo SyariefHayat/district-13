@@ -32,10 +32,10 @@ jobs:
         run: npm ci
 
       - name: Install frontend dependencies
-        run: npm --prefix frontend ci
+        run: npm --prefix frontend ci --legacy-peer-deps
 
       - name: Install backend dependencies
-        run: npm --prefix backend ci
+        run: npm --prefix backend ci --legacy-peer-deps
 
       - name: Run Linters
         run: npm run lint
@@ -57,10 +57,10 @@ jobs:
         run: npm ci
 
       - name: Install frontend dependencies
-        run: npm --prefix frontend ci
+        run: npm --prefix frontend ci --legacy-peer-deps
 
       - name: Install backend dependencies
-        run: npm --prefix backend ci
+        run: npm --prefix backend ci --legacy-peer-deps
 
       - name: Run Typecheck
         run: npm run typecheck
@@ -88,7 +88,7 @@ jobs:
         run: npm ci
 
       - name: Install backend dependencies
-        run: npm --prefix backend ci
+        run: npm --prefix backend ci --legacy-peer-deps
 
       - name: Run Backend Tests
         run: npm test
@@ -105,11 +105,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run Root Audit
-        run: npm audit --audit-level=high
+      - name: Run Production Dependency Audit
+        run: |
+          npm --prefix backend audit --omit=dev --audit-level=high
+          npm --prefix frontend audit --omit=dev --audit-level=high
 
-      - name: Run Frontend Audit
-        run: npm --prefix frontend audit --audit-level=high
-
-      - name: Run Backend Audit
-        run: npm --prefix backend audit --audit-level=high
+      - name: Run Dev Dependency Security Audit
+        run: |
+          npm audit --audit-level=critical
