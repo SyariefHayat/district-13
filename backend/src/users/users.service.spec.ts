@@ -72,6 +72,7 @@ describe('UsersService', () => {
       username: 'admin',
       role: 'ADMIN' as const,
       isActive: true,
+      sessionId: 'session-1',
     };
 
     // Creating Cashier succeeds
@@ -255,6 +256,7 @@ describe('UsersService', () => {
       username: 'admin',
       role: 'ADMIN' as const,
       isActive: true,
+      sessionId: 'session-1',
     };
 
     await expect(
@@ -289,6 +291,7 @@ describe('UsersService', () => {
       username: 'admin',
       role: 'ADMIN' as const,
       isActive: true,
+      sessionId: 'session-1',
     };
 
     await expect(
@@ -354,6 +357,7 @@ describe('UsersService', () => {
       username: 'admin',
       role: 'ADMIN' as const,
       isActive: true,
+      sessionId: 'session-1',
     };
 
     // Resetting cashier succeeds
@@ -412,12 +416,14 @@ describe('UsersService', () => {
       username: 'cashier',
       role: 'CASHIER' as const,
       isActive: true,
+      sessionId: 'session-1',
     };
     const adminActor = {
       id: 'admin-1',
       username: 'admin1',
       role: 'ADMIN' as const,
       isActive: true,
+      sessionId: 'session-1',
     };
 
     // Cashier cannot call changeOwnPassword
@@ -457,6 +463,7 @@ describe('UsersService', () => {
       username: 'admin',
       role: 'ADMIN' as const,
       isActive: true,
+      sessionId: 'session-1',
     };
     const service = new UsersService({} as never);
 
