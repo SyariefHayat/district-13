@@ -147,7 +147,7 @@ export function ProductImage({ images, onChange }: ProductImageProps) {
         {/* Upload Dropzone (Bigger & More Spacious) */}
         <div
           onClick={() => fileInputRef.current?.click()}
-          className="border border-dashed border-zinc-800/90 rounded-xl bg-[#0d0d0f] p-10 md:p-14 min-h-[200px] flex flex-col items-center justify-center gap-3 text-center cursor-pointer hover:border-zinc-700 transition-colors"
+          className="border border-dashed border-zinc-800/90 rounded-xl bg-[#0d0d0f] p-10 md:p-14 min-h-50 flex flex-col items-center justify-center gap-3 text-center cursor-pointer hover:border-zinc-700 transition-colors"
         >
           <input
             type="file"
