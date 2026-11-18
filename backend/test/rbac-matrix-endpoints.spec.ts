@@ -238,4 +238,107 @@ describe('RBAC 57-Permission Matrix & Endpoint Enforcement', () => {
       expect(TestController).toBeDefined();
     });
   });
+
+  describe('User Management RBAC Access Control (T-20)', () => {
+    const userDeleteMetadata = {
+      [PERMISSIONS_KEY]: [PERMISSIONS.usersDelete],
+    };
+
+    it('allows Owner to delete users via usersDelete', () => {
+      const { guard, executionContext } = createGuardContext(
+        userDeleteMetadata,
+        'OWNER',
+      );
+      expect(guard.canActivate(executionContext)).toBe(true);
+    });
+
+    it('denies Admin from deleting users with 403 AUTH_FORBIDDEN', () => {
+      const { guard, executionContext } = createGuardContext(
+        userDeleteMetadata,
+        'ADMIN',
+      );
+      try {
+        guard.canActivate(executionContext);
+        expect.unreachable('Admin should not delete users');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(ForbiddenException);
+        expect(err.getResponse()).toMatchObject({
+          statusCode: 403,
+          code: 'AUTH_FORBIDDEN',
+        });
+      }
+    });
+
+    it('denies Cashier from deleting users with 403 AUTH_FORBIDDEN', () => {
+      const { guard, executionContext } = createGuardContext(
+        userDeleteMetadata,
+        'CASHIER',
+      );
+      try {
+        guard.canActivate(executionContext);
+        expect.unreachable('Cashier should not delete users');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(ForbiddenException);
+        expect(err.getResponse()).toMatchObject({
+          statusCode: 403,
+          code: 'AUTH_FORBIDDEN',
+        });
+      }
+    });
+
+    const userCreateMetadata = {
+      [ANY_PERMISSIONS_KEY]: [
+        PERMISSIONS.usersCreate,
+        PERMISSIONS.usersUpdateCashierCredentials,
+      ],
+    };
+
+    it('allows Owner and Admin to access user creation endpoint', () => {
+      const owner = createGuardContext(userCreateMetadata, 'OWNER');
+      expect(owner.guard.canActivate(owner.executionContext)).toBe(true);
+
+      const admin = createGuardContext(userCreateMetadata, 'ADMIN');
+      expect(admin.guard.canActivate(admin.executionContext)).toBe(true);
+    });
+
+    it('denies Cashier from user creation endpoint with 403 AUTH_FORBIDDEN', () => {
+      const cashier = createGuardContext(userCreateMetadata, 'CASHIER');
+      try {
+        cashier.guard.canActivate(cashier.executionContext);
+        expect.unreachable('Cashier should not access user creation');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(ForbiddenException);
+        expect(err.getResponse()).toMatchObject({
+          statusCode: 403,
+          code: 'AUTH_FORBIDDEN',
+        });
+      }
+    });
+
+    const changeOwnPasswordMetadata = {
+      [PERMISSIONS_KEY]: [PERMISSIONS.usersUpdateOwnPassword],
+    };
+
+    it('allows Owner and Admin to change own password, denies Cashier', () => {
+      const owner = createGuardContext(changeOwnPasswordMetadata, 'OWNER');
+      expect(owner.guard.canActivate(owner.executionContext)).toBe(true);
+
+      const admin = createGuardContext(changeOwnPasswordMetadata, 'ADMIN');
+      expect(admin.guard.canActivate(admin.executionContext)).toBe(true);
+
+      const cashier = createGuardContext(changeOwnPasswordMetadata, 'CASHIER');
+      try {
+        cashier.guard.canActivate(cashier.executionContext);
+        expect.unreachable(
+          'Cashier should not change own password via this endpoint',
+        );
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(ForbiddenException);
+        expect(err.getResponse()).toMatchObject({
+          statusCode: 403,
+          code: 'AUTH_FORBIDDEN',
+        });
+      }
+    });
+  });
 });

@@ -1,0 +1,20 @@
+$kind: http-request
+name: Admin can create cashier
+method: POST
+url: '{{base_url}}/users'
+order: 14000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"username":"cashier_new","password":"password123","role":"CASHIER"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN can create cashier', function () {
+        pm.response.to.have.status(201);
+      });

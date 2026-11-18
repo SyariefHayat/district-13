@@ -1,0 +1,20 @@
+$kind: http-request
+name: Admin cannot modify owner
+method: PATCH
+url: '{{base_url}}/users/{{owner_user_id}}'
+order: 16000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"username":"compromised_owner"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN cannot modify OWNER (403 Forbidden)', function () {
+        pm.response.to.have.status(403);
+      });
