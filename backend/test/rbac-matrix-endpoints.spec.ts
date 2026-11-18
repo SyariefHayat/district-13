@@ -340,5 +340,49 @@ describe('RBAC 57-Permission Matrix & Endpoint Enforcement', () => {
         });
       }
     });
+
+    const storeSettingsReadMetadata = {
+      [PERMISSIONS_KEY]: [PERMISSIONS.storeSettingsRead],
+    };
+
+    it('allows all roles (Owner, Admin, Cashier) to read store settings (REQ-F-SET-003)', () => {
+      for (const role of ['OWNER', 'ADMIN', 'CASHIER'] as const) {
+        const ctx = createGuardContext(storeSettingsReadMetadata, role);
+        expect(ctx.guard.canActivate(ctx.executionContext)).toBe(true);
+      }
+    });
+
+    const queueResetMetadata = {
+      [PERMISSIONS_KEY]: [PERMISSIONS.orderCounterReset],
+    };
+
+    it('allows Owner to reset queue counter, denies Admin and Cashier (REQ-F-SET-004)', () => {
+      const owner = createGuardContext(queueResetMetadata, 'OWNER');
+      expect(owner.guard.canActivate(owner.executionContext)).toBe(true);
+
+      for (const role of ['ADMIN', 'CASHIER'] as const) {
+        const ctx = createGuardContext(queueResetMetadata, role);
+        expect(() => ctx.guard.canActivate(ctx.executionContext)).toThrow(
+          ForbiddenException,
+        );
+      }
+    });
+
+    const devicesManageMetadata = {
+      [PERMISSIONS_KEY]: [PERMISSIONS.storeSettingsUpdate],
+    };
+
+    it('allows Owner and Admin to manage devices, denies Cashier', () => {
+      const owner = createGuardContext(devicesManageMetadata, 'OWNER');
+      expect(owner.guard.canActivate(owner.executionContext)).toBe(true);
+
+      const admin = createGuardContext(devicesManageMetadata, 'ADMIN');
+      expect(admin.guard.canActivate(admin.executionContext)).toBe(true);
+
+      const cashier = createGuardContext(devicesManageMetadata, 'CASHIER');
+      expect(() => cashier.guard.canActivate(cashier.executionContext)).toThrow(
+        ForbiddenException,
+      );
+    });
   });
 });

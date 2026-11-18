@@ -23,6 +23,8 @@ export const AUDIT_ENTITY_TYPES = [
   'BRAND',
   'SETTING',
   'STORE_SETTING',
+  'DEVICE',
+  'QUEUE_COUNTER',
 ] as const;
 export const AUDIT_ACTIONS = [
   'AUTH_LOGIN_SUCCEEDED',
@@ -74,6 +76,10 @@ export const AUDIT_ACTIONS = [
   'SCHEDULE_DELETED',
   'SCHEDULES_BATCH_DELETED',
   'STORE_SETTING_UPDATED',
+  'DEVICE_CREATED',
+  'DEVICE_UPDATED',
+  'DEVICE_DEACTIVATED',
+  'QUEUE_COUNTER_RESET',
 ] as const;
 export class AuditLogsQueryDto {
   @IsOptional() @IsDateString() startDate?: string;

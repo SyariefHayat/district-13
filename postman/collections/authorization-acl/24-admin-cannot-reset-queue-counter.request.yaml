@@ -1,0 +1,20 @@
+$kind: http-request
+name: Admin cannot reset queue counter
+method: POST
+url: '{{base_url}}/settings/queue-counter/reset'
+order: 24000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN cannot reset queue counter (403 Forbidden)', function () {
+        pm.response.to.have.status(403);
+      });

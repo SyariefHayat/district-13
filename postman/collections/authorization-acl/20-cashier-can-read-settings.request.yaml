@@ -1,0 +1,15 @@
+$kind: http-request
+name: Cashier can read settings
+method: GET
+url: '{{base_url}}/settings'
+order: 20000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER can read store settings', function () {
+        pm.response.to.have.status(200);
+      });

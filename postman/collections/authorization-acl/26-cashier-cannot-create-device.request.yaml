@@ -1,0 +1,20 @@
+$kind: http-request
+name: Cashier cannot create device
+method: POST
+url: '{{base_url}}/devices'
+order: 26000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"code":"POS-10","name":"Tablet 10"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER cannot create device (403 Forbidden)', function () {
+        pm.response.to.have.status(403);
+      });

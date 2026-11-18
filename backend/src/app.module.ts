@@ -17,6 +17,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { DiscountsModule } from './discounts/discounts.module.js';
+import { SettingsModule } from './settings/settings.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { DiscountsModule } from './discounts/discounts.module.js';
     ReportsModule,
     AuditLogsModule,
     DiscountsModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,0 +1,20 @@
+$kind: http-request
+name: Admin can create device
+method: POST
+url: '{{base_url}}/devices'
+order: 25000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"code":"POS-09","name":"Tablet 9"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN can create device', function () {
+        pm.response.to.have.status(201);
+      });
