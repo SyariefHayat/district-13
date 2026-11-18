@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import postgres from 'postgres';
+import argon2 from 'argon2';
 
 async function seed() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -14,14 +15,26 @@ async function seed() {
     // 1. Get or create Owner user for transactions
     let [owner] = await sql`SELECT id FROM users WHERE role = 'OWNER' LIMIT 1`;
     if (!owner) {
-      [owner] = await sql`SELECT id FROM users LIMIT 1`;
-    }
-    const userId = owner?.id;
-    if (!userId) {
-      throw new Error(
-        'No user found in database to attach shift & transactions',
+      console.log('👤 Seeding default users (owner, admin, kasir)...');
+      const hash = await argon2.hash('password123');
+      [owner] = await sql`
+        INSERT INTO users (username, password_hash, role, is_active)
+        VALUES ('owner', ${hash}, 'OWNER', true)
+        ON CONFLICT (username) DO UPDATE SET is_active = true
+        RETURNING id;
+      `;
+      await sql`
+        INSERT INTO users (username, password_hash, role, is_active)
+        VALUES 
+          ('admin', ${hash}, 'ADMIN', true),
+          ('kasir', ${hash}, 'CASHIER', true)
+        ON CONFLICT (username) DO UPDATE SET is_active = true;
+      `;
+      console.log(
+        '✅ Default users seeded (owner, admin, kasir / password: password123)',
       );
     }
+    const userId = owner?.id;
 
     // 2. Insert or update Categories
     const categoriesData = [
