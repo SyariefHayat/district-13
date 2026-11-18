@@ -27,6 +27,7 @@ export class AuditLogsController {
     PERMISSIONS.auditLogsReadOperational,
   )
   list(@Query() q: AuditLogsQueryDto, @Req() req: Request) {
-    return this.logs.list(q, req.user?.role === 'ADMIN');
+    const isOperationalOnly = req.user?.role?.toUpperCase() === 'ADMIN';
+    return this.logs.list(q, isOperationalOnly);
   }
 }

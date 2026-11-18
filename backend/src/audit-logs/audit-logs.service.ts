@@ -94,3 +94,5 @@ export class AuditLogsService {
     return { data, page: q.page, limit: q.limit, total: Number(n.total) };
   }
 }
+
+export { AuditLogsService as AuditService };

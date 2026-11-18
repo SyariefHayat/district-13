@@ -47,6 +47,8 @@ docs/*
 !docs/database/**
 !docs/authentication/
 !docs/authentication/**
+!docs/audit-logs/
+!docs/audit-logs/**
 
 # Keep the authentication API checks in version control; ignore local secrets.
 !postman/

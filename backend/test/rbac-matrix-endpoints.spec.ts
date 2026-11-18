@@ -176,6 +176,48 @@ describe('RBAC 57-Permission Matrix & Endpoint Enforcement', () => {
     });
   });
 
+  describe('Audit Logs RBAC Access Control', () => {
+    const auditLogMetadata = {
+      [ANY_PERMISSIONS_KEY]: [
+        PERMISSIONS.auditLogsRead,
+        PERMISSIONS.auditLogsReadOperational,
+      ],
+    };
+
+    it('allows Owner to access audit logs via auditLogsRead', () => {
+      const { guard, executionContext } = createGuardContext(
+        auditLogMetadata,
+        'OWNER',
+      );
+      expect(guard.canActivate(executionContext)).toBe(true);
+    });
+
+    it('allows Admin to access audit logs via auditLogsReadOperational', () => {
+      const { guard, executionContext } = createGuardContext(
+        auditLogMetadata,
+        'ADMIN',
+      );
+      expect(guard.canActivate(executionContext)).toBe(true);
+    });
+
+    it('denies Cashier from accessing audit logs with 403 AUTH_FORBIDDEN', () => {
+      const { guard, executionContext } = createGuardContext(
+        auditLogMetadata,
+        'CASHIER',
+      );
+      try {
+        guard.canActivate(executionContext);
+        expect.unreachable('Cashier should not access audit logs');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(ForbiddenException);
+        expect(err.getResponse()).toMatchObject({
+          statusCode: 403,
+          code: 'AUTH_FORBIDDEN',
+        });
+      }
+    });
+  });
+
   describe('Decorators & Guard Integration', () => {
     it('RequirePermission decorator produces compatible metadata', () => {
       class TestController {
