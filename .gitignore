@@ -42,7 +42,9 @@ AGENTS.md
 District13_GitHub_Project_Issues.md
 .postman/
 postman/
-docs/
+docs/*
+!docs/database/
+!docs/database/**
 
 # Keep the authentication API checks in version control; ignore local secrets.
 !postman/

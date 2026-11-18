@@ -1,4 +1,6 @@
-export type UserRole = 'OWNER' | 'ADMIN' | 'CASHIER';
+export type CanonicalUserRole = 'owner' | 'admin' | 'cashier';
+export type LegacyUserRole = 'OWNER' | 'ADMIN' | 'CASHIER';
+export type UserRole = CanonicalUserRole | LegacyUserRole;
 
 export interface AuthenticatedUser {
   id: string;

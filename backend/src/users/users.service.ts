@@ -14,7 +14,7 @@ import {
   roleHasPermission,
   type Permission,
 } from '../auth/permissions/permissions.js';
-import type { AuthenticatedUser } from '../auth/types/auth.types.js';
+import type { AuthenticatedUser, UserRole } from '../auth/types/auth.types.js';
 import type { CreateUserDto } from './dto/create-user.dto.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
 
@@ -236,19 +236,20 @@ export class UsersService {
 
   private getUpdatePermission(
     actor: AuthenticatedUser,
-    target: { id: string; role: 'OWNER' | 'ADMIN' | 'CASHIER' },
+    target: { id: string; role: UserRole },
   ) {
     if (actor.id === target.id) return PERMISSIONS.usersUpdateOwnPassword;
-    if (target.role === 'ADMIN') {
+    const targetRole = target.role.toUpperCase();
+    if (targetRole === 'ADMIN') {
       return PERMISSIONS.usersUpdateAdminProfile;
     }
     if (
-      target.role === 'CASHIER' &&
+      targetRole === 'CASHIER' &&
       roleHasPermission(actor.role, PERMISSIONS.usersUpdateCashierProfile)
     ) {
       return PERMISSIONS.usersUpdateCashierProfile;
     }
-    if (target.role === 'CASHIER') {
+    if (targetRole === 'CASHIER') {
       return PERMISSIONS.usersUpdateCashierCredentials;
     }
     throw new ForbiddenException();
