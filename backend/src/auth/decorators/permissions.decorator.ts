@@ -8,5 +8,7 @@ export const Permissions = (...permissions: Permission[]) =>
   SetMetadata(PERMISSIONS_KEY, permissions);
 export const AnyPermissions = (...permissions: Permission[]) =>
   SetMetadata(ANY_PERMISSIONS_KEY, permissions);
+export const RequirePermission = Permissions;
+export const RequireAnyPermissions = AnyPermissions;
 export const AuthenticatedOnly = () =>
   SetMetadata(AUTHENTICATED_ONLY_KEY, true);

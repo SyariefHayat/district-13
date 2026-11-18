@@ -64,4 +64,41 @@ describe('AuthController', () => {
       expect.any(Object),
     );
   });
+
+  it('returns current user identity and permissions on GET /auth/me', async () => {
+    const authService = {
+      getMe: vi.fn().mockResolvedValue({
+        id: 'user-1',
+        username: 'owner',
+        fullName: 'Store Owner',
+        role: 'owner',
+        permissions: ['products.read', 'store_settings.read'],
+      }),
+    };
+    const controller = new AuthController(authService as never);
+
+    const result = await controller.me({
+      id: 'user-1',
+      role: 'owner',
+      sessionId: 'session-1',
+    });
+
+    expect(authService.getMe).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual({
+      id: 'user-1',
+      username: 'owner',
+      fullName: 'Store Owner',
+      role: 'owner',
+      permissions: ['products.read', 'store_settings.read'],
+    });
+  });
+
+  it('throws UnauthorizedException on me when user context is missing', async () => {
+    const authService = { getMe: vi.fn() };
+    const controller = new AuthController(authService as never);
+
+    await expect(controller.me(undefined)).rejects.toMatchObject({
+      status: 401,
+    });
+  });
 });

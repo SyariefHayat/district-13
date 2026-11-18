@@ -38,7 +38,11 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const authorization = request.headers.authorization;
     if (!authorization?.startsWith('Bearer '))
-      throw new UnauthorizedException();
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: 'Missing or malformed Authorization header',
+      });
 
     let claims: AccessTokenClaims;
     try {
@@ -47,11 +51,19 @@ export class JwtAuthGuard implements CanActivate {
         { algorithms: ['HS256'] },
       );
     } catch {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: 'Invalid or expired access token',
+      });
     }
 
     if (typeof claims.sub !== 'string' || typeof claims.sid !== 'string')
-      throw new UnauthorizedException();
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: 'Malformed access token claims',
+      });
 
     const [identity] = await this.database.db
       .select({
@@ -69,7 +81,12 @@ export class JwtAuthGuard implements CanActivate {
         ),
       )
       .limit(1);
-    if (!identity?.isActive) throw new UnauthorizedException();
+    if (!identity?.isActive)
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: 'Session is revoked, expired, or account is inactive',
+      });
 
     request.user = {
       id: claims.sub,

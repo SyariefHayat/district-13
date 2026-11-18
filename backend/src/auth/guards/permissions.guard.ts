@@ -13,6 +13,7 @@ import {
 } from '../decorators/permissions.decorator.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import {
+  PERMISSIONS,
   roleHasPermission,
   type Permission,
 } from '../permissions/permissions.js';
@@ -46,10 +47,45 @@ export class PermissionsGuard implements CanActivate {
     const user = context.switchToHttp().getRequest<Request>().user;
     if (!requiredPermissions?.length && !anyPermissions?.length) {
       if (authenticatedOnly && user) return true;
-      throw new ForbiddenException();
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'AUTH_FORBIDDEN',
+        message: 'Forbidden resource',
+      });
     }
+
+    if (!user) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'AUTH_FORBIDDEN',
+        message: 'Authentication required',
+      });
+    }
+
+    const normalizedRole = user.role.toLowerCase();
+    const isOwnerOrAdmin =
+      normalizedRole === 'owner' || normalizedRole === 'admin';
+
+    // Strict REQ-F-USR-006: Owner and Admin are strictly forbidden from shift opening and sales creation
+    if (isOwnerOrAdmin) {
+      const allPermissions = [
+        ...(requiredPermissions ?? []),
+        ...(anyPermissions ?? []),
+      ];
+      if (
+        allPermissions.includes(PERMISSIONS.shiftsOpen) ||
+        allPermissions.includes(PERMISSIONS.transactionsCreate)
+      ) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'AUTH_FORBIDDEN',
+          message:
+            'Owner and Admin are strictly prohibited from opening shifts and creating sales transactions (REQ-F-USR-006)',
+        });
+      }
+    }
+
     if (
-      !user ||
       (requiredPermissions?.some(
         (permission) => !roleHasPermission(user.role, permission),
       ) ??
@@ -59,7 +95,11 @@ export class PermissionsGuard implements CanActivate {
           roleHasPermission(user.role, permission),
         ))
     ) {
-      throw new ForbiddenException();
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'AUTH_FORBIDDEN',
+        message: 'Forbidden resource: missing required permission',
+      });
     }
     return true;
   }

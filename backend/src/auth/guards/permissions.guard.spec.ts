@@ -78,4 +78,64 @@ describe('PermissionsGuard', () => {
     const { guard, executionContext } = createGuard({ [IS_PUBLIC_KEY]: true });
     expect(guard.canActivate(executionContext)).toBe(true);
   });
+
+  describe('REQ-F-USR-006: Owner and Admin shift and transaction prohibitions', () => {
+    it('strictly forbids Owner and Admin from opening shifts', () => {
+      for (const role of ['OWNER', 'ADMIN', 'owner', 'admin']) {
+        const { guard, executionContext } = createGuard(
+          { [PERMISSIONS_KEY]: [PERMISSIONS.shiftsOpen] },
+          role,
+        );
+        try {
+          guard.canActivate(executionContext);
+          expect.unreachable(`Role ${role} should have been forbidden`);
+        } catch (err: any) {
+          expect(err).toBeInstanceOf(ForbiddenException);
+          expect(err.getResponse()).toMatchObject({
+            statusCode: 403,
+            code: 'AUTH_FORBIDDEN',
+            message: expect.stringContaining('REQ-F-USR-006'),
+          });
+        }
+      }
+    });
+
+    it('strictly forbids Owner and Admin from creating sales transactions', () => {
+      for (const role of ['OWNER', 'ADMIN', 'owner', 'admin']) {
+        const { guard, executionContext } = createGuard(
+          { [PERMISSIONS_KEY]: [PERMISSIONS.transactionsCreate] },
+          role,
+        );
+        try {
+          guard.canActivate(executionContext);
+          expect.unreachable(`Role ${role} should have been forbidden`);
+        } catch (err: any) {
+          expect(err).toBeInstanceOf(ForbiddenException);
+          expect(err.getResponse()).toMatchObject({
+            statusCode: 403,
+            code: 'AUTH_FORBIDDEN',
+            message: expect.stringContaining('REQ-F-USR-006'),
+          });
+        }
+      }
+    });
+
+    it('allows Cashier to open shifts and create sales transactions', () => {
+      const shiftGuard = createGuard(
+        { [PERMISSIONS_KEY]: [PERMISSIONS.shiftsOpen] },
+        'CASHIER',
+      );
+      expect(shiftGuard.guard.canActivate(shiftGuard.executionContext)).toBe(
+        true,
+      );
+
+      const saleGuard = createGuard(
+        { [PERMISSIONS_KEY]: [PERMISSIONS.transactionsCreate] },
+        'cashier',
+      );
+      expect(saleGuard.guard.canActivate(saleGuard.executionContext)).toBe(
+        true,
+      );
+    });
+  });
 });

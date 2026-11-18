@@ -64,6 +64,7 @@ describe('role permission mapping', () => {
       PERMISSIONS.inventoryReadDashboard,
       PERMISSIONS.inventoryReadMovements,
       PERMISSIONS.inventoryTransferToDisplay,
+      PERMISSIONS.inventoryAdjust,
       PERMISSIONS.schedulesManage,
       PERMISSIONS.schedulesReadAll,
       PERMISSIONS.shiftsReadAll,

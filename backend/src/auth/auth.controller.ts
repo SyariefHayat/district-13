@@ -2,10 +2,13 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
+  HttpStatus,
   Post,
   Req,
   Res,
+  UnauthorizedException,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -16,6 +19,9 @@ import { AuthService } from './auth.service.js';
 import type { Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { Public } from './decorators/public.decorator.js';
+import { CurrentUser } from './decorators/current-user.decorator.js';
+import { AuthenticatedOnly } from './decorators/permissions.decorator.js';
+import type { AuthenticatedUser } from './types/auth.types.js';
 
 const REFRESH_COOKIE = 'refresh_token';
 const CSRF_COOKIE = 'csrf_token';
@@ -23,10 +29,10 @@ const REFRESH_COOKIE_PATH = '/auth';
 const CSRF_COOKIE_PATH = '/';
 
 @Controller('auth')
-@Public()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @HttpCode(200)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
@@ -49,6 +55,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(200)
   async refresh(
@@ -68,6 +75,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post('logout')
   @HttpCode(204)
   async logout(
@@ -85,6 +93,20 @@ export class AuthController {
       httpOnly: false,
     });
     this.clearLegacyCsrfCookie(response);
+  }
+
+  @Get('me')
+  @AuthenticatedOnly()
+  @HttpCode(200)
+  async me(@CurrentUser() user?: AuthenticatedUser) {
+    if (!user) {
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: 'Invalid or expired session',
+      });
+    }
+    return this.authService.getMe(user.id);
   }
 
   private setRefreshCookie(response: Response, token: string, expiresAt: Date) {

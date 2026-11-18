@@ -10,6 +10,7 @@ import {
   users,
 } from '../drizzle/schema/index.js';
 import {
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -17,6 +18,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { DatabaseService } from '../drizzle/database/database.service.js';
+import {
+  ROLE_PERMISSIONS,
+  type Permission,
+} from './permissions/permissions.js';
 
 const INVALID_CREDENTIALS = 'Invalid username or password';
 const INVALID_SESSION = 'Invalid or expired session';
@@ -34,15 +39,68 @@ export class AuthService {
   ) {}
 
   async login(username: string, password: string, ipAddress: string) {
-    const usernameKey = this.rateLimitKey(username.toLowerCase());
+    const normalizedUsername = username.trim().toLowerCase();
+    const usernameKey = this.rateLimitKey(normalizedUsername);
     const ipKey = this.rateLimitKey(ipAddress || 'unknown');
     const attemptId = await this.reserveLoginAttempt(usernameKey, ipKey);
 
     const [user] = await this.database.db
-      .select()
+      .select({
+        id: users.id,
+        username: users.username,
+        passwordHash: users.passwordHash,
+        fullName: users.fullName,
+        role: users.role,
+        isActive: users.isActive,
+        failedLoginCount: users.failedLoginCount,
+        lockedUntil: users.lockedUntil,
+      })
       .from(users)
-      .where(eq(users.username, username))
+      .where(eq(users.username, normalizedUsername))
       .limit(1);
+
+    if (user?.lockedUntil) {
+      if (new Date(user.lockedUntil) > new Date()) {
+        await this.database.db.insert(authAuditLogs).values({
+          userId: user.id,
+          event: 'AUTH_LOGIN_LOCKED',
+        });
+        this.logger.warn(
+          `AUTH_LOGIN_LOCKED for username: ${normalizedUsername}`,
+        );
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.LOCKED,
+            code: 'AUTH_ACCOUNT_LOCKED',
+            message:
+              'Account is temporarily locked due to consecutive failed login attempts. Please try again later.',
+          },
+          HttpStatus.LOCKED,
+        );
+      } else {
+        await this.database.db
+          .update(users)
+          .set({ lockedUntil: null, failedLoginCount: 0 })
+          .where(eq(users.id, user.id));
+        user.lockedUntil = null;
+        user.failedLoginCount = 0;
+      }
+    }
+
+    if (user && !user.isActive) {
+      await this.database.db.insert(authAuditLogs).values({
+        userId: user.id,
+        event: 'AUTH_LOGIN_INACTIVE',
+      });
+      this.logger.warn(
+        `AUTH_LOGIN_INACTIVE for username: ${normalizedUsername}`,
+      );
+      throw new ForbiddenException({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_ACCOUNT_INACTIVE',
+        message: 'Account is inactive',
+      });
+    }
 
     let passwordIsValid = false;
     try {
@@ -54,14 +112,53 @@ export class AuthService {
       // A malformed stored hash is treated like invalid credentials.
     }
 
-    if (!user || !user.isActive || !passwordIsValid) {
-      await this.database.db.insert(authAuditLogs).values({
-        userId: user?.id ?? null,
-        event: 'AUTH_LOGIN_FAILED',
+    if (!user || !passwordIsValid) {
+      if (user) {
+        const nextFailed = (user.failedLoginCount ?? 0) + 1;
+        const isLocking = nextFailed >= LOGIN_LIMIT;
+        const lockedUntil = isLocking
+          ? new Date(Date.now() + 5 * 60 * 1000)
+          : null;
+
+        await this.database.db
+          .update(users)
+          .set({
+            failedLoginCount: nextFailed,
+            lockedUntil,
+          })
+          .where(eq(users.id, user.id));
+
+        await this.database.db.insert(authAuditLogs).values({
+          userId: user.id,
+          event: isLocking ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_LOGIN_FAILED',
+        });
+      } else {
+        await this.database.db.insert(authAuditLogs).values({
+          userId: null,
+          event: 'AUTH_LOGIN_FAILED',
+        });
+      }
+      this.logger.warn(`AUTH_LOGIN_FAILED for username: ${normalizedUsername}`);
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_INVALID_CREDENTIALS',
+        message: INVALID_CREDENTIALS,
       });
-      this.logger.warn('AUTH_LOGIN_FAILED');
-      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
+
+    await this.database.db
+      .update(users)
+      .set({
+        failedLoginCount: 0,
+        lockedUntil: null,
+        lastActivityAt: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    await this.database.db.insert(authAuditLogs).values({
+      userId: user.id,
+      event: 'AUTH_LOGIN_SUCCESS',
+    });
 
     const refreshToken = createRefreshToken();
     const expiresAt = new Date(Date.now() + env.refreshTokenTtlSeconds * 1000);
@@ -88,7 +185,13 @@ export class AuthService {
   }
 
   async refresh(refreshToken?: string) {
-    if (!refreshToken) throw new UnauthorizedException(INVALID_SESSION);
+    if (!refreshToken) {
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: INVALID_SESSION,
+      });
+    }
 
     const oldHash = hashRefreshToken(refreshToken);
     const now = new Date();
@@ -108,7 +211,13 @@ export class AuthService {
       )
       .limit(1);
 
-    if (!currentSession) throw new UnauthorizedException(INVALID_SESSION);
+    if (!currentSession) {
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: INVALID_SESSION,
+      });
+    }
 
     const [user] = await this.database.db
       .select({
@@ -123,7 +232,11 @@ export class AuthService {
 
     if (!user?.isActive) {
       await this.revokeSession(currentSession.id);
-      throw new UnauthorizedException(INVALID_SESSION);
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: INVALID_SESSION,
+      });
     }
 
     const nextRefreshToken = createRefreshToken();
@@ -141,7 +254,13 @@ export class AuthService {
       .returning({ id: sessions.id, expiresAt: sessions.expiresAt });
 
     // The hash predicate makes concurrent refresh requests single-use.
-    if (!rotatedSession) throw new UnauthorizedException(INVALID_SESSION);
+    if (!rotatedSession) {
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: INVALID_SESSION,
+      });
+    }
 
     return {
       accessToken: await this.issueAccessToken(
@@ -152,6 +271,39 @@ export class AuthService {
       refreshToken: nextRefreshToken,
       expiresAt: rotatedSession.expiresAt,
       user: publicUser(user),
+    };
+  }
+
+  async getMe(userId: string) {
+    const [user] = await this.database.db
+      .select({
+        id: users.id,
+        username: users.username,
+        fullName: users.fullName,
+        role: users.role,
+        isActive: users.isActive,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_SESSION_EXPIRED',
+        message: 'User not found or inactive',
+      });
+    }
+
+    const permissions =
+      ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] ?? [];
+
+    return {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      permissions: [...permissions],
     };
   }
 
