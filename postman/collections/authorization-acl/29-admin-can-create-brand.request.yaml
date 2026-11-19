@@ -1,0 +1,20 @@
+$kind: http-request
+name: Admin can create brand
+method: POST
+url: '{{base_url}}/brands'
+order: 29000
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"name":"Brand Test"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('ADMIN can create brand', function () {
+        pm.response.to.have.status(201);
+      });

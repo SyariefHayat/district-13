@@ -18,6 +18,7 @@ import { ReportsModule } from './reports/reports.module.js';
 import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { DiscountsModule } from './discounts/discounts.module.js';
 import { SettingsModule } from './settings/settings.module.js';
+import { BrandsModule } from './brands/brands.module.js';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SettingsModule } from './settings/settings.module.js';
     UsersModule,
     ProductsModule,
     CategoriesModule,
+    BrandsModule,
     AddonsModule,
     InventoryModule,
     ShiftsModule,

@@ -384,5 +384,39 @@ describe('RBAC 57-Permission Matrix & Endpoint Enforcement', () => {
         ForbiddenException,
       );
     });
+
+    const categoriesManageMetadata = {
+      [PERMISSIONS_KEY]: [PERMISSIONS.categoriesManage],
+    };
+
+    it('allows Owner and Admin to manage categories, denies Cashier (REQ-F-PRD-007, AC)', () => {
+      const owner = createGuardContext(categoriesManageMetadata, 'OWNER');
+      expect(owner.guard.canActivate(owner.executionContext)).toBe(true);
+
+      const admin = createGuardContext(categoriesManageMetadata, 'ADMIN');
+      expect(admin.guard.canActivate(admin.executionContext)).toBe(true);
+
+      const cashier = createGuardContext(categoriesManageMetadata, 'CASHIER');
+      expect(() => cashier.guard.canActivate(cashier.executionContext)).toThrow(
+        ForbiddenException,
+      );
+    });
+
+    const brandsManageMetadata = {
+      [PERMISSIONS_KEY]: [PERMISSIONS.brandsManage],
+    };
+
+    it('allows Owner and Admin to manage brands, denies Cashier (REQ-F-PRD-007, AC)', () => {
+      const owner = createGuardContext(brandsManageMetadata, 'OWNER');
+      expect(owner.guard.canActivate(owner.executionContext)).toBe(true);
+
+      const admin = createGuardContext(brandsManageMetadata, 'ADMIN');
+      expect(admin.guard.canActivate(admin.executionContext)).toBe(true);
+
+      const cashier = createGuardContext(brandsManageMetadata, 'CASHIER');
+      expect(() => cashier.guard.canActivate(cashier.executionContext)).toThrow(
+        ForbiddenException,
+      );
+    });
   });
 });

@@ -47,8 +47,11 @@ export class CategoriesController {
       forbidNonWhitelisted: true,
     }),
   )
-  create(@Body() body: CreateCategoryDto) {
-    return this.categoriesService.create(body);
+  create(
+    @Body() body: CreateCategoryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.categoriesService.create(body, actor);
   }
 
   @Patch(':id')
@@ -63,14 +66,27 @@ export class CategoriesController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: UpdateCategoryDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.categoriesService.update(id, body);
+    return this.categoriesService.update(id, body, actor);
   }
 
   @Delete(':id')
   @Permissions(PERMISSIONS.categoriesManage)
-  deactivate(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.categoriesService.deactivate(id);
+  deactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.categoriesService.deactivate(id, actor);
+  }
+
+  @Post(':id/activate')
+  @Permissions(PERMISSIONS.categoriesManage)
+  activate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.categoriesService.activate(id, actor);
   }
 
   @Get(':id/subcategories')

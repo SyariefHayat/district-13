@@ -1,0 +1,20 @@
+$kind: http-request
+name: Cashier cannot create category
+method: POST
+url: '{{base_url}}/categories'
+order: 27000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"name":"Forbidden Category"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER cannot create category (403 Forbidden)', function () {
+        pm.response.to.have.status(403);
+      });

@@ -1,0 +1,20 @@
+$kind: http-request
+name: Cashier cannot create brand
+method: POST
+url: '{{base_url}}/brands'
+order: 28000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"name":"Forbidden Brand"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER cannot create brand (403 Forbidden)', function () {
+        pm.response.to.have.status(403);
+      });

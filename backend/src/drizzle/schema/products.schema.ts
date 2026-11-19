@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { categories } from './categories.schema.js';
 import { subcategories } from './subcategories.schema.js';
+import { brands } from './brands.schema.js';
 
 export interface ProductVariantItem {
   id: string;
@@ -39,6 +40,9 @@ export const products = pgTable(
       .notNull()
       .references(() => categories.id),
     subCategoryId: uuid('sub_category_id').references(() => subcategories.id, {
+      onDelete: 'set null',
+    }),
+    brandId: uuid('brand_id').references(() => brands.id, {
       onDelete: 'set null',
     }),
     variants: jsonb('variants')

@@ -3,10 +3,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
+import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 import {
   categories,
   products,
@@ -18,7 +20,10 @@ import type { UpdateCategoryDto } from './dto/update-category.dto.js';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    @Optional() private readonly auditLogs?: AuditLogsService,
+  ) {}
 
   findAll(actor: AuthenticatedUser) {
     return this.database.db
@@ -42,7 +47,7 @@ export class CategoriesService {
     return category;
   }
 
-  async create(input: CreateCategoryDto) {
+  async create(input: CreateCategoryDto, actor?: AuthenticatedUser) {
     return this.mapDuplicateName(async () => {
       const [category] = await this.database.db
         .insert(categories)
@@ -51,11 +56,27 @@ export class CategoriesService {
           isActive: input.isActive ?? true,
         })
         .returning();
+
+      if (this.auditLogs && typeof this.auditLogs.record === 'function') {
+        await this.auditLogs.record({
+          userId: actor?.id,
+          action: 'CATEGORY_CREATED',
+          entityType: 'CATEGORY',
+          entityId: category.id,
+          description: `Category ${category.name} created`,
+          metadata: { after: category },
+        });
+      }
+
       return category;
     });
   }
 
-  async update(id: string, input: UpdateCategoryDto) {
+  async update(
+    id: string,
+    input: UpdateCategoryDto,
+    actor?: AuthenticatedUser,
+  ) {
     const changes: Partial<typeof categories.$inferInsert> = {};
     if (input.name !== undefined) changes.name = input.name.trim();
     if (input.isActive !== undefined) changes.isActive = input.isActive;
@@ -64,7 +85,7 @@ export class CategoriesService {
     return this.mapDuplicateName(() =>
       this.database.db.transaction(async (tx) => {
         const [category] = await tx
-          .select({ id: categories.id })
+          .select()
           .from(categories)
           .where(eq(categories.id, id))
           .for('update');
@@ -75,27 +96,38 @@ export class CategoriesService {
           .set(changes)
           .where(eq(categories.id, id))
           .returning();
+
+        if (this.auditLogs && typeof this.auditLogs.record === 'function') {
+          const action =
+            input.isActive === true && !category.isActive
+              ? 'CATEGORY_REACTIVATED'
+              : input.isActive === false && category.isActive
+                ? 'CATEGORY_DEACTIVATED'
+                : 'CATEGORY_UPDATED';
+          await this.auditLogs.record(
+            {
+              userId: actor?.id,
+              action,
+              entityType: 'CATEGORY',
+              entityId: updated.id,
+              description: `Category ${updated.name} updated`,
+              metadata: { before: category, after: updated },
+            },
+            tx as never,
+          );
+        }
+
         return updated;
       }),
     );
   }
 
-  async deactivate(id: string) {
-    return this.database.db.transaction(async (tx) => {
-      const [category] = await tx
-        .select({ id: categories.id })
-        .from(categories)
-        .where(eq(categories.id, id))
-        .for('update');
-      if (!category) throw new NotFoundException('Category not found');
-      await this.assertNoActiveProducts(tx, id);
-      const [updated] = await tx
-        .update(categories)
-        .set({ isActive: false })
-        .where(eq(categories.id, id))
-        .returning();
-      return updated;
-    });
+  async deactivate(id: string, actor?: AuthenticatedUser) {
+    return this.update(id, { isActive: false }, actor);
+  }
+
+  async activate(id: string, actor?: AuthenticatedUser) {
+    return this.update(id, { isActive: true }, actor);
   }
 
   async findSubcategories(categoryId: string, actor: AuthenticatedUser) {
