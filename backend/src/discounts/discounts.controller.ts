@@ -48,8 +48,11 @@ export class DiscountsController {
       forbidNonWhitelisted: true,
     }),
   )
-  create(@Body() body: CreateDiscountDto) {
-    return this.discountsService.create(body);
+  create(
+    @Body() body: CreateDiscountDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.discountsService.create(body, actor);
   }
 
   @Patch(':id')
@@ -61,13 +64,17 @@ export class DiscountsController {
       forbidNonWhitelisted: true,
     }),
   )
-  update(@Param('id') id: string, @Body() body: UpdateDiscountDto) {
-    return this.discountsService.update(id, body);
+  update(
+    @Param('id') id: string,
+    @Body() body: UpdateDiscountDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.discountsService.update(id, body, actor);
   }
 
   @Delete(':id')
   @Permissions(PERMISSIONS.discountsManage)
-  remove(@Param('id') id: string) {
-    return this.discountsService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.discountsService.remove(id, actor);
   }
 }

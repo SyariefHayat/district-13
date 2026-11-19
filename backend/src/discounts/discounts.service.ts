@@ -3,17 +3,22 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { DatabaseService } from '../drizzle/database/database.service.js';
+import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 import { discounts } from '../drizzle/schema/index.js';
 import type { CreateDiscountDto } from './dto/create-discount.dto.js';
 import type { UpdateDiscountDto } from './dto/update-discount.dto.js';
 
 @Injectable()
 export class DiscountsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    @Optional() private readonly auditLogs?: AuditLogsService,
+  ) {}
 
   async findAll(actor?: AuthenticatedUser) {
     try {
@@ -136,7 +141,7 @@ export class DiscountsService {
     return discount;
   }
 
-  async create(input: CreateDiscountDto) {
+  async create(input: CreateDiscountDto, actor?: AuthenticatedUser) {
     const cleanCode = input.code.trim().toUpperCase();
 
     // Check if code already exists
@@ -177,6 +182,17 @@ export class DiscountsService {
         })
         .returning();
 
+      if (this.auditLogs && typeof this.auditLogs.record === 'function') {
+        await this.auditLogs.record({
+          userId: actor?.id,
+          action: 'DISCOUNT_CREATED',
+          entityType: 'DISCOUNT',
+          entityId: created.id,
+          description: `Discount ${created.name} (${created.code}) created`,
+          metadata: { after: created },
+        });
+      }
+
       return created;
     } catch (err) {
       if (err instanceof ConflictException) throw err;
@@ -186,8 +202,12 @@ export class DiscountsService {
     }
   }
 
-  async update(id: string, input: UpdateDiscountDto) {
-    await this.findOne(id);
+  async update(
+    id: string,
+    input: UpdateDiscountDto,
+    actor?: AuthenticatedUser,
+  ) {
+    const existing = await this.findOne(id);
 
     const valuesToUpdate: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -235,15 +255,41 @@ export class DiscountsService {
       .where(eq(discounts.id, id))
       .returning();
 
+    if (this.auditLogs && typeof this.auditLogs.record === 'function') {
+      await this.auditLogs.record({
+        userId: actor?.id,
+        action: 'DISCOUNT_UPDATED',
+        entityType: 'DISCOUNT',
+        entityId: id,
+        description: `Discount ${updated.name} updated`,
+        metadata: {
+          before: existing,
+          after: updated,
+        },
+      });
+    }
+
     return updated;
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, actor?: AuthenticatedUser) {
+    const existing = await this.findOne(id);
     const [deleted] = await this.database.db
       .delete(discounts)
       .where(eq(discounts.id, id))
       .returning();
+
+    if (this.auditLogs && typeof this.auditLogs.record === 'function') {
+      await this.auditLogs.record({
+        userId: actor?.id,
+        action: 'DISCOUNT_DELETED',
+        entityType: 'DISCOUNT',
+        entityId: id,
+        description: `Discount ${existing.name} deleted`,
+        metadata: { before: existing },
+      });
+    }
+
     return deleted;
   }
 }

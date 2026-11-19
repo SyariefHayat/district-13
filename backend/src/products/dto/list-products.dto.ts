@@ -29,4 +29,7 @@ export class ListProductsDto {
   @IsOptional()
   @IsUUID()
   categoryId?: string;
+
+  @IsOptional()
+  search?: string;
 }

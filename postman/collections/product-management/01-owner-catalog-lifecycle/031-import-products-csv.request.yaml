@@ -1,0 +1,27 @@
+$kind: http-request
+name: "Import products via CSV body"
+method: POST
+url: '{{base_url}}/products/import'
+order: 31000
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "csv": "name,price,category,sku\nKopi CSV Test,18000,Minuman,SKU-CSV-1\nInvalid CSV Item,invalid,Minuman,SKU-CSV-2"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('import response is 201 or 200', function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });
+      pm.test('reports batch import result with failed rows', function () {
+        const body = pm.response.json();
+        pm.expect(body.totalRows).to.eql(2);
+        pm.expect(body.successCount).to.be.at.least(0);
+        pm.expect(body.failedRows).to.be.an('array');
+      });

@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsDecimal,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -49,6 +50,20 @@ export class CreateProductDto {
   @IsOptional()
   @IsUUID()
   subCategoryId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  brandId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  unit?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  minStock?: number;
 
   @IsOptional()
   @IsString()
