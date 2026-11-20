@@ -18,8 +18,20 @@ import {
 import { NavMain } from "./NavMain";
 import { NavSecondary } from "./NavSecondary";
 
-const footerItems = [
-  { title: "Pengaturan", url: "/dashboard/settings", icon: IconSettings },
+import { type RoleType } from "@/constants/dashboard-menu";
+
+const footerItems: {
+  title: string;
+  url: string;
+  icon: typeof IconSettings;
+  roles?: readonly RoleType[];
+}[] = [
+  {
+    title: "Pengaturan",
+    url: "/dashboard/settings",
+    icon: IconSettings,
+    roles: ["OWNER", "ADMIN"],
+  },
   { title: "Pusat Bantuan", url: "/dashboard/help", icon: IconHelp },
 ];
 

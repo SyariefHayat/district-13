@@ -2,12 +2,13 @@ import * as React from "react";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Outlet, ScrollRestoration, useLocation } from "react-router";
 import { useAuth } from "@/context/auth-context";
+import { SessionLockModal } from "@/features/auth";
 
 import { AppSidebar } from "../modules/dashboard/AppSidebar";
 import { SiteHeader } from "../modules/dashboard/SiteHeader";
 
 export default function DashboardLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, lockSession } = useAuth();
   const { pathname } = useLocation();
 
   React.useEffect(() => {
@@ -26,6 +27,7 @@ export default function DashboardLayout() {
       }
     >
       <ScrollRestoration />
+      <SessionLockModal />
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader
@@ -33,6 +35,7 @@ export default function DashboardLayout() {
             name: user?.username ?? "Account",
             role: user?.role ?? "CASHIER",
             onLogout: () => void logout(),
+            onLockSession: () => lockSession(),
           }}
         />
         <div className="flex flex-1 flex-col">

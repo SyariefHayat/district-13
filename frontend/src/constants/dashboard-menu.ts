@@ -39,17 +39,17 @@ export const dashboardMenu: readonly MenuItem[] = [
   {
     title: "Manajemen Produk",
     icon: IconPackage,
-    roles: ["OWNER", "ADMIN", "CASHIER"],
+    roles: ["OWNER", "ADMIN"],
     items: [
       {
         title: "Produk",
         url: "/dashboard/products",
-        roles: ["OWNER", "ADMIN", "CASHIER"],
+        roles: ["OWNER", "ADMIN"],
       },
       {
         title: "Add-ons",
         url: "/dashboard/addons",
-        roles: ["OWNER", "ADMIN", "CASHIER"],
+        roles: ["OWNER", "ADMIN"],
       },
     ],
   },
@@ -91,7 +91,7 @@ export const dashboardMenu: readonly MenuItem[] = [
       {
         title: "Point of Sale (POS)",
         url: "/dashboard/pos",
-        roles: ["OWNER", "ADMIN", "CASHIER"],
+        roles: ["CASHIER"],
       },
       {
         title: "Penjualan",
@@ -101,12 +101,12 @@ export const dashboardMenu: readonly MenuItem[] = [
       {
         title: "Diskon",
         url: "/dashboard/discounts",
-        roles: ["OWNER", "ADMIN", "CASHIER"],
+        roles: ["OWNER", "ADMIN"],
       },
       {
         title: "Metode Pembayaran",
         url: "/dashboard/payments",
-        roles: ["OWNER", "ADMIN", "CASHIER"],
+        roles: ["OWNER", "ADMIN"],
       },
     ],
   },
@@ -133,7 +133,7 @@ export const dashboardMenu: readonly MenuItem[] = [
       {
         title: "Analitik Profit",
         url: "/dashboard/profit",
-        roles: ["OWNER", "ADMIN"],
+        roles: ["OWNER"],
       },
       {
         title: "Audit Kasir",

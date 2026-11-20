@@ -30,6 +30,7 @@ type SiteHeaderProps = {
     name: string;
     role: string;
     onLogout: () => void;
+    onLockSession?: () => void;
   };
 };
 
