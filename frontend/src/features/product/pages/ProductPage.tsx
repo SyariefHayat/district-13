@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
@@ -5,10 +6,12 @@ import { toast } from "@/components/ui/toast";
 import { ProductHeader } from "../components/ProductHeader";
 import { ProductStatsCards } from "../components/ProductStatsCards";
 import { ProductTable } from "../components/ProductTable";
+import { ProductCsvImportDialog } from "../components/ProductCsvImportDialog";
 import { useProductData } from "../hooks/useProductData";
 
 export default function ProductPage() {
   const navigate = useNavigate();
+  const [importOpen, setImportOpen] = React.useState(false);
   const {
     products,
     categories,
@@ -40,7 +43,10 @@ export default function ProductPage() {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <ProductHeader onExport={handleExport} />
+      <ProductHeader
+        onExport={handleExport}
+        onImportCsv={() => setImportOpen(true)}
+      />
 
       {error && (
         <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-destructive flex items-center justify-between">
@@ -74,6 +80,12 @@ export default function ProductPage() {
         onEditProduct={(product) =>
           navigate(`/dashboard/products/${product.id}/edit`)
         }
+      />
+
+      <ProductCsvImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={() => void refetch()}
       />
     </div>
   );

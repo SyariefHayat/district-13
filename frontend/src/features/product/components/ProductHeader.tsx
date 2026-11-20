@@ -1,12 +1,17 @@
 import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
-import { IconDownload, IconPlus } from "@tabler/icons-react";
+import {
+  IconDownload,
+  IconFileSpreadsheet,
+  IconPlus,
+} from "@tabler/icons-react";
 
 interface ProductHeaderProps {
   title?: string;
   description?: string;
   onAddProduct?: () => void;
   onExport?: () => void;
+  onImportCsv?: () => void;
 }
 
 export function ProductHeader({
@@ -14,6 +19,7 @@ export function ProductHeader({
   description = "Kelola katalog produk, pantau stok ketersediaan, dan analitik performa penjualan.",
   onAddProduct,
   onExport,
+  onImportCsv,
 }: ProductHeaderProps) {
   const navigate = useNavigate();
 
@@ -37,6 +43,17 @@ export function ProductHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {onImportCsv && (
+          <Button
+            variant="outline"
+            size="default"
+            onClick={onImportCsv}
+            className="gap-1.5 shadow-xs"
+          >
+            <IconFileSpreadsheet data-icon="inline-start" className="size-4" />
+            <span>Impor CSV</span>
+          </Button>
+        )}
         <Button
           variant="outline"
           size="default"

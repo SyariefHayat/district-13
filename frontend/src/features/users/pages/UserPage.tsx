@@ -101,6 +101,7 @@ export default function UserPage() {
         users={users}
         isLoading={isLoading}
         currentUserId={currentUser?.username}
+        currentUserRole={currentUser?.role}
         onToggleStatus={toggleUserStatus}
         onEditUser={handleOpenEdit}
         onChangePassword={handleOpenChangePassword}

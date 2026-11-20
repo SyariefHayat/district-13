@@ -37,7 +37,7 @@ import {
 export default function EditUserPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { authorizedFetch } = useAuth();
+  const { user: authUser, authorizedFetch } = useAuth();
 
   const [user, setUser] = React.useState<UserItem | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -48,6 +48,9 @@ export default function EditUserPage() {
   const [isActive, setIsActive] = React.useState(true);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  const availableRoles: UserRole[] =
+    authUser?.role === "ADMIN" ? ["CASHIER"] : ["CASHIER", "ADMIN", "OWNER"];
 
   // Fetch user details
   React.useEffect(() => {
@@ -62,6 +65,27 @@ export default function EditUserPage() {
         const list = (await response.json()) as BackendUser[];
         const found = list.find((u) => u.id === id);
         if (!found) throw new Error("Akun karyawan tidak ditemukan");
+
+        if (authUser?.role === "ADMIN") {
+          if (found.role === "OWNER") {
+            toast.add({
+              title: "Akses Ditolak",
+              description: "Admin tidak dapat mengubah akun Pemilik.",
+              type: "error",
+            });
+            navigate("/dashboard/users");
+            return;
+          }
+          if (found.role === "ADMIN" && found.username !== authUser.username) {
+            toast.add({
+              title: "Akses Ditolak",
+              description: "Admin tidak dapat mengubah akun Admin lain.",
+              type: "error",
+            });
+            navigate("/dashboard/users");
+            return;
+          }
+        }
 
         if (isMounted) {
           const mapped = mapBackendUser(found);
@@ -85,7 +109,7 @@ export default function EditUserPage() {
     return () => {
       isMounted = false;
     };
-  }, [id, authorizedFetch]);
+  }, [id, authorizedFetch, authUser, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -316,39 +340,37 @@ export default function EditUserPage() {
                       <span className="text-destructive">*</span>
                     </Label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {(["CASHIER", "ADMIN", "OWNER"] as UserRole[]).map(
-                        (r) => {
-                          const cfg = ROLE_CONFIG[r];
-                          const isSelected = role === r;
+                      {availableRoles.map((r) => {
+                        const cfg = ROLE_CONFIG[r];
+                        const isSelected = role === r;
 
-                          return (
-                            <div
-                              key={r}
-                              onClick={() => setRole(r)}
-                              className={`cursor-pointer rounded-xl border p-4 transition-all ${
-                                isSelected
-                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                  : "border-border hover:bg-muted/40"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <Badge
-                                  variant="outline"
-                                  className={`font-medium px-2 py-0.5 rounded-full text-xs ${cfg.badgeClass}`}
-                                >
-                                  {r}
-                                </Badge>
-                                {isSelected && (
-                                  <IconCheck className="size-4 text-primary" />
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                {cfg.description}
-                              </p>
+                        return (
+                          <div
+                            key={r}
+                            onClick={() => setRole(r)}
+                            className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                              isSelected
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "border-border hover:bg-muted/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge
+                                variant="outline"
+                                className={`font-medium px-2 py-0.5 rounded-full text-xs ${cfg.badgeClass}`}
+                              >
+                                {r}
+                              </Badge>
+                              {isSelected && (
+                                <IconCheck className="size-4 text-primary" />
+                              )}
                             </div>
-                          );
-                        }
-                      )}
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {cfg.description}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 

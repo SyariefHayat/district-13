@@ -1,8 +1,12 @@
+import * as React from "react";
 import { useNavigate } from "react-router";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/auth-context";
+import { WarehouseAdjustmentDialog } from "../components/WarehouseAdjustmentDialog";
 import { WarehouseHeader } from "../components/WarehouseHeader";
+import { WarehouseReviewFlagsSection } from "../components/WarehouseReviewFlagsSection";
 import { WarehouseStatsCards } from "../components/WarehouseStatsCards";
 import { WarehouseTable } from "../components/WarehouseTable";
 import { useWarehouseData } from "../hooks/useWarehouseData";
@@ -10,7 +14,14 @@ import type { WarehouseInventoryItem } from "../data/warehouseData";
 
 export default function WarehousePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isOwner = user?.role === "OWNER";
   const { items, categories, isLoading, error, refetch } = useWarehouseData();
+
+  // Adjustment dialog state
+  const [adjustmentOpen, setAdjustmentOpen] = React.useState(false);
+  const [selectedItemForAdjustment, setSelectedItemForAdjustment] =
+    React.useState<WarehouseInventoryItem | null>(null);
 
   const handleOpenRestock = (item?: WarehouseInventoryItem) => {
     if (item) {
@@ -42,6 +53,11 @@ export default function WarehousePage() {
     }
   };
 
+  const handleOpenAdjustment = (item?: WarehouseInventoryItem) => {
+    setSelectedItemForAdjustment(item || null);
+    setAdjustmentOpen(true);
+  };
+
   const handleExport = (selectedItems?: WarehouseInventoryItem[]) => {
     const listToExport =
       selectedItems && selectedItems.length > 0 ? selectedItems : items;
@@ -65,8 +81,10 @@ export default function WarehousePage() {
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <WarehouseHeader
+        isOwner={isOwner}
         onExport={() => handleExport()}
         onRestock={() => handleOpenRestock()}
+        onAdjustStock={() => handleOpenAdjustment()}
       />
 
       {error && (
@@ -87,16 +105,29 @@ export default function WarehousePage() {
         </div>
       )}
 
+      {/* Tinjauan Stok Negatif & Offline (OFF-008) */}
+      <WarehouseReviewFlagsSection onResolved={() => void refetch()} />
+
       <WarehouseStatsCards items={items} isLoading={isLoading} />
 
       <WarehouseTable
         items={items}
         categories={categories}
         isLoading={isLoading}
+        isOwner={isOwner}
         onOpenRestock={handleOpenRestock}
         onOpenTransfer={handleOpenTransfer}
+        onOpenAdjustment={handleOpenAdjustment}
         onViewMovements={handleOpenMovements}
         onExport={handleExport}
+      />
+
+      <WarehouseAdjustmentDialog
+        open={adjustmentOpen}
+        onOpenChange={setAdjustmentOpen}
+        items={items}
+        selectedItem={selectedItemForAdjustment}
+        onSuccess={() => void refetch()}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+  IconAdjustments,
   IconArrowsSort,
   IconArrowsTransferUpDown,
   IconBolt,
@@ -35,6 +36,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { cn } from "cn";
+import { useAuth } from "@/context/auth-context";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,8 +97,10 @@ interface WarehouseTableProps {
   items: WarehouseInventoryItem[];
   categories?: string[];
   isLoading?: boolean;
+  isOwner?: boolean;
   onOpenRestock?: (item: WarehouseInventoryItem) => void;
   onOpenTransfer?: (item: WarehouseInventoryItem) => void;
+  onOpenAdjustment?: (item: WarehouseInventoryItem) => void;
   onViewMovements?: (item: WarehouseInventoryItem) => void;
   onExport?: (selectedItems: WarehouseInventoryItem[]) => void;
 }
@@ -105,11 +109,16 @@ export function WarehouseTable({
   items,
   categories,
   isLoading,
+  isOwner: isOwnerProp,
   onOpenRestock,
   onOpenTransfer,
+  onOpenAdjustment,
   onViewMovements,
   onExport,
 }: WarehouseTableProps) {
+  const { user } = useAuth();
+  const isOwner =
+    isOwnerProp !== undefined ? isOwnerProp : user?.role === "OWNER";
   const [filters, setFilters] = React.useState<WarehouseFilterItem[]>([]);
 
   const handleClearAllFilters = () => {
@@ -369,30 +378,35 @@ export function WarehouseTable({
             </span>
           ),
         }),
-        columnHelper.accessor(
-          (row) => row.warehouseStock * (row.costPrice || 0),
-          {
-            id: "valuation",
-            header: ({ column }) => (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
-                onClick={() => column.toggleSorting()}
-              >
-                <span>Valuasi Gudang</span>
-                <IconArrowsSort className="size-3.5 text-muted-foreground" />
-              </Button>
-            ),
-            cell: ({ row }) => (
-              <span className="text-sm font-medium text-foreground tabular-nums">
-                {formatIDR(
-                  row.original.warehouseStock * (row.original.costPrice || 0)
-                )}
-              </span>
-            ),
-          }
-        ),
+        ...(isOwner
+          ? [
+              columnHelper.accessor(
+                (row) => row.warehouseStock * (row.costPrice || 0),
+                {
+                  id: "valuation",
+                  header: ({ column }) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
+                      onClick={() => column.toggleSorting()}
+                    >
+                      <span>Valuasi Gudang</span>
+                      <IconArrowsSort className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  ),
+                  cell: ({ row }) => (
+                    <span className="text-sm font-medium text-foreground tabular-nums">
+                      {formatIDR(
+                        row.original.warehouseStock *
+                          (row.original.costPrice || 0)
+                      )}
+                    </span>
+                  ),
+                }
+              ),
+            ]
+          : []),
         columnHelper.accessor(
           (row) => getWarehouseStockRecommendation(row).label,
           {
@@ -457,10 +471,18 @@ export function WarehouseTable({
                     <IconArrowsTransferUpDown className="size-4 mr-2" />
                     <span>Transfer Etalase</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onOpenRestock?.(item)}>
-                    <IconPlus className="size-4 mr-2" />
-                    <span>Restock</span>
-                  </DropdownMenuItem>
+                  {onOpenAdjustment && (
+                    <DropdownMenuItem onClick={() => onOpenAdjustment(item)}>
+                      <IconAdjustments className="size-4 mr-2" />
+                      <span>Penyesuaian Stok</span>
+                    </DropdownMenuItem>
+                  )}
+                  {isOwner && onOpenRestock && (
+                    <DropdownMenuItem onClick={() => onOpenRestock(item)}>
+                      <IconPlus className="size-4 mr-2" />
+                      <span>Restock</span>
+                    </DropdownMenuItem>
+                  )}
                   {onViewMovements && (
                     <DropdownMenuItem onClick={() => onViewMovements(item)}>
                       <IconHistory className="size-4 mr-2" />
@@ -487,7 +509,7 @@ export function WarehouseTable({
           enableHiding: false,
         }),
       ]),
-    [onOpenRestock, onOpenTransfer, onViewMovements]
+    [onOpenRestock, onOpenTransfer, onOpenAdjustment, onViewMovements, isOwner]
   );
 
   const table = useTable({

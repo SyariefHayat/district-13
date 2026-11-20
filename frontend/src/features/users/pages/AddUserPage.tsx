@@ -30,7 +30,10 @@ import { ROLE_CONFIG, type UserRole } from "../data/userData";
 
 export default function AddUserPage() {
   const navigate = useNavigate();
-  const { authorizedFetch } = useAuth();
+  const { user: authUser, authorizedFetch } = useAuth();
+
+  const availableRoles: UserRole[] =
+    authUser?.role === "ADMIN" ? ["CASHIER"] : ["CASHIER", "ADMIN", "OWNER"];
 
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -296,7 +299,7 @@ export default function AddUserPage() {
                     <span className="text-destructive">*</span>
                   </Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {(["CASHIER", "ADMIN", "OWNER"] as UserRole[]).map((r) => {
+                    {availableRoles.map((r) => {
                       const cfg = ROLE_CONFIG[r];
                       const isSelected = role === r;
 

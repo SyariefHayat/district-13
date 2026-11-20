@@ -53,7 +53,7 @@ export default function AddProductPage({
 }: AddProductPageProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { authorizedFetch } = useAuth();
+  const { user, authorizedFetch } = useAuth();
 
   const editId = searchParams.get("edit");
   React.useEffect(() => {
@@ -976,6 +976,7 @@ export default function AddProductPage({
               price={currentPrice}
               costPrice={currentCostPrice}
               chargeTax={currentChargeTax}
+              disabled={user?.role !== "OWNER"}
             />
 
             <ProductStock

@@ -256,7 +256,7 @@ export default function EditPage({
   const navigate = useNavigate();
   const params = useParams<{ id?: string }>();
   const [searchParams] = useSearchParams();
-  const { authorizedFetch } = useAuth();
+  const { user, authorizedFetch } = useAuth();
 
   const [resolvedProductId, setResolvedProductId] = React.useState<
     string | null
@@ -1208,6 +1208,7 @@ export default function EditPage({
                 price={currentPrice}
                 costPrice={currentCostPrice}
                 chargeTax={currentChargeTax}
+                disabled={user?.role !== "OWNER"}
               />
 
               <ProductStock

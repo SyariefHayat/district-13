@@ -30,6 +30,7 @@ import { PaymentPage, AddPaymentPage } from "./features/payments";
 import { CashierDashboardPage } from "./features/cashier";
 import { PosPage } from "./features/pos";
 import { AdminDashboardPage } from "./features/admin";
+import { SettingsPage } from "./features/settings";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 import { RequireRole } from "./context/RequireRole";
@@ -66,10 +67,13 @@ export const router = createBrowserRouter([
             ],
           },
 
-          // Owner-only reports (Laporan profit hanya untuk Pemilik)
+          // Owner-only routes (Laporan profit & Restock hanya untuk Pemilik)
           {
             element: <RequireRole allowedRoles={["OWNER"]} />,
-            children: [{ path: "profit", Component: ProfitReportPage }],
+            children: [
+              { path: "profit", Component: ProfitReportPage },
+              { path: "stocks/restock", Component: WarehouseRestockPage },
+            ],
           },
 
           // Owner & Admin routes
@@ -84,7 +88,7 @@ export const router = createBrowserRouter([
               { path: "audits", Component: AuditLogPage },
 
               // Master Data & Management
-              { path: "settings", element: <div>Dashboard Settings</div> },
+              { path: "settings", Component: SettingsPage },
               { path: "users", Component: UserPage },
               { path: "users/new", Component: AddUserPage },
               { path: "users/:id/edit", Component: EditUserPage },
@@ -103,7 +107,6 @@ export const router = createBrowserRouter([
 
               // Inventory & Stocks
               { path: "stocks", Component: WarehousePage },
-              { path: "stocks/restock", Component: WarehouseRestockPage },
               { path: "stocks/transfer", Component: WarehouseTransferPage },
               { path: "stocks/movements", Component: WarehouseMovementsPage },
               { path: "warehouse", Component: WarehousePage },

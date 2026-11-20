@@ -1,17 +1,21 @@
 import { Button } from "@/components/ui/button";
-import { IconDownload, IconPlus } from "@tabler/icons-react";
+import { IconAdjustments, IconDownload, IconPlus } from "@tabler/icons-react";
 
 interface WarehouseHeaderProps {
   title?: string;
   description?: string;
+  isOwner?: boolean;
   onRestock?: () => void;
+  onAdjustStock?: () => void;
   onExport?: () => void;
 }
 
 export function WarehouseHeader({
   title = "Inventori & Stok",
   description = "Pantau dan kelola ketersediaan stok gudang serta etalase toko.",
+  isOwner = true,
   onRestock,
+  onAdjustStock,
   onExport,
 }: WarehouseHeaderProps) {
   return (
@@ -35,15 +39,28 @@ export function WarehouseHeader({
           <IconDownload data-icon="inline-start" className="size-4" />
           <span>Export</span>
         </Button>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={onRestock}
-          className="gap-1.5 shadow-xs"
-        >
-          <IconPlus data-icon="inline-start" className="size-4" />
-          <span>Restock</span>
-        </Button>
+        {onAdjustStock && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAdjustStock}
+            className="gap-1.5 shadow-xs"
+          >
+            <IconAdjustments data-icon="inline-start" className="size-4" />
+            <span>Penyesuaian Stok</span>
+          </Button>
+        )}
+        {isOwner && onRestock && (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onRestock}
+            className="gap-1.5 shadow-xs"
+          >
+            <IconPlus data-icon="inline-start" className="size-4" />
+            <span>Restock</span>
+          </Button>
+        )}
       </div>
     </div>
   );

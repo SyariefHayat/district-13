@@ -12,6 +12,7 @@ interface ProductPriceProps {
   price: number;
   costPrice?: number;
   chargeTax: boolean;
+  disabled?: boolean;
 }
 
 function formatRupiah(value?: number): string {
@@ -30,6 +31,7 @@ export function ProductPrice({
   price,
   costPrice,
   chargeTax,
+  disabled = false,
 }: ProductPriceProps) {
   const marginAmount =
     costPrice !== undefined && costPrice > 0 ? price - costPrice : null;
@@ -48,6 +50,12 @@ export function ProductPrice({
       </CardHeader>
 
       <CardContent className="space-y-5">
+        {disabled && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+            Hanya Pemilik toko yang berwenang mengubah harga produk.
+          </div>
+        )}
+
         {/* Harga Jual */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -68,6 +76,7 @@ export function ProductPrice({
                 type="text"
                 inputMode="numeric"
                 placeholder="Rp"
+                disabled={disabled}
                 value={formatRupiah(field.value)}
                 onChange={(e) => field.onChange(parseRupiah(e.target.value))}
               />
@@ -94,6 +103,7 @@ export function ProductPrice({
                 type="text"
                 inputMode="numeric"
                 placeholder="Rp"
+                disabled={disabled}
                 value={formatRupiah(field.value)}
                 onChange={(e) => {
                   const clean = e.target.value.replace(/\D/g, "");

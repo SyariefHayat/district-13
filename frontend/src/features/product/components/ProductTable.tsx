@@ -59,6 +59,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
+import { useAuth } from "@/context/auth-context";
 import { formatProductPrice, type ProductItem } from "../data/productData";
 import { ProductFilterBar, type FilterItem } from "./ProductFilterBar";
 
@@ -221,6 +222,9 @@ export function ProductTable({
     [deletingProductIds, onDeleteProduct]
   );
 
+  const { user } = useAuth();
+  const isOwner = user?.role === "OWNER";
+
   const columns = React.useMemo(
     () =>
       columnHelper.columns([
@@ -307,25 +311,29 @@ export function ProductTable({
             </span>
           ),
         }),
-        columnHelper.accessor("price", {
-          id: "price",
-          header: ({ column }) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
-              onClick={() => column.toggleSorting()}
-            >
-              <span>Price</span>
-              <IconArrowsSort className="size-3.5 text-muted-foreground" />
-            </Button>
-          ),
-          cell: ({ row }) => (
-            <span className="text-sm font-medium text-foreground">
-              {formatProductPrice(row.original.price)}
-            </span>
-          ),
-        }),
+        ...(isOwner
+          ? [
+              columnHelper.accessor("price", {
+                id: "price",
+                header: ({ column }) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
+                    onClick={() => column.toggleSorting()}
+                  >
+                    <span>Price</span>
+                    <IconArrowsSort className="size-3.5 text-muted-foreground" />
+                  </Button>
+                ),
+                cell: ({ row }) => (
+                  <span className="text-sm font-medium text-foreground">
+                    {formatProductPrice(row.original.price)}
+                  </span>
+                ),
+              }),
+            ]
+          : []),
         columnHelper.accessor("soldCount", {
           id: "soldCount",
           header: ({ column }) => (
@@ -345,27 +353,31 @@ export function ProductTable({
             </span>
           ),
         }),
-        columnHelper.accessor((row) => row.price * (row.soldCount || 0), {
-          id: "revenue",
-          header: ({ column }) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
-              onClick={() => column.toggleSorting()}
-            >
-              <span>Revenue</span>
-              <IconArrowsSort className="size-3.5 text-muted-foreground" />
-            </Button>
-          ),
-          cell: ({ row }) => (
-            <span className="text-sm font-medium text-foreground tabular-nums">
-              {formatProductPrice(
-                row.original.price * (row.original.soldCount || 0)
-              )}
-            </span>
-          ),
-        }),
+        ...(isOwner
+          ? [
+              columnHelper.accessor((row) => row.price * (row.soldCount || 0), {
+                id: "revenue",
+                header: ({ column }) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
+                    onClick={() => column.toggleSorting()}
+                  >
+                    <span>Revenue</span>
+                    <IconArrowsSort className="size-3.5 text-muted-foreground" />
+                  </Button>
+                ),
+                cell: ({ row }) => (
+                  <span className="text-sm font-medium text-foreground tabular-nums">
+                    {formatProductPrice(
+                      row.original.price * (row.original.soldCount || 0)
+                    )}
+                  </span>
+                ),
+              }),
+            ]
+          : []),
         columnHelper.accessor("stock", {
           id: "stock",
           header: ({ column }) => (
@@ -515,6 +527,7 @@ export function ProductTable({
       onToggleStatus,
       handleDeleteSingleProduct,
       deletingProductIds,
+      isOwner,
     ]
   );
 

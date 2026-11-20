@@ -87,6 +87,7 @@ interface UserTableProps {
   users: UserItem[];
   isLoading?: boolean;
   currentUserId?: string;
+  currentUserRole?: string;
   onToggleStatus?: (user: UserItem) => void | Promise<boolean>;
   onEditUser?: (user: UserItem) => void;
   onChangePassword?: (user: UserItem) => void;
@@ -101,6 +102,7 @@ export function UserTable({
   users,
   isLoading,
   currentUserId,
+  currentUserRole,
   onToggleStatus,
   onEditUser,
   onChangePassword,
@@ -367,6 +369,17 @@ export function UserTable({
               currentUserId === user.id || currentUserId === user.username;
             const isDeletingThisRow = deletingUserIds.has(user.id);
 
+            const isAdmin = currentUserRole === "ADMIN";
+            // AC: Admin hanya melihat aksi yang diizinkan untuk akun kasir (dan ubah sandi sendiri)
+            const canEdit = isAdmin ? user.role === "CASHIER" : true;
+            const canChangePassword = isAdmin
+              ? user.role === "CASHIER" || isSelf
+              : true;
+            const canToggleStatus = isAdmin
+              ? user.role === "CASHIER" && !isSelf
+              : !isSelf;
+            const canDelete = !isAdmin && !isSelf;
+
             return (
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -390,16 +403,18 @@ export function UserTable({
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                     Aksi Pengguna
                   </div>
-                  <DropdownMenuItem
-                    onClick={() => onEditUser?.(user)}
-                    disabled={isDeletingThisRow || isDeletingSelected}
-                    className="gap-2"
-                  >
-                    <IconEdit className="size-4 text-muted-foreground" />
-                    <span>Ubah data karyawan</span>
-                  </DropdownMenuItem>
+                  {canEdit && (
+                    <DropdownMenuItem
+                      onClick={() => onEditUser?.(user)}
+                      disabled={isDeletingThisRow || isDeletingSelected}
+                      className="gap-2"
+                    >
+                      <IconEdit className="size-4 text-muted-foreground" />
+                      <span>Ubah data karyawan</span>
+                    </DropdownMenuItem>
+                  )}
 
-                  {onChangePassword && (
+                  {canChangePassword && onChangePassword && (
                     <DropdownMenuItem
                       onClick={() => onChangePassword(user)}
                       disabled={isDeletingThisRow || isDeletingSelected}
@@ -410,7 +425,7 @@ export function UserTable({
                     </DropdownMenuItem>
                   )}
 
-                  {onToggleStatus && !isSelf && (
+                  {canToggleStatus && onToggleStatus && (
                     <DropdownMenuItem
                       onClick={() => onToggleStatus(user)}
                       disabled={isDeletingThisRow || isDeletingSelected}
@@ -453,7 +468,7 @@ export function UserTable({
                     <span>Salin ID akun</span>
                   </DropdownMenuItem>
 
-                  {!isSelf && (
+                  {canDelete && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -603,20 +618,22 @@ export function UserTable({
                 <IconDownload className="size-4" />
                 <span>Ekspor</span>
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="gap-1.5 bg-red-500/15 text-red-600 hover:bg-red-500/25 border border-red-500/30 shadow-none dark:bg-red-500/20 dark:text-red-400"
-                onClick={handleDeleteSelected}
-                disabled={isDeletingSelected}
-              >
-                {isDeletingSelected ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  <IconTrash className="size-4" />
-                )}
-                <span>{isDeletingSelected ? "Menghapus..." : "Hapus"}</span>
-              </Button>
+              {currentUserRole !== "ADMIN" && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1.5 bg-red-500/15 text-red-600 hover:bg-red-500/25 border border-red-500/30 shadow-none dark:bg-red-500/20 dark:text-red-400"
+                  onClick={handleDeleteSelected}
+                  disabled={isDeletingSelected}
+                >
+                  {isDeletingSelected ? (
+                    <Spinner className="size-4" />
+                  ) : (
+                    <IconTrash className="size-4" />
+                  )}
+                  <span>{isDeletingSelected ? "Menghapus..." : "Hapus"}</span>
+                </Button>
+              )}
             </div>
           ) : (
             <UserFilterBar

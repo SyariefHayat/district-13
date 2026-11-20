@@ -62,6 +62,7 @@ import { toast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import { formatIDR, type AddonItem } from "../data/addonData";
 import { AddonFilterBar, type AddonFilterItem } from "./AddonFilterBar";
+import { useAuth } from "@/context/auth-context";
 
 const features = tableFeatures({
   columnFilteringFeature,
@@ -97,6 +98,8 @@ export function AddonTable({
   onDeleteMultiple,
   onExport,
 }: AddonTableProps) {
+  const { user } = useAuth();
+  const isOwner = user?.role === "OWNER";
   const [filters, setFilters] = React.useState<AddonFilterItem[]>([]);
 
   const handleClearAllFilters = () => {
@@ -253,25 +256,29 @@ export function AddonTable({
           ),
           enableHiding: false,
         }),
-        columnHelper.accessor("price", {
-          id: "price",
-          header: ({ column }) => (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
-              onClick={() => column.toggleSorting()}
-            >
-              <span>Harga</span>
-              <IconArrowsSort className="size-3.5 text-muted-foreground" />
-            </Button>
-          ),
-          cell: ({ row }) => (
-            <span className="text-sm font-medium text-foreground tabular-nums">
-              {formatIDR(row.original.price)}
-            </span>
-          ),
-        }),
+        ...(isOwner
+          ? [
+              columnHelper.accessor("price", {
+                id: "price",
+                header: ({ column }) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3 h-8 gap-1 font-medium hover:bg-transparent text-muted-foreground hover:text-foreground"
+                    onClick={() => column.toggleSorting()}
+                  >
+                    <span>Harga</span>
+                    <IconArrowsSort className="size-3.5 text-muted-foreground" />
+                  </Button>
+                ),
+                cell: ({ row }) => (
+                  <span className="text-sm font-medium text-foreground tabular-nums">
+                    {formatIDR(row.original.price)}
+                  </span>
+                ),
+              }),
+            ]
+          : []),
         columnHelper.accessor("linkedProductsCount", {
           id: "linkedProducts",
           header: ({ column }) => (
@@ -411,7 +418,13 @@ export function AddonTable({
           enableHiding: false,
         }),
       ]),
-    [onEditAddon, onToggleStatus, handleDeleteSingleAddon, deletingAddonIds]
+    [
+      onEditAddon,
+      onToggleStatus,
+      handleDeleteSingleAddon,
+      deletingAddonIds,
+      isOwner,
+    ]
   );
 
   const table = useTable({
