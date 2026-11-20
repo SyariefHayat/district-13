@@ -1,0 +1,30 @@
+$kind: http-request
+name: Owner restock inventory
+method: POST
+url: '{{base_url}}/inventory/restocks'
+order: 5100
+headers:
+  - key: Authorization
+    value: 'Bearer {{owner_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": "{{product_id}}",
+      "quantity": 50,
+      "note": "Restock from supplier"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('restock succeeds', function () {
+        pm.response.to.have.status(201);
+      });
+      const body = pm.response.json();
+      pm.test('restock returns updated warehouse quantity', function () {
+        pm.expect(body.data).to.be.an('object');
+        pm.expect(body.data.warehouseQty).to.be.a('number');
+      });

@@ -1,0 +1,30 @@
+$kind: http-request
+name: Physical stock adjustment
+method: POST
+url: '{{base_url}}/inventory/adjustments'
+order: 5300
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": "{{product_id}}",
+      "actualStock": 35,
+      "reason": "Stock opname discrepancy"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('adjustment succeeds', function () {
+        pm.response.to.have.status(201);
+      });
+      const body = pm.response.json();
+      pm.test('adjustment returns updated warehouse quantity', function () {
+        pm.expect(body.data).to.be.an('object');
+        pm.expect(body.data.warehouseQty).to.eql(35);
+      });

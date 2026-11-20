@@ -1,0 +1,19 @@
+$kind: http-request
+name: Pending review flags
+method: GET
+url: '{{base_url}}/inventory/review-flags'
+order: 5600
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('review flags returns 200', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      pm.test('review flags list is an array', function () {
+        pm.expect(body.data).to.be.an('array');
+      });

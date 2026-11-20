@@ -1,0 +1,29 @@
+$kind: http-request
+name: Transfer stock to display
+method: POST
+url: '{{base_url}}/inventory/transfers'
+order: 5200
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productId": "{{product_id}}",
+      "quantity": 10
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('transfer succeeds', function () {
+        pm.response.to.have.status(201);
+      });
+      const body = pm.response.json();
+      pm.test('transfer returns updated stock balances', function () {
+        pm.expect(body.data).to.be.an('object');
+        pm.expect(body.data.displayQty).to.be.a('number');
+      });

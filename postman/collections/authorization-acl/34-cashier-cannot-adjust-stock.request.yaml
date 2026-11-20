@@ -1,0 +1,20 @@
+$kind: http-request
+name: Cashier cannot adjust inventory
+method: POST
+url: '{{base_url}}/inventory/adjustments'
+order: 34000
+headers:
+  - key: Authorization
+    value: 'Bearer {{cashier_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: '{"productId":"00000000-0000-0000-0000-000000000001","actualStock":15,"reason":"Stock opname"}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('CASHIER cannot adjust inventory', function () {
+        pm.response.to.have.status(403);
+      });

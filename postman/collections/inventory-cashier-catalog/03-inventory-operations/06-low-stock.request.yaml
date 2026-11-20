@@ -1,0 +1,19 @@
+$kind: http-request
+name: Low stock alerts
+method: GET
+url: '{{base_url}}/inventory/low-stock'
+order: 5500
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('low stock alerts returns 200', function () {
+        pm.response.to.have.status(200);
+      });
+      const body = pm.response.json();
+      pm.test('low stock list is an array', function () {
+        pm.expect(body.data).to.be.an('array');
+      });

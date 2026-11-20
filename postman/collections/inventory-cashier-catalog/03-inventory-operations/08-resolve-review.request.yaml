@@ -1,0 +1,28 @@
+$kind: http-request
+name: Resolve review flag
+method: POST
+url: '{{base_url}}/inventory/review-flags/{{product_id}}/resolve'
+order: 5700
+headers:
+  - key: Authorization
+    value: 'Bearer {{admin_token}}'
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "actualStock": 20,
+      "note": "Physical reconciliation complete"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test('resolve review flag succeeds', function () {
+        pm.response.to.have.status(201);
+      });
+      const body = pm.response.json();
+      pm.test('product review flag is cleared', function () {
+        pm.expect(body.data.needsReview).to.eql(false);
+      });

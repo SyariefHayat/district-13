@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
+  integer,
   jsonb,
   numeric,
   pgTable,
@@ -45,6 +46,8 @@ export const products = pgTable(
     brandId: uuid('brand_id').references(() => brands.id, {
       onDelete: 'set null',
     }),
+    unit: text('unit').default('pcs').notNull(),
+    minStock: integer('min_stock').default(0).notNull(),
     variants: jsonb('variants')
       .$type<ProductVariantItem[]>()
       .default([])
