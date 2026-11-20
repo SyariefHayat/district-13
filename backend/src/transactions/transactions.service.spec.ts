@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { vi } from 'vitest';
 
 vi.mock('../drizzle/config/env.js', () => ({
@@ -116,5 +117,154 @@ describe('TransactionsService void concurrency rules', () => {
       }),
     ).rejects.toThrow('Transactions on closed shifts cannot be voided');
     expect(tx.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects void if reason is empty', async () => {
+    const service = new TransactionsService({} as never, {} as never);
+    await expect(
+      service.void('transaction-id', '', {
+        id: 'owner-id',
+        role: 'OWNER',
+        sessionId: 'session-id',
+      }),
+    ).rejects.toThrow('reason must be 1 to 255 characters after trimming');
+  });
+
+  it('rejects cashier voiding a transaction from another cashier shift', async () => {
+    const shift = { id: 'shift-1', userId: 'cashier-other', closedAt: null };
+    const initialQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockResolvedValue([{ shiftId: shift.id }]),
+    };
+    const shiftLockQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      for: vi.fn().mockResolvedValue([shift]),
+    };
+    const tx = {
+      select: vi
+        .fn()
+        .mockReturnValueOnce(initialQuery)
+        .mockReturnValueOnce(shiftLockQuery),
+      update: vi.fn(),
+    };
+    const service = new TransactionsService(
+      {
+        db: {
+          transaction: (callback: (transaction: unknown) => unknown) =>
+            callback(tx),
+        },
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.void('transaction-id', 'Mistake', {
+        id: 'cashier-me',
+        role: 'CASHIER',
+        sessionId: 'session-id',
+      }),
+    ).rejects.toThrow(
+      'You can only void transactions created in your own active shift',
+    );
+  });
+});
+
+describe('TransactionsService create rules', () => {
+  it('throws SHIFT_NOT_OPEN if user has no open shift', async () => {
+    const insertKeyQuery = {
+      values: vi.fn().mockReturnThis(),
+      onConflictDoNothing: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 'key-1' }]),
+      }),
+    };
+    const shiftQuery = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnValue({
+        for: vi.fn().mockResolvedValue([]),
+      }),
+    };
+    const tx = {
+      insert: vi.fn().mockReturnValue(insertKeyQuery),
+      select: vi.fn().mockReturnValue(shiftQuery),
+    };
+    const service = new TransactionsService(
+      {
+        db: {
+          transaction: (callback: (transaction: unknown) => unknown) =>
+            callback(tx),
+        },
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.create(
+        {
+          paymentMethod: 'CASH',
+          paidAmount: '50000',
+          items: [{ productId: 'prod-1', quantity: 1, addonIds: [] }],
+        },
+        { id: 'user-1', role: 'CASHIER', sessionId: 's-1' },
+      ),
+    ).rejects.toThrow('Open a shift before creating a transaction');
+  });
+
+  it('returns duplicate status when request is idempotent duplicate', async () => {
+    const existingResponseBody = { id: 'tx-1', receiptNumber: 'POS-001' };
+    const canonical = JSON.stringify({
+      items: [{ productId: 'prod-1', quantity: 1, addonIds: [] }],
+      paymentMethod: 'CASH',
+      paidAmount: '50000.00',
+      discountAmount: '0.00',
+    });
+    const requestHash = createHash('sha256').update(canonical).digest('hex');
+
+    const insertKeyQuery = {
+      values: vi.fn().mockReturnThis(),
+      onConflictDoNothing: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([]),
+      }),
+    };
+    const tx = {
+      insert: vi.fn().mockReturnValue(insertKeyQuery),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            {
+              id: 'existing-id',
+              requestHash,
+              responseStatus: 201,
+              responseBody: existingResponseBody,
+            },
+          ]),
+        }),
+      }),
+    };
+    const service = new TransactionsService(
+      {
+        db: {
+          transaction: (callback: (transaction: unknown) => unknown) =>
+            callback(tx),
+        },
+      } as never,
+      {} as never,
+    );
+
+    const result = await service.create(
+      {
+        paymentMethod: 'CASH',
+        paidAmount: '50000',
+        items: [{ productId: 'prod-1', quantity: 1, addonIds: [] }],
+      },
+      { id: 'user-1', role: 'CASHIER', sessionId: 's-1' },
+      'idem-key-1',
+    );
+
+    expect(result).toEqual({
+      ...existingResponseBody,
+      status: 'duplicate',
+      isDuplicate: true,
+    });
   });
 });

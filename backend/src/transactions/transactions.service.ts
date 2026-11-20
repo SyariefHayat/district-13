@@ -1,7 +1,8 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Optional,
@@ -27,10 +28,12 @@ import { InventoryService } from '../inventory/inventory.service.js';
 import {
   addons,
   categories,
+  devices,
   idempotencyKeys,
   products,
   productAddons,
   shifts,
+  stock,
   transactionAuditLogs,
   transactionItemAddons,
   transactionItems,
@@ -40,6 +43,7 @@ import {
 import type { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import type { ListTransactionsDto } from './dto/list-transactions.dto.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
+import { getWibBusinessDate } from '../common/utils/formatters.js';
 
 type NormalizedItem = {
   productId: string;
@@ -58,30 +62,37 @@ export class TransactionsService {
   async create(
     input: CreateTransactionDto,
     actor: AuthenticatedUser,
-    key: string,
+    key?: string,
+    deviceIdHeader?: string,
+    deviceCodeHeader?: string,
   ) {
     const items = normalizeItems(input.items);
     const paidCents = moneyToCents(input.paidAmount);
     const paymentMethod = input.paymentMethod;
+    const idempotencyKey = key || randomUUID();
+
     const canonical = JSON.stringify({
       items,
       paymentMethod,
       paidAmount: centsToMoney(paidCents),
+      discountAmount: input.discountAmount || '0.00',
     });
     const requestHash = createHash('sha256').update(canonical).digest('hex');
 
     return this.database.db.transaction(async (tx) => {
+      // 1. Idempotency handling
       const [insertedKey] = await tx
         .insert(idempotencyKeys)
         .values({
           userId: actor.id,
           scope: 'TRANSACTION_CREATE',
-          key,
+          key: idempotencyKey,
           requestHash,
           expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
         })
         .onConflictDoNothing()
         .returning({ id: idempotencyKeys.id });
+
       if (!insertedKey) {
         const [prior] = await tx
           .select()
@@ -90,32 +101,63 @@ export class TransactionsService {
             and(
               eq(idempotencyKeys.userId, actor.id),
               eq(idempotencyKeys.scope, 'TRANSACTION_CREATE'),
-              eq(idempotencyKeys.key, key),
+              eq(idempotencyKeys.key, idempotencyKey),
             ),
           );
-        if (!prior)
+        if (!prior) {
           throw new ConflictException(
             'Idempotency request is still processing',
           );
-        if (prior.requestHash !== requestHash)
+        }
+        if (prior.requestHash !== requestHash) {
           throw new ConflictException(
             'Idempotency-Key was already used with a different request',
           );
-        if (!prior.responseBody || prior.responseStatus !== 201)
+        }
+        if (!prior.responseBody || prior.responseStatus !== 201) {
           throw new ConflictException('Idempotency result is unavailable');
-        return prior.responseBody;
+        }
+        // Return 200/cached duplicate response with status: 'duplicate'
+        return {
+          ...(prior.responseBody as Record<string, unknown>),
+          status: 'duplicate',
+          isDuplicate: true,
+        };
       }
 
+      // Check receipt number collision (offline sync)
+      if (input.receiptNumber) {
+        const [existing] = await tx
+          .select({ id: transactions.id })
+          .from(transactions)
+          .where(eq(transactions.transactionNumber, input.receiptNumber))
+          .limit(1);
+        if (existing) {
+          throw new ConflictException({
+            statusCode: 409,
+            error: 'Conflict',
+            message: 'Receipt number conflict',
+            code: 'RECEIPT_NO_CONFLICT',
+          });
+        }
+      }
+
+      // 2. Active shift check (SHIFT_NOT_OPEN)
       const [shift] = await tx
         .select()
         .from(shifts)
         .where(and(eq(shifts.userId, actor.id), isNull(shifts.closedAt)))
         .for('update');
-      if (!shift)
-        throw new ConflictException(
-          'Open a shift before creating a transaction',
-        );
+      if (!shift) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'Open a shift before creating a transaction',
+          code: 'SHIFT_NOT_OPEN',
+        });
+      }
 
+      // 3. Lock products and check active status
       const lockedProducts = new Map<string, typeof products.$inferSelect>();
       for (const item of items) {
         const [product] = await tx
@@ -123,8 +165,9 @@ export class TransactionsService {
           .from(products)
           .where(eq(products.id, item.productId))
           .for('share');
-        if (!product)
+        if (!product) {
           throw new NotFoundException(`Product ${item.productId} not found`);
+        }
         const [category] = await tx
           .select()
           .from(categories)
@@ -135,9 +178,30 @@ export class TransactionsService {
             `Product ${product.name} is not available for sale`,
           );
         }
+
+        // Check stock availability
+        const [stockRecord] = await tx
+          .select()
+          .from(stock)
+          .where(eq(stock.productId, item.productId))
+          .for('share');
+
+        if (stockRecord && stockRecord.displayQty < item.quantity) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            message: `Stock insufficient for ${product.name}. Available: ${stockRecord.displayQty}, requested: ${item.quantity}`,
+            code: 'STOCK_INSUFFICIENT',
+            productId: product.id,
+            availableStock: stockRecord.displayQty,
+            requestedQuantity: item.quantity,
+          });
+        }
+
         lockedProducts.set(product.id, product);
       }
 
+      // 4. Lock addons
       const lockedAddons = new Map<string, typeof addons.$inferSelect>();
       for (const addonId of [
         ...new Set(items.flatMap((item) => item.addonIds)),
@@ -147,10 +211,11 @@ export class TransactionsService {
           .from(addons)
           .where(eq(addons.id, addonId))
           .for('share');
-        if (!addon || !addon.isActive)
+        if (!addon || !addon.isActive) {
           throw new BadRequestException(
             `Add-on ${addonId} is invalid or inactive`,
           );
+        }
         lockedAddons.set(addonId, addon);
       }
       for (const item of items) {
@@ -165,12 +230,14 @@ export class TransactionsService {
             ),
           )
           .for('share');
-        if (links.length !== item.addonIds.length)
+        if (links.length !== item.addonIds.length) {
           throw new BadRequestException(
             'Add-on is not linked to the selected product',
           );
+        }
       }
 
+      // 5. Calculate subtotals
       let subtotalCents = 0n;
       const calculated = items.map((item) => {
         const product = lockedProducts.get(item.productId)!;
@@ -184,43 +251,92 @@ export class TransactionsService {
         subtotalCents += itemCents;
         return { ...item, product, productPrice, itemCents };
       });
-      if (subtotalCents > 9999999999n)
+
+      if (subtotalCents > 9999999999n) {
         throw new BadRequestException(
           'Transaction amount exceeds the supported limit',
         );
-      const totalCents = subtotalCents;
-      let changeCents = 0n;
-      if (paymentMethod === 'CASH') {
-        if (paidCents < totalCents)
-          throw new BadRequestException(
-            'paidAmount must cover the transaction total',
-          );
-        changeCents = paidCents - totalCents;
-      } else if (paidCents !== totalCents) {
+      }
+
+      const discountCents = input.discountAmount
+        ? moneyToCents(input.discountAmount)
+        : 0n;
+
+      if (discountCents > subtotalCents) {
         throw new BadRequestException(
-          'QRIS paidAmount must equal the transaction total',
+          'discountAmount cannot exceed subtotalAmount',
         );
       }
 
+      const totalCents = subtotalCents - discountCents;
+      let changeCents = 0n;
+
+      if (paymentMethod === 'CASH') {
+        if (paidCents < totalCents) {
+          throw new BadRequestException({
+            statusCode: 400,
+            error: 'Bad Request',
+            message: 'paidAmount must cover the transaction total',
+            code: 'PAYMENT_INSUFFICIENT',
+          });
+        }
+        changeCents = paidCents - totalCents;
+      } else if (paidCents !== totalCents) {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'QRIS paidAmount must equal the transaction total',
+          code: 'PAYMENT_INSUFFICIENT',
+        });
+      }
+
+      // 6. Deduct display inventory atomically
       const sales = calculated.map(({ productId, quantity }) => ({
         productId,
         quantity,
       }));
       await this.inventoryService.deductForSale(tx, sales);
 
-      const counterRows =
-        await tx.execute(sql`INSERT INTO transaction_counters (business_date, last_value)
+      // 7. Device prefix and transaction sequence (Issue #61)
+      let deviceCode = 'D13';
+      if (deviceCodeHeader) {
+        deviceCode = deviceCodeHeader.toUpperCase().trim();
+      } else if (input.deviceId || deviceIdHeader) {
+        const targetDeviceId = input.deviceId || deviceIdHeader;
+        if (targetDeviceId) {
+          const [device] = await tx
+            .select({ code: devices.code })
+            .from(devices)
+            .where(eq(devices.id, targetDeviceId))
+            .limit(1);
+          if (device?.code) deviceCode = device.code.toUpperCase();
+        }
+      }
+
+      const businessDate = getWibBusinessDate(new Date()).replaceAll('-', '');
+      const counterRows = await tx.execute(sql`
+        INSERT INTO transaction_counters (business_date, last_value)
         VALUES ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date, 1)
         ON CONFLICT (business_date) DO UPDATE SET last_value = transaction_counters.last_value + 1
-        RETURNING business_date::text AS business_date, last_value`);
+        RETURNING business_date::text AS business_date, last_value
+      `);
       const counter = counterRows[0] as
         { business_date: string; last_value: number } | undefined;
-      if (!counter)
+      if (!counter) {
         throw new ConflictException(
           'Transaction number could not be allocated',
         );
-      const date = counter.business_date.replaceAll('-', '');
-      const transactionNumber = `D13-${date}-${String(counter.last_value).padStart(4, '0')}`;
+      }
+
+      const seq = String(counter.last_value).padStart(4, '0');
+      const transactionNumber =
+        input.receiptNumber || `${deviceCode}-${businessDate}-${seq}`;
+      const queueNumber =
+        input.queueNumber !== undefined
+          ? String(input.queueNumber)
+          : `${deviceCode}-${String(counter.last_value).padStart(3, '0')}`;
+
+      // 8. Insert transaction record
       const [transaction] = await tx
         .insert(transactions)
         .values({
@@ -228,7 +344,8 @@ export class TransactionsService {
           shiftId: shift.id,
           userId: actor.id,
           subtotalAmount: centsToMoney(subtotalCents),
-          discountAmount: '0.00',
+          discountAmount: centsToMoney(discountCents),
+          discountReason: input.discountReason,
           totalAmount: centsToMoney(totalCents),
           paymentMethod,
           paidAmount: centsToMoney(paidCents),
@@ -236,8 +353,11 @@ export class TransactionsService {
           status: 'COMPLETED',
         })
         .returning();
-      if (!transaction)
+
+      if (!transaction) {
         throw new ConflictException('Transaction could not be created');
+      }
+
       await this.auditLogs?.record(
         {
           userId: actor.id,
@@ -245,11 +365,17 @@ export class TransactionsService {
           entityType: 'TRANSACTION',
           entityId: transaction.id,
           description: `Transaction ${transactionNumber} created`,
-          metadata: { paymentMethod, totalAmount: transaction.totalAmount },
+          metadata: {
+            paymentMethod,
+            totalAmount: transaction.totalAmount,
+            deviceCode,
+            queueNumber,
+          },
         },
         tx,
       );
 
+      // 9. Insert items and addons
       for (const item of calculated) {
         const [savedItem] = await tx
           .insert(transactionItems)
@@ -262,6 +388,7 @@ export class TransactionsService {
             subtotalAmount: centsToMoney(item.itemCents),
           })
           .returning({ id: transactionItems.id });
+
         for (const addonId of item.addonIds) {
           const addon = lockedAddons.get(addonId)!;
           await tx.insert(transactionItemAddons).values({
@@ -273,12 +400,14 @@ export class TransactionsService {
           });
         }
       }
+
       await this.inventoryService.recordSaleMovements(
         tx,
         sales,
         actor.id,
         transaction.id,
       );
+
       await tx.insert(transactionAuditLogs).values([
         {
           transactionId: transaction.id,
@@ -291,17 +420,24 @@ export class TransactionsService {
           event: 'INVENTORY_SALE_DEDUCTED',
         },
       ]);
+
       const response = {
         id: transaction.id,
         transactionNumber,
+        receiptNo: transactionNumber,
+        queueNo: queueNumber,
+        queueNumber,
         subtotalAmount: centsToMoney(subtotalCents),
-        discountAmount: '0.00',
+        discountAmount: centsToMoney(discountCents),
+        discountReason: input.discountReason,
         totalAmount: centsToMoney(totalCents),
         paymentMethod,
         paidAmount: centsToMoney(paidCents),
         changeAmount: centsToMoney(changeCents),
-        status: 'COMPLETED',
+        status: 'COMPLETED' as const,
+        createdAt: transaction.createdAt,
       };
+
       await tx
         .update(idempotencyKeys)
         .set({
@@ -310,6 +446,7 @@ export class TransactionsService {
           resourceId: transaction.id,
         })
         .where(eq(idempotencyKeys.id, insertedKey.id));
+
       return response;
     });
   }
@@ -393,8 +530,9 @@ export class TransactionsService {
     if (
       !roleHasPermission(actor.role, PERMISSIONS.transactionsReadAll) &&
       transaction.transaction.userId !== actor.id
-    )
+    ) {
       throw new NotFoundException('Transaction not found');
+    }
     const items = await this.database.db
       .select()
       .from(transactionItems)
@@ -421,38 +559,74 @@ export class TransactionsService {
   }
 
   async void(id: string, reason: string, actor: AuthenticatedUser) {
-    const normalizedReason = reason.trim();
-    if (normalizedReason.length < 1 || normalizedReason.length > 255)
-      throw new BadRequestException(
-        'reason must be 1 to 255 characters after trimming',
-      );
+    const normalizedReason = reason ? reason.trim() : '';
+    if (!normalizedReason || normalizedReason.length > 255) {
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'reason must be 1 to 255 characters after trimming',
+        code: 'VOID_NOT_ALLOWED',
+      });
+    }
+
     return this.database.db.transaction(async (tx) => {
       const [initial] = await tx
-        .select({ shiftId: transactions.shiftId })
+        .select({ shiftId: transactions.shiftId, userId: transactions.userId })
         .from(transactions)
         .where(eq(transactions.id, id));
       if (!initial) throw new NotFoundException('Transaction not found');
+
       const [shift] = await tx
         .select()
         .from(shifts)
         .where(eq(shifts.id, initial.shiftId))
         .for('update');
       if (!shift) throw new NotFoundException('Shift not found');
-      if (shift.closedAt)
-        throw new ConflictException(
-          'Transactions on closed shifts cannot be voided',
-        );
+
+      if (shift.closedAt) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'Transactions on closed shifts cannot be voided',
+          code: 'VOID_NOT_ALLOWED',
+        });
+      }
+
+      // Cashier can only void in own active shift (unless supervisor with void permission)
+      if (
+        actor.role === 'CASHIER' &&
+        shift.userId !== actor.id &&
+        !roleHasPermission(actor.role, PERMISSIONS.transactionsVoid)
+      ) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          error: 'Forbidden',
+          message:
+            'You can only void transactions created in your own active shift',
+          code: 'VOID_NOT_ALLOWED',
+        });
+      }
+
       const [transaction] = await tx
         .select()
         .from(transactions)
         .where(eq(transactions.id, id))
         .for('update');
-      if (!transaction || transaction.status !== 'COMPLETED')
-        throw new ConflictException('Transaction is already voided');
+
+      if (!transaction || transaction.status !== 'COMPLETED') {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'Transaction is already voided',
+          code: 'VOID_NOT_ALLOWED',
+        });
+      }
+
       const rows = await tx
         .select()
         .from(transactionItems)
         .where(eq(transactionItems.transactionId, id));
+
       const [voided] = await tx
         .update(transactions)
         .set({
@@ -465,24 +639,28 @@ export class TransactionsService {
           and(eq(transactions.id, id), eq(transactions.status, 'COMPLETED')),
         )
         .returning();
+
       if (!voided) throw new ConflictException('Transaction is already voided');
+
       await this.auditLogs?.record(
         {
           userId: actor.id,
           action: 'TRANSACTION_VOIDED',
           entityType: 'TRANSACTION',
           entityId: id,
-          description: `Transaction ${transaction.transactionNumber} voided`,
-          metadata: { reason: normalizedReason },
+          description: `Transaction ${transaction.transactionNumber} voided: ${normalizedReason}`,
+          metadata: { reason: normalizedReason, shiftId: shift.id },
         },
         tx,
       );
+
       await this.inventoryService.returnForVoid(
         tx,
         rows.map(({ productId, quantity }) => ({ productId, quantity })),
         actor.id,
         id,
       );
+
       await tx.insert(transactionAuditLogs).values([
         { transactionId: id, userId: actor.id, event: 'TRANSACTION_VOIDED' },
         {
@@ -491,6 +669,7 @@ export class TransactionsService {
           event: 'INVENTORY_VOID_RETURNED',
         },
       ]);
+
       return voided;
     });
   }
@@ -501,24 +680,27 @@ function normalizeItems(
 ): NormalizedItem[] {
   const grouped = new Map<string, NormalizedItem>();
   for (const item of input) {
-    const addonIds = [...item.addonIds].sort();
+    const addonIds = [...(item.addonIds || [])].sort();
     const previous = grouped.get(item.productId);
-    if (previous && previous.addonIds.join(',') !== addonIds.join(','))
+    if (previous && previous.addonIds.join(',') !== addonIds.join(',')) {
       throw new BadRequestException(
         'Repeated products must use the same add-ons',
       );
+    }
     if (previous) {
       previous.quantity += item.quantity;
-      if (previous.quantity > 2147483647)
+      if (previous.quantity > 2147483647) {
         throw new BadRequestException(
           'Combined product quantity exceeds the supported limit',
         );
-    } else
+      }
+    } else {
       grouped.set(item.productId, {
         productId: item.productId,
         quantity: item.quantity,
         addonIds,
       });
+    }
   }
   return [...grouped.values()].sort((a, b) =>
     a.productId.localeCompare(b.productId),
@@ -528,10 +710,11 @@ function normalizeItems(
 function moneyToCents(value: string): bigint {
   const [whole, fraction = ''] = value.split('.');
   const cents = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
-  if (cents < 0n || cents > 9999999999n)
+  if (cents < 0n || cents > 9999999999n) {
     throw new BadRequestException(
       'Money amount is outside the supported range',
     );
+  }
   return cents;
 }
 

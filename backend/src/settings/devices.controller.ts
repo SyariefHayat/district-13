@@ -2,10 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -31,6 +33,44 @@ export class DevicesController {
   )
   listDevices() {
     return this.settingsService.listDevices();
+  }
+
+  @Get('me/counters')
+  @AnyPermissions(
+    PERMISSIONS.storeSettingsRead,
+    PERMISSIONS.storeSettingsUpdate,
+    PERMISSIONS.transactionsCreate,
+    PERMISSIONS.shiftsOpen,
+  )
+  async getMyDeviceCounters(
+    @Headers('x-device-id') deviceIdHeader?: string,
+    @Headers('x-device-code') deviceCodeHeader?: string,
+    @Query('deviceId') deviceIdQuery?: string,
+    @Query('date') dateQuery?: string,
+  ) {
+    const deviceId = deviceIdHeader || deviceIdQuery;
+    if (deviceId) {
+      return this.settingsService.getDeviceCounters(deviceId, dateQuery);
+    }
+    if (deviceCodeHeader) {
+      const devicesList = await this.settingsService.listDevices();
+      const dev = devicesList.find((d) => d.code === deviceCodeHeader);
+      if (dev) {
+        return this.settingsService.getDeviceCounters(dev.id, dateQuery);
+      }
+    }
+    const devicesList = await this.settingsService.listDevices();
+    const active = devicesList.find((d) => d.isActive) || devicesList[0];
+    if (active) {
+      return this.settingsService.getDeviceCounters(active.id, dateQuery);
+    }
+    return {
+      deviceId: null,
+      deviceCode: 'POS1',
+      businessDate: new Date().toISOString().slice(0, 10),
+      lastNo: 0,
+      queueEpoch: 0,
+    };
   }
 
   @Get(':id')

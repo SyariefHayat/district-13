@@ -23,7 +23,7 @@ import { ListTransactionsDto } from './dto/list-transactions.dto.js';
 import { VoidTransactionDto } from './dto/void-transaction.dto.js';
 import { TransactionsService } from './transactions.service.js';
 
-@Controller('transactions')
+@Controller(['sales', 'transactions'])
 @UsePipes(
   new ValidationPipe({
     transform: true,
@@ -39,11 +39,19 @@ export class TransactionsController {
   create(
     @Body() body: CreateTransactionDto,
     @CurrentUser() actor: AuthenticatedUser,
-    @Headers('idempotency-key') key: string | undefined,
+    @Headers('idempotency-key') key?: string,
+    @Headers('x-device-id') deviceIdHeader?: string,
+    @Headers('x-device-code') deviceCodeHeader?: string,
   ) {
-    if (!key || !isUuid(key))
+    if (key && !isUuid(key))
       throw new BadRequestException('Idempotency-Key must be a UUID');
-    return this.transactionsService.create(body, actor, key);
+    return this.transactionsService.create(
+      body,
+      actor,
+      key,
+      deviceIdHeader,
+      deviceCodeHeader,
+    );
   }
 
   @Get()

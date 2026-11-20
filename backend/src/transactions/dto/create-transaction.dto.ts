@@ -4,6 +4,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsOptional,
   Max,
   IsString,
   IsUUID,
@@ -41,4 +42,28 @@ export class CreateTransactionDto {
   @IsString()
   @Matches(/^\d{1,8}(?:\.\d{1,2})?$/)
   paidAmount!: string;
+
+  @IsOptional()
+  @IsUUID()
+  discountId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,8}(?:\.\d{1,2})?$/)
+  discountAmount?: string;
+
+  @IsOptional()
+  @IsString()
+  discountReason?: string;
+
+  @IsOptional()
+  @IsUUID()
+  deviceId?: string;
+
+  @IsOptional()
+  @IsString()
+  receiptNumber?: string;
+
+  @IsOptional()
+  queueNumber?: number | string;
 }
