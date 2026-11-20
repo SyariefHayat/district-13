@@ -14,6 +14,8 @@ export function getWibBusinessDate(date: Date | string = new Date()): string {
   }).format(dateObj);
 }
 
+export const businessDate = getWibBusinessDate;
+
 export function formatWibDate(
   date: Date | string | number,
   options?: Intl.DateTimeFormatOptions,

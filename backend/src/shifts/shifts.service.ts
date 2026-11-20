@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -28,12 +29,15 @@ import {
   cashMovements,
   shifts,
   transactions,
+  users,
 } from '../drizzle/schema/index.js';
 import type { CloseShiftDto } from './dto/close-shift.dto.js';
 import type { CreateCashMovementDto } from './dto/create-cash-movement.dto.js';
+import type { UpdateCashMovementDto } from './dto/update-cash-movement.dto.js';
 import type { OpenShiftDto } from './dto/open-shift.dto.js';
 import type { ListShiftsDto } from './dto/list-shifts.dto.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
+import { businessDate } from '../common/utils/formatters.js';
 
 @Injectable()
 export class ShiftsService {
@@ -48,6 +52,22 @@ export class ShiftsService {
     }
     try {
       const create = async (tx: typeof this.database.db) => {
+        // Enforce store-wide single active shift rule (SHF-002: serah terima berurutan: kasir kedua tidak bisa membuka shift sebelum yang pertama tutup)
+        const [existingActive] = await tx
+          .select({ id: shifts.id, userId: shifts.userId })
+          .from(shifts)
+          .where(isNull(shifts.closedAt))
+          .limit(1);
+
+        if (existingActive) {
+          throw new ConflictException({
+            statusCode: 409,
+            error: 'Conflict',
+            message: 'A shift is already open. Close the active shift first.',
+            code: 'SHIFT_ALREADY_OPEN',
+          });
+        }
+
         const [created] = await tx
           .insert(shifts)
           .values({ userId: actor.id, openingCash: input.openingCash })
@@ -73,21 +93,99 @@ export class ShiftsService {
       return shift;
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ConflictException(
-          'An active shift already exists for this user',
-        );
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'An active shift already exists',
+          code: 'SHIFT_ALREADY_OPEN',
+        });
       }
       throw error;
     }
   }
 
   async getCurrent(actor: AuthenticatedUser) {
+    const condition =
+      actor.role === 'CASHIER'
+        ? and(eq(shifts.userId, actor.id), isNull(shifts.closedAt))
+        : isNull(shifts.closedAt);
+
     const [shift] = await this.database.db
-      .select()
+      .select({
+        id: shifts.id,
+        userId: shifts.userId,
+        openingCash: shifts.openingCash,
+        expectedCash: shifts.expectedCash,
+        closingCash: shifts.closingCash,
+        cashDifference: shifts.cashDifference,
+        openedAt: shifts.openedAt,
+        closedAt: shifts.closedAt,
+        closedBy: shifts.closedBy,
+        user: {
+          id: users.id,
+          username: users.username,
+          fullName: users.fullName,
+          role: users.role,
+        },
+      })
       .from(shifts)
-      .where(and(eq(shifts.userId, actor.id), isNull(shifts.closedAt)))
+      .leftJoin(users, eq(shifts.userId, users.id))
+      .where(condition)
       .limit(1);
-    return shift ?? null;
+
+    if (!shift) return null;
+
+    const openedAtDate = new Date(shift.openedAt);
+    const now = new Date();
+    const durationMs = now.getTime() - openedAtDate.getTime();
+    const durationHours = Math.max(0, durationMs / (1000 * 60 * 60));
+    const durationMinutes = Math.max(0, Math.floor(durationMs / (1000 * 60)));
+    // Peringatan shift > 10 jam (SHF-012)
+    const longOpen = durationHours >= 10;
+
+    return {
+      ...shift,
+      longOpen,
+      durationHours: Number(durationHours.toFixed(2)),
+      durationMinutes,
+      businessDate: businessDate(openedAtDate),
+      currentBusinessDate: businessDate(now),
+    };
+  }
+
+  async getById(id: string, actor: AuthenticatedUser) {
+    const [shift] = await this.database.db
+      .select({
+        id: shifts.id,
+        userId: shifts.userId,
+        openingCash: shifts.openingCash,
+        expectedCash: shifts.expectedCash,
+        closingCash: shifts.closingCash,
+        cashDifference: shifts.cashDifference,
+        openedAt: shifts.openedAt,
+        closedAt: shifts.closedAt,
+        closedBy: shifts.closedBy,
+        user: {
+          id: users.id,
+          username: users.username,
+          fullName: users.fullName,
+          role: users.role,
+        },
+      })
+      .from(shifts)
+      .leftJoin(users, eq(shifts.userId, users.id))
+      .where(eq(shifts.id, id))
+      .limit(1);
+
+    if (!shift) throw new NotFoundException('Shift not found');
+    if (
+      !roleHasPermission(actor.role, PERMISSIONS.shiftsReadAll) &&
+      shift.userId !== actor.id
+    ) {
+      throw new ForbiddenException('Cashiers can only view their own shifts');
+    }
+
+    return shift;
   }
 
   async list(query: ListShiftsDto, actor: AuthenticatedUser) {
@@ -132,6 +230,78 @@ export class ShiftsService {
       this.database.db.select({ total: count() }).from(shifts).where(filter),
     ]);
     return { data, page, limit, total: Number(total.total) };
+  }
+
+  async getClosingPreview(id: string, actor: AuthenticatedUser) {
+    const [shift] = await this.database.db
+      .select({
+        id: shifts.id,
+        userId: shifts.userId,
+        openingCash: shifts.openingCash,
+        openedAt: shifts.openedAt,
+        closedAt: shifts.closedAt,
+      })
+      .from(shifts)
+      .where(eq(shifts.id, id))
+      .limit(1);
+
+    if (!shift) throw new NotFoundException('Shift not found');
+    const canCloseAny = roleHasPermission(
+      actor.role,
+      PERMISSIONS.shiftsCloseAny,
+    );
+    const canCloseOwn = roleHasPermission(
+      actor.role,
+      PERMISSIONS.shiftsCloseOwn,
+    );
+    if (
+      (!canCloseAny && !canCloseOwn) ||
+      (!canCloseAny && shift.userId !== actor.id)
+    ) {
+      throw new ForbiddenException('You cannot preview closing for this shift');
+    }
+
+    const [totals] = await this.database.db
+      .select({
+        cashSales: sql<string>`coalesce((
+          select sum(${transactions.totalAmount}) from ${transactions}
+          where ${transactions.shiftId} = ${shifts.id}
+            and ${transactions.status} = 'COMPLETED'
+            and ${transactions.paymentMethod} = 'CASH'
+        ), 0)::numeric(10, 2)`,
+        cashIn: sql<string>`coalesce((
+          select sum(${cashMovements.amount}) from ${cashMovements}
+          where ${cashMovements.shiftId} = ${shifts.id}
+            and ${cashMovements.type} = 'IN'
+        ), 0)::numeric(10, 2)`,
+        cashOut: sql<string>`coalesce((
+          select sum(${cashMovements.amount}) from ${cashMovements}
+          where ${cashMovements.shiftId} = ${shifts.id}
+            and ${cashMovements.type} = 'OUT'
+        ), 0)::numeric(10, 2)`,
+        expectedCash: sql<string>`(
+          ${shifts.openingCash}
+          + coalesce((select sum(${transactions.totalAmount}) from ${transactions}
+              where ${transactions.shiftId} = ${shifts.id}
+                and ${transactions.status} = 'COMPLETED'
+                and ${transactions.paymentMethod} = 'CASH'), 0)
+          + coalesce((select sum(case when ${cashMovements.type} = 'IN'
+              then ${cashMovements.amount} else -${cashMovements.amount} end)
+              from ${cashMovements} where ${cashMovements.shiftId} = ${shifts.id}), 0)
+        )::numeric(10, 2)`,
+      })
+      .from(shifts)
+      .where(eq(shifts.id, id))
+      .limit(1);
+
+    return {
+      shiftId: shift.id,
+      openingCash: shift.openingCash,
+      cashSales: totals?.cashSales ?? '0.00',
+      cashIn: totals?.cashIn ?? '0.00',
+      cashOut: totals?.cashOut ?? '0.00',
+      expectedCash: totals?.expectedCash ?? shift.openingCash,
+    };
   }
 
   async getSummary(id: string, actor: AuthenticatedUser) {
@@ -204,6 +374,15 @@ export class ShiftsService {
   }
 
   async close(id: string, input: CloseShiftDto, actor: AuthenticatedUser) {
+    if (input.hasActiveCart) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'Cannot close shift while a cart is active',
+        code: 'ACTIVE_CART_EXISTS',
+      });
+    }
+
     return this.database.db.transaction(async (tx) => {
       const [shift] = await tx
         .select()
@@ -228,6 +407,15 @@ export class ShiftsService {
       if (shift.closedAt)
         throw new ConflictException('Shift is already closed');
 
+      // If supervisor closing another cashier's shift, reason is mandatory
+      if (canCloseAny && shift.userId !== actor.id) {
+        if (!input.reason || input.reason.trim().length === 0) {
+          throw new BadRequestException(
+            "Reason is required when closing another user's shift",
+          );
+        }
+      }
+
       const [totals] = await tx
         .select({
           expectedCash: sql<string>`(${shifts.openingCash} + coalesce((select sum(${transactions.totalAmount}) from ${transactions} where ${transactions.shiftId} = ${shifts.id} and ${transactions.paymentMethod} = 'CASH' and ${transactions.status} = 'COMPLETED'), 0) + coalesce((select sum(case when ${cashMovements.type} = 'IN' then ${cashMovements.amount} else -${cashMovements.amount} end) from ${cashMovements} where ${cashMovements.shiftId} = ${shifts.id}), 0))::numeric(10, 2)`,
@@ -248,6 +436,18 @@ export class ShiftsService {
         .where(and(eq(shifts.id, id), isNull(shifts.closedAt)))
         .returning();
       if (!closedShift) throw new ConflictException('Shift is already closed');
+
+      // Record automatic closing cash withdrawal so drawer balance resets to Rp 0 (Kriteria 8 / SHF-006)
+      if (Number(input.closingCash) > 0) {
+        await tx.insert(cashMovements).values({
+          shiftId: shift.id,
+          recordedBy: actor.id,
+          type: 'OUT',
+          amount: input.closingCash,
+          description: 'Penarikan kas akhir penutupan shift',
+        });
+      }
+
       await this.auditLogs?.record(
         {
           userId: actor.id,
@@ -257,15 +457,20 @@ export class ShiftsService {
               : 'SHIFT_CLOSED',
           entityType: 'SHIFT',
           entityId: id,
-          description: 'Shift closed',
+          description:
+            canCloseAny && shift.userId !== actor.id
+              ? `Shift closed by supervisor: ${input.reason}`
+              : 'Shift closed',
           metadata: {
             expectedCash: totals.expectedCash,
             closingCash: input.closingCash,
             cashDifference: closedShift.cashDifference,
+            reason: input.reason,
           },
         },
         tx,
       );
+
       return {
         shiftId: closedShift.id,
         status: 'CLOSED' as const,
@@ -278,11 +483,47 @@ export class ShiftsService {
     });
   }
 
+  async getCashEntries(shiftId: string, actor: AuthenticatedUser) {
+    const [shift] = await this.database.db
+      .select({ id: shifts.id, userId: shifts.userId })
+      .from(shifts)
+      .where(eq(shifts.id, shiftId))
+      .limit(1);
+    if (!shift) throw new NotFoundException('Shift not found');
+
+    if (
+      !roleHasPermission(actor.role, PERMISSIONS.shiftsReadAll) &&
+      shift.userId !== actor.id
+    ) {
+      throw new ForbiddenException(
+        'You can only view cash entries for your own shift',
+      );
+    }
+
+    return this.database.db
+      .select({
+        id: cashMovements.id,
+        shiftId: cashMovements.shiftId,
+        recordedBy: cashMovements.recordedBy,
+        type: cashMovements.type,
+        amount: cashMovements.amount,
+        description: cashMovements.description,
+        createdAt: cashMovements.createdAt,
+      })
+      .from(cashMovements)
+      .where(eq(cashMovements.shiftId, shiftId))
+      .orderBy(asc(cashMovements.createdAt));
+  }
+
   async createCashMovement(
     id: string,
     input: CreateCashMovementDto,
     actor: AuthenticatedUser,
   ) {
+    if (!input.description || input.description.trim().length === 0) {
+      throw new BadRequestException('Alasan mutasi kas wajib diisi');
+    }
+
     return this.database.db.transaction(async (tx) => {
       const [shift] = await tx
         .select()
@@ -318,7 +559,7 @@ export class ShiftsService {
           recordedBy: actor.id,
           type: input.type,
           amount: input.amount,
-          description: input.description,
+          description: input.description.trim(),
         })
         .returning();
       if (movement)
@@ -331,12 +572,109 @@ export class ShiftsService {
                 : 'CASH_MOVEMENT_OUT_RECORDED',
             entityType: 'CASH_MOVEMENT',
             entityId: movement.id,
-            description: `Cash movement ${input.type} recorded`,
-            metadata: { shiftId: shift.id, amount: input.amount },
+            description: `Cash movement ${input.type} recorded: ${input.description.trim()}`,
+            metadata: {
+              shiftId: shift.id,
+              amount: input.amount,
+              description: input.description.trim(),
+            },
           },
           tx,
         );
       return movement;
+    });
+  }
+
+  async updateCashMovement(
+    id: string,
+    input: UpdateCashMovementDto,
+    actor: AuthenticatedUser,
+  ) {
+    if (!roleHasPermission(actor.role, PERMISSIONS.cashMovementsUpdate)) {
+      throw new ForbiddenException('Only owner can update cash movements');
+    }
+
+    return this.database.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(cashMovements)
+        .where(eq(cashMovements.id, id))
+        .for('update');
+      if (!existing) throw new NotFoundException('Cash movement not found');
+
+      const updateData: Partial<typeof cashMovements.$inferInsert> = {};
+      if (input.amount !== undefined) updateData.amount = input.amount;
+      if (input.description !== undefined) {
+        if (!input.description.trim()) {
+          throw new BadRequestException('Description cannot be empty');
+        }
+        updateData.description = input.description.trim();
+      }
+
+      const [updated] = await tx
+        .update(cashMovements)
+        .set(updateData)
+        .where(eq(cashMovements.id, id))
+        .returning();
+
+      await this.auditLogs?.record(
+        {
+          userId: actor.id,
+          action: 'CASH_MOVEMENT_UPDATED',
+          entityType: 'CASH_MOVEMENT',
+          entityId: id,
+          description: `Cash movement updated by owner`,
+          metadata: {
+            previous: {
+              amount: existing.amount,
+              description: existing.description,
+            },
+            updated: {
+              amount: updated.amount,
+              description: updated.description,
+            },
+          },
+        },
+        tx,
+      );
+
+      return updated;
+    });
+  }
+
+  async deleteCashMovement(id: string, actor: AuthenticatedUser) {
+    if (!roleHasPermission(actor.role, PERMISSIONS.cashMovementsDelete)) {
+      throw new ForbiddenException('Only owner can delete cash movements');
+    }
+
+    return this.database.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(cashMovements)
+        .where(eq(cashMovements.id, id))
+        .for('update');
+      if (!existing) throw new NotFoundException('Cash movement not found');
+
+      await tx.delete(cashMovements).where(eq(cashMovements.id, id));
+
+      await this.auditLogs?.record(
+        {
+          userId: actor.id,
+          action: 'CASH_MOVEMENT_DELETED',
+          entityType: 'CASH_MOVEMENT',
+          entityId: id,
+          description: `Cash movement deleted by owner`,
+          metadata: {
+            shiftId: existing.shiftId,
+            amount: existing.amount,
+            type: existing.type,
+            description: existing.description,
+          },
+        },
+        tx,
+      );
+
+      return { success: true, message: 'Cash movement deleted' };
     });
   }
 }
@@ -358,7 +696,8 @@ function isUniqueViolation(error: unknown): boolean {
       'code' in current &&
       current.code === '23505' &&
       'constraint' in current &&
-      current.constraint === 'shifts_one_active_per_user'
+      (current.constraint === 'shifts_one_active_per_user' ||
+        current.constraint === 'shifts_one_active_shift')
     ) {
       return true;
     }

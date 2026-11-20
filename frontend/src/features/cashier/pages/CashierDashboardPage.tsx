@@ -106,6 +106,27 @@ export default function CashierDashboardPage() {
         onCashMovementClick={() => setCashMovementOpen(true)}
       />
 
+      {/* Peringatan Shift > 10 Jam (SHF-012) */}
+      {currentShift?.longOpen && (
+        <div className="mx-4 md:mx-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <IconAlertCircle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>Peringatan Durasi Shift:</strong> Shift ini telah aktif
+              selama {currentShift.durationHours} jam (&ge; 10 jam). Harap
+              segera lakukan rekonsiliasi dan penutupan shift kasir.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCloseShiftOpen(true)}
+            className="underline font-semibold text-xs ml-2 hover:opacity-80 shrink-0"
+          >
+            Tutup Shift Sekarang
+          </button>
+        </div>
+      )}
+
       {/* Error Notice */}
       {error && (
         <div className="mx-4 md:mx-6 rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-destructive flex items-center gap-2 text-xs">

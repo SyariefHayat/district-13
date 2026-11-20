@@ -8,6 +8,11 @@ export interface CashierShift {
   openedAt: string;
   closedAt?: string | null;
   closedBy?: string | null;
+  longOpen?: boolean;
+  durationHours?: number;
+  durationMinutes?: number;
+  businessDate?: string;
+  currentBusinessDate?: string;
 }
 
 export interface CashierShiftSummary {

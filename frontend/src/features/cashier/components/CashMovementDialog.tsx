@@ -51,10 +51,10 @@ export function CashMovementDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting || numericAmount <= 0) return;
+    if (isSubmitting || numericAmount <= 0 || !description.trim()) return;
 
     setIsSubmitting(true);
-    const success = await onConfirm(type, amount, description);
+    const success = await onConfirm(type, amount, description.trim());
     setIsSubmitting(false);
     if (success) {
       onOpenChange(false);
@@ -150,7 +150,7 @@ export function CashMovementDialog({
           {/* Reason / Notes */}
           <div className="flex flex-col gap-2">
             <Label htmlFor="movement-notes" className="text-sm font-medium">
-              Keterangan / Keperluan (Opsional)
+              Alasan / Keperluan <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="movement-notes"
@@ -163,6 +163,7 @@ export function CashMovementDialog({
               }
               rows={2}
               className="resize-none text-xs"
+              required
             />
           </div>
 

@@ -19,6 +19,7 @@ import {
   roleHasPermission,
 } from '../auth/permissions/permissions.js';
 import { ShiftsController } from './shifts.controller.js';
+import { CashEntriesController } from './cash-entries.controller.js';
 
 function methodMetadata(key: string, method: keyof ShiftsController) {
   const handler = Object.getOwnPropertyDescriptor(
@@ -28,9 +29,23 @@ function methodMetadata(key: string, method: keyof ShiftsController) {
   return Reflect.getMetadata(key, handler);
 }
 
+function cashEntriesMethodMetadata(
+  key: string,
+  method: keyof CashEntriesController,
+) {
+  const handler = Object.getOwnPropertyDescriptor(
+    CashEntriesController.prototype,
+    method,
+  )?.value;
+  return Reflect.getMetadata(key, handler);
+}
+
 describe('ShiftsController authorization', () => {
   it('requires opening permission and permits only owner/admin to read all shifts', () => {
     expect(methodMetadata(PERMISSIONS_KEY, 'open')).toEqual([
+      PERMISSIONS.shiftsOpen,
+    ]);
+    expect(methodMetadata(PERMISSIONS_KEY, 'create')).toEqual([
       PERMISSIONS.shiftsOpen,
     ]);
     expect(methodMetadata(ANY_PERMISSIONS_KEY, 'list')).toEqual([
@@ -54,9 +69,50 @@ describe('ShiftsController authorization', () => {
       PERMISSIONS.cashMovementsCreateOwn,
       PERMISSIONS.cashMovementsCreateAny,
     ]);
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'createCashEntry')).toEqual([
+      PERMISSIONS.cashMovementsCreateOwn,
+      PERMISSIONS.cashMovementsCreateAny,
+    ]);
     expect(methodMetadata(ANY_PERMISSIONS_KEY, 'getSummary')).toEqual([
       PERMISSIONS.shiftsReadOwn,
       PERMISSIONS.shiftsReadAll,
     ]);
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'getCashEntries')).toEqual([
+      PERMISSIONS.shiftsReadOwn,
+      PERMISSIONS.shiftsReadAll,
+    ]);
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'getClosingPreview')).toEqual([
+      PERMISSIONS.shiftsCloseOwn,
+      PERMISSIONS.shiftsCloseAny,
+      PERMISSIONS.shiftsReadOwn,
+      PERMISSIONS.shiftsReadAll,
+    ]);
+  });
+
+  it('restricts cash entries update and delete to Owner only', () => {
+    expect(cashEntriesMethodMetadata(PERMISSIONS_KEY, 'update')).toEqual([
+      PERMISSIONS.cashMovementsUpdate,
+    ]);
+    expect(cashEntriesMethodMetadata(PERMISSIONS_KEY, 'delete')).toEqual([
+      PERMISSIONS.cashMovementsDelete,
+    ]);
+    expect(roleHasPermission('OWNER', PERMISSIONS.cashMovementsUpdate)).toBe(
+      true,
+    );
+    expect(roleHasPermission('OWNER', PERMISSIONS.cashMovementsDelete)).toBe(
+      true,
+    );
+    expect(roleHasPermission('ADMIN', PERMISSIONS.cashMovementsUpdate)).toBe(
+      false,
+    );
+    expect(roleHasPermission('ADMIN', PERMISSIONS.cashMovementsDelete)).toBe(
+      false,
+    );
+    expect(roleHasPermission('CASHIER', PERMISSIONS.cashMovementsUpdate)).toBe(
+      false,
+    );
+    expect(roleHasPermission('CASHIER', PERMISSIONS.cashMovementsDelete)).toBe(
+      false,
+    );
   });
 });
