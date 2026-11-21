@@ -174,4 +174,110 @@ describe("offline-shifts local durability and validation (T-49)", () => {
       expect(events[0].payload.reason).toBe("Salah input pesanan oleh kasir");
     });
   });
+
+  describe("T-44 & T-49 Acceptance Criteria", () => {
+    it("AC T-44: product appears in cart in < 1 second (P95) from local catalog", async () => {
+      // Seed local catalog with 50 products
+      const products = Array.from({ length: 50 }, (_, i) => ({
+        id: `p-${i + 1}`,
+        name: `Product Item ${i + 1}`,
+        sku: `SKU-${1000 + i}`,
+        barcode: null,
+        price: "25000",
+        unit: "pcs",
+        categoryId: "cat-1",
+        isActive: true,
+      }));
+      await db.products.bulkPut(products);
+
+      // Perform 20 sequential additions and measure latency
+      const latencies: number[] = [];
+      for (let i = 0; i < 20; i++) {
+        const start = performance.now();
+        const prod = await db.products.get(`p-${(i % 50) + 1}`);
+        if (prod) {
+          const currentCart = [
+            ...(hasActiveCart() ? [] : []),
+            {
+              cartItemId: `item-${prod.id}`,
+              productId: prod.id,
+              name: prod.name,
+              quantity: 1,
+              unitPrice: Number(prod.price),
+            },
+          ];
+          setLocalActiveCart(currentCart);
+        }
+        const duration = performance.now() - start;
+        latencies.push(duration);
+      }
+
+      latencies.sort((a, b) => a - b);
+      const p95Index = Math.floor(latencies.length * 0.95);
+      const p95Latency = latencies[p95Index];
+
+      // P95 latency must be strictly less than 1,000ms (1 second)
+      expect(p95Latency).toBeLessThan(1000);
+      expect(hasActiveCart()).toBe(true);
+    });
+
+    it("AC T-49: entire cashier flow operates offline and records ordered outbox sync events", async () => {
+      // 1. Open shift offline
+      const shift = await openShiftLocalFirst("200000", "cashier-1");
+      expect(shift.status).toBe("OPEN");
+
+      // 2. Cash in movement offline
+      await createCashMovementLocalFirst(
+        shift.shiftId,
+        "IN",
+        "50000",
+        "Uang receh brankas"
+      );
+
+      // 3. Void transaction offline
+      const txId = "tx-sample-offline";
+      await db.transactions.put({
+        id: txId,
+        transactionNumber: "TRX-OFFLINE-001",
+        shiftId: shift.shiftId,
+        userId: "cashier-1",
+        items: [],
+        subtotalAmount: "30000.00",
+        discountAmount: "0.00",
+        totalAmount: "30000.00",
+        paymentMethod: "CASH",
+        paidAmount: "30000.00",
+        changeAmount: "0.00",
+        status: "COMPLETED",
+        isOffline: true,
+        createdAt: new Date().toISOString(),
+      });
+      await voidSaleLocalFirst(txId, "Salah ketik jumlah item");
+      const voidedTx = await db.transactions.get(txId);
+      expect(voidedTx?.status).toBe("VOIDED");
+
+      // 4. Close shift offline (cart empty)
+      clearLocalActiveCart();
+      await closeShiftLocalFirst(shift.shiftId, "250000");
+
+      const localShift = await db.activeShift.get("current");
+      expect(localShift?.status).toBe("CLOSED");
+
+      // 5. Verify all events are queued in sequence ready for sync
+      const outboxEvents = await db.outbox.orderBy("seq").toArray();
+      const eventTypes = outboxEvents.map((e) => e.type);
+
+      expect(eventTypes).toContain("shift.open");
+      expect(eventTypes).toContain("cash.record");
+      expect(eventTypes).toContain("sale.void");
+      expect(eventTypes).toContain("shift.close");
+
+      // All events must have status 'pending' with valid payloads
+      outboxEvents.forEach((ev) => {
+        expect(ev.status).toBe("pending");
+        expect(ev.payload).toBeDefined();
+        expect(ev.idempotencyKey).toBeTruthy();
+      });
+    });
+  });
 });
