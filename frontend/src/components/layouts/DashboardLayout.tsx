@@ -6,10 +6,24 @@ import { SessionLockModal } from "@/features/auth";
 
 import { AppSidebar } from "../modules/dashboard/AppSidebar";
 import { SiteHeader } from "../modules/dashboard/SiteHeader";
+import { OfflineBanner } from "../OfflineBanner";
+import { OfflineNotAllowedPage } from "../OfflineNotAllowedPage";
+import { useConnectivity } from "@/context/connectivity-context";
 
 export default function DashboardLayout() {
   const { user, logout, lockSession } = useAuth();
   const { pathname } = useLocation();
+  const { isOffline } = useConnectivity();
+
+  const isOnlineOnlyRoute =
+    pathname.startsWith("/dashboard/products") ||
+    pathname.startsWith("/dashboard/warehouse") ||
+    pathname.startsWith("/dashboard/users") ||
+    pathname.startsWith("/dashboard/reports") ||
+    pathname.startsWith("/dashboard/settings") ||
+    pathname.startsWith("/dashboard/discounts") ||
+    pathname.startsWith("/dashboard/addons") ||
+    pathname.startsWith("/dashboard/payments");
 
   React.useEffect(() => {
     window.scrollTo(0, 0);
@@ -38,9 +52,14 @@ export default function DashboardLayout() {
             onLockSession: () => lockSession(),
           }}
         />
+        <OfflineBanner />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <Outlet />
+            {isOffline && isOnlineOnlyRoute ? (
+              <OfflineNotAllowedPage />
+            ) : (
+              <Outlet />
+            )}
           </div>
         </div>
       </SidebarInset>

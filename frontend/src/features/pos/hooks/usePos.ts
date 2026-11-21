@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/context/auth-context";
+import { db } from "@/lib/db";
+import { connectivity } from "@/lib/connectivity";
+import { createSaleLocalFirst } from "@/lib/offline-sales";
+import { syncOutbox } from "@/lib/outbox-sync";
 import type {
   PosProductItem,
   PosAddon,
@@ -49,6 +53,74 @@ export function usePos() {
     abortRef.current = controller;
 
     try {
+      if (connectivity.isOffline) {
+        // Load from Dexie IndexedDB in offline mode
+        const localProducts = await db.products.toArray();
+        const localStock = await db.stock.toArray();
+        const stockMap = new Map(
+          localStock.map((s) => [s.productId, s.displayStock])
+        );
+
+        if (localProducts.length > 0) {
+          setProducts(
+            localProducts.map((p) => ({
+              id: p.id,
+              name: p.name,
+              sku: p.sku || "",
+              price: Number(p.price || 0),
+              categoryName: "Umum",
+              categoryId: p.categoryId,
+              displayStock: stockMap.get(p.id) ?? 0,
+              stock: stockMap.get(p.id) ?? 0,
+              isAvailable: (stockMap.get(p.id) ?? 0) > 0,
+              isActive: p.isActive,
+              images: [],
+              addons: [],
+            }))
+          );
+        }
+
+        const localCats = await db.categories.toArray();
+        if (localCats.length > 0) {
+          setCategories(["Semua Kategori", ...localCats.map((c) => c.name)]);
+        }
+
+        const localDiscs = await db.discounts.toArray();
+        if (localDiscs.length > 0) {
+          setDiscounts(
+            localDiscs.map((d) => ({
+              id: d.id,
+              name: d.name,
+              code: d.name,
+              type: d.type === "nominal" ? "fixed" : "percentage",
+              applyMode: "manual",
+              value: Number(d.value || 0),
+              minPurchase: Number(d.minPurchase || 0),
+              maxDiscount: d.maxDiscount ? Number(d.maxDiscount) : null,
+              isActive: d.isActive,
+            }))
+          );
+        }
+
+        const localShift = await db.activeShift.toArray();
+        if (localShift.length > 0 && localShift[0].status === "OPEN") {
+          setCurrentShift({
+            id: localShift[0].shiftId,
+            userId: localShift[0].userId,
+            cashierName: user?.username || "Kasir",
+            openingCash: Number(localShift[0].startingCash || 0),
+            openedAt: localShift[0].openedAt,
+            closedAt: null,
+            expectedCash: 0,
+            closingCash: null,
+            difference: 0,
+            status: "OPEN",
+          } as any);
+        }
+        setIsLoading(false);
+        return;
+      }
+
       // 1. Fetch Current Shift
       try {
         const shiftRes = await authorizedFetch("/shifts/current", {
@@ -57,6 +129,18 @@ export function usePos() {
         if (shiftRes.ok) {
           const shiftData = await shiftRes.json();
           setCurrentShift(shiftData?.id ? shiftData : null);
+          if (shiftData?.id) {
+            db.activeShift
+              .put({
+                id: "current",
+                shiftId: shiftData.id,
+                userId: shiftData.userId,
+                openedAt: shiftData.openedAt,
+                startingCash: String(shiftData.openingCash || 0),
+                status: "OPEN",
+              })
+              .catch(() => {});
+          }
         } else {
           setCurrentShift(null);
         }
@@ -81,6 +165,16 @@ export function usePos() {
             .filter((c: any) => c.isActive !== false)
             .map((c: any) => c.name);
           setCategories(["Semua Kategori", ...activeNames]);
+
+          db.categories
+            .bulkPut(
+              catList.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                isActive: c.isActive !== false,
+              }))
+            )
+            .catch(() => {});
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -124,6 +218,31 @@ export function usePos() {
             }));
 
           setProducts(mapped);
+
+          // Save to Dexie for offline use
+          db.products
+            .bulkPut(
+              mapped.map((p) => ({
+                id: p.id,
+                name: p.name,
+                sku: p.sku || "",
+                barcode: null,
+                price: String(p.price),
+                unit: "pcs",
+                categoryId: p.categoryId || "",
+                isActive: p.isActive,
+              }))
+            )
+            .catch(() => {});
+
+          db.stock
+            .bulkPut(
+              mapped.map((p) => ({
+                productId: p.id,
+                displayStock: p.displayStock,
+              }))
+            )
+            .catch(() => {});
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -155,6 +274,21 @@ export function usePos() {
               isActive: Boolean(d.isActive),
             }));
           setDiscounts(mappedDiscs);
+
+          db.discounts
+            .bulkPut(
+              mappedDiscs.map((d) => ({
+                id: d.id,
+                name: d.name,
+                type: d.type === "fixed" ? "nominal" : "percent",
+                value: String(d.value),
+                minPurchase: String(d.minPurchase || 0),
+                maxDiscount: d.maxDiscount ? String(d.maxDiscount) : null,
+                scope: "all",
+                isActive: d.isActive,
+              }))
+            )
+            .catch(() => {});
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -394,47 +528,58 @@ export function usePos() {
       setIsSubmitting(true);
       setError(null);
 
-      const idempotencyKey = crypto.randomUUID();
-
-      const payload = {
-        items: cart.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          addonIds: item.selectedAddons.map((a) => a.id),
-        })),
-        paymentMethod,
-        paidAmount: paidAmount.toFixed(2),
-      };
-
       try {
-        const res = await authorizedFetch("/transactions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Idempotency-Key": idempotencyKey,
-          },
-          body: JSON.stringify(payload),
+        // Submit Transaction local-first with IndexedDB durability
+        const saleResult = await createSaleLocalFirst({
+          items: cart.map((item) => {
+            const addonSum = item.selectedAddons.reduce(
+              (s, a) => s + a.price,
+              0
+            );
+            return {
+              productId: item.productId,
+              productName: item.name,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice.toFixed(2),
+              subtotalAmount: (
+                (item.unitPrice + addonSum) *
+                item.quantity
+              ).toFixed(2),
+              addons: item.selectedAddons.map((a) => ({
+                addonId: a.id,
+                name: a.name,
+                price: a.price.toFixed(2),
+              })),
+            };
+          }),
+          subtotalAmount: subtotal.toFixed(2),
+          discountId: selectedDiscount?.id,
+          discountAmount: discountAmount.toFixed(2),
+          discountReason: selectedDiscount
+            ? `${selectedDiscount.name} (${selectedDiscount.code})`
+            : undefined,
+          totalAmount: totalAmount.toFixed(2),
+          paymentMethod,
+          paidAmount: paidAmount.toFixed(2),
+          changeAmount: Math.max(0, paidAmount - totalAmount).toFixed(2),
+          shiftId: currentShift.id,
+          userId: currentShift.userId || "cashier-1",
         });
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const msg = Array.isArray(errData.message)
-            ? errData.message.join(", ")
-            : errData.message || "Gagal memproses transaksi kasir.";
-          throw new Error(msg);
+        // Trigger immediate sync in background if online
+        if (connectivity.isOnline) {
+          syncOutbox().catch(() => {});
         }
 
-        const tx = await res.json();
         const changeAmount = Math.max(0, paidAmount - totalAmount);
 
         // Prepare completed transaction receipt
         const completed: PosCompletedTransaction = {
-          id: tx.id || idempotencyKey,
-          transactionNumber:
-            tx.transactionNumber || `D13-${Date.now().toString().slice(-6)}`,
+          id: saleResult.transaction.id,
+          transactionNumber: saleResult.transaction.transactionNumber,
           shiftId: currentShift.id,
           cashierName: user?.username || "Kasir",
-          createdAt: tx.createdAt || new Date().toISOString(),
+          createdAt: saleResult.transaction.createdAt,
           items: cart.map((i) => {
             const addonSum = i.selectedAddons.reduce((s, a) => s + a.price, 0);
             return {

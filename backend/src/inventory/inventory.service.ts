@@ -127,6 +127,62 @@ export class InventoryService {
     }
   }
 
+  async deductForOfflineSale(
+    tx: PostgresJsTransaction<Record<string, never>>,
+    sales: readonly { productId: string; quantity: number }[],
+  ) {
+    const sorted = [...sales].sort((a, b) =>
+      a.productId.localeCompare(b.productId),
+    );
+    for (const sale of sorted) {
+      await tx
+        .insert(inventories)
+        .values({ productId: sale.productId, location: 'DISPLAY', stock: 0 })
+        .onConflictDoNothing();
+
+      await tx
+        .insert(stock)
+        .values({
+          productId: sale.productId,
+          warehouseQty: 0,
+          displayQty: 0,
+          needsReview: false,
+          version: 0,
+        })
+        .onConflictDoNothing();
+    }
+    for (const sale of sorted) {
+      // Unconditional deduction for OFF-008: if stock becomes negative, mark needsReview = true
+      await tx
+        .update(stock)
+        .set({
+          displayQty: sql`${stock.displayQty} - ${sale.quantity}`,
+          needsReview: sql`CASE WHEN (${stock.displayQty} - ${sale.quantity}) < 0 THEN true ELSE ${stock.needsReview} END`,
+          version: sql`${stock.version} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(stock.productId, sale.productId));
+
+      const [balance] = await tx
+        .select()
+        .from(inventories)
+        .where(
+          and(
+            eq(inventories.productId, sale.productId),
+            eq(inventories.location, 'DISPLAY'),
+          ),
+        )
+        .for('update');
+
+      if (balance) {
+        await tx
+          .update(inventories)
+          .set({ stock: balance.stock - sale.quantity, updatedAt: new Date() })
+          .where(eq(inventories.id, balance.id));
+      }
+    }
+  }
+
   async recordSaleMovements(
     tx: PostgresJsTransaction<Record<string, never>>,
     sales: readonly { productId: string; quantity: number }[],

@@ -19,6 +19,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { DiscountsModule } from './discounts/discounts.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { BrandsModule } from './brands/brands.module.js';
+import { SyncModule } from './sync/sync.module.js';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { BrandsModule } from './brands/brands.module.js';
     AuditLogsModule,
     DiscountsModule,
     SettingsModule,
+    SyncModule,
   ],
   controllers: [AppController],
   providers: [
