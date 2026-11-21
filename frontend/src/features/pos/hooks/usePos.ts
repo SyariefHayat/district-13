@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/context/auth-context";
+import { toast } from "@/components/ui/toast";
 import { db } from "@/lib/db";
 import { connectivity } from "@/lib/connectivity";
 import { createSaleLocalFirst } from "@/lib/offline-sales";
+import {
+  getLocalActiveCart,
+  setLocalActiveCart,
+  clearLocalActiveCart,
+} from "@/lib/offline-shifts";
 import { syncOutbox } from "@/lib/outbox-sync";
 import type {
   PosProductItem,
@@ -23,7 +29,25 @@ export function usePos() {
     useState<string>("Semua Kategori");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const [cart, setCart] = useState<PosCartItem[]>([]);
+  const [cart, setCart] = useState<PosCartItem[]>(() => {
+    const stored = getLocalActiveCart();
+    return stored.map((s) => ({
+      cartItemId: s.cartItemId,
+      productId: s.productId,
+      name: s.name,
+      categoryName: "Umum",
+      unitPrice: s.unitPrice,
+      quantity: s.quantity,
+      selectedAddons: (s.selectedAddons || []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        price: a.price,
+        isActive: true,
+      })),
+      notes: s.notes || "",
+      displayStock: s.displayStock || 99,
+    }));
+  });
   const [currentShift, setCurrentShift] = useState<CashierShift | null>(null);
   const [discounts, setDiscounts] = useState<PosDiscount[]>([]);
   const [selectedDiscount, setSelectedDiscount] = useState<PosDiscount | null>(
@@ -380,6 +404,22 @@ export function usePos() {
     return Math.max(0, subtotal - discountAmount);
   }, [subtotal, discountAmount]);
 
+  // Persist cart to local storage for cashier shift lock protection
+  useEffect(() => {
+    setLocalActiveCart(
+      cart.map((i) => ({
+        cartItemId: i.cartItemId,
+        productId: i.productId,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        selectedAddons: i.selectedAddons,
+        notes: i.notes,
+        displayStock: i.displayStock,
+      }))
+    );
+  }, [cart]);
+
   // Cart Actions
   const addToCart = useCallback(
     (
@@ -394,21 +434,27 @@ export function usePos() {
         .join(",");
       const cartItemId = `${product.id}__${addonIdsKey}__${notes.trim()}`;
 
+      let stockExceeded = false;
       setCart((prev) => {
         const existingIndex = prev.findIndex(
           (i) => i.cartItemId === cartItemId
         );
         if (existingIndex >= 0) {
-          const updated = [...prev];
-          const current = updated[existingIndex];
+          const current = prev[existingIndex];
           const newQty = current.quantity + quantity;
           // check stock limit if applicable
           if (product.displayStock > 0 && newQty > product.displayStock) {
+            stockExceeded = true;
             return prev; // capped by display stock
           }
+          const updated = [...prev];
           updated[existingIndex] = { ...current, quantity: newQty };
           return updated;
         } else {
+          if (product.displayStock > 0 && quantity > product.displayStock) {
+            stockExceeded = true;
+            return prev;
+          }
           return [
             ...prev,
             {
@@ -425,11 +471,20 @@ export function usePos() {
           ];
         }
       });
+
+      if (stockExceeded) {
+        toast.add({
+          title: "Stok Display Tidak Mencukupi",
+          description: `Jumlah pesanan melebihi sisa stok display (${product.displayStock} pcs).`,
+        });
+      }
     },
     []
   );
 
   const updateQuantity = useCallback((cartItemId: string, delta: number) => {
+    let stockExceeded = false;
+    let remainingStock = 0;
     setCart((prev) =>
       prev
         .map((item) => {
@@ -437,6 +492,8 @@ export function usePos() {
             const newQty = item.quantity + delta;
             if (newQty <= 0) return null;
             if (item.displayStock > 0 && newQty > item.displayStock) {
+              stockExceeded = true;
+              remainingStock = item.displayStock;
               return item;
             }
             return { ...item, quantity: newQty };
@@ -445,6 +502,13 @@ export function usePos() {
         })
         .filter((item): item is PosCartItem => item !== null)
     );
+
+    if (stockExceeded) {
+      toast.add({
+        title: "Maksimal Stok Tercapai",
+        description: `Tidak dapat menambah item. Sisa stok display: ${remainingStock} pcs.`,
+      });
+    }
   }, []);
 
   const updateNotes = useCallback((cartItemId: string, notes: string) => {
@@ -462,6 +526,7 @@ export function usePos() {
   const clearCart = useCallback(() => {
     setCart([]);
     setSelectedDiscount(null);
+    clearLocalActiveCart();
   }, []);
 
   // Fetch full details of product with addons if product clicked

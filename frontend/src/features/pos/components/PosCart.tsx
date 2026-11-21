@@ -119,9 +119,9 @@ export function PosCart({
             variant="ghost"
             size="sm"
             onClick={onClearCart}
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive gap-1"
+            className="min-h-[44px] px-3 text-xs text-muted-foreground hover:text-destructive gap-1.5 font-medium"
           >
-            <IconTrash className="size-3.5" />
+            <IconTrash className="size-4" />
             <span>Kosongkan</span>
           </Button>
         )}
@@ -198,7 +198,7 @@ export function PosCart({
                       value={tempNote}
                       onChange={(e) => setTempNote(e.target.value)}
                       placeholder="Catatan pesanan..."
-                      className="h-7 text-xs"
+                      className="h-10 text-xs"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === "Enter") saveNote(item.cartItemId);
@@ -206,10 +206,10 @@ export function PosCart({
                     />
                     <Button
                       size="sm"
-                      className="h-7 px-2 text-xs"
+                      className="min-h-[44px] min-w-[44px] px-2 text-xs"
                       onClick={() => saveNote(item.cartItemId)}
                     >
-                      <IconCheck className="size-3.5" />
+                      <IconCheck className="size-4" />
                     </Button>
                   </div>
                 ) : (
@@ -217,7 +217,7 @@ export function PosCart({
                     {item.notes ? (
                       <span
                         onClick={() => startEditNote(item)}
-                        className="italic truncate max-w-[180px] cursor-pointer hover:underline text-amber-600 dark:text-amber-400"
+                        className="italic truncate max-w-[180px] cursor-pointer hover:underline text-amber-600 dark:text-amber-400 py-1"
                         title="Klik untuk mengubah catatan"
                       >
                         Note: &ldquo;{item.notes}&rdquo;
@@ -225,14 +225,26 @@ export function PosCart({
                     ) : (
                       <button
                         onClick={() => startEditNote(item)}
-                        className="text-[10px] text-muted-foreground/70 hover:text-primary flex items-center gap-1"
+                        className="min-h-[36px] py-1 text-[11px] text-muted-foreground/70 hover:text-primary flex items-center gap-1"
                       >
-                        <IconNote className="size-3" />
+                        <IconNote className="size-3.5" />
                         <span>+ Catatan</span>
                       </button>
                     )}
                   </div>
                 )}
+
+                {/* Stock limit warning indicator */}
+                {item.displayStock > 0 &&
+                  item.quantity >= item.displayStock && (
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md">
+                      <IconAlertCircle className="size-3.5 shrink-0" />
+                      <span>
+                        Maksimal stok display tercapai (Sisa:{" "}
+                        {item.displayStock} pcs)
+                      </span>
+                    </div>
+                  )}
 
                 {/* Item Bottom: Stepper & Line Total */}
                 <div className="flex items-center justify-between pt-2 border-t border-border/50">
@@ -257,6 +269,12 @@ export function PosCart({
                         item.displayStock > 0 &&
                         item.quantity >= item.displayStock
                       }
+                      title={
+                        item.displayStock > 0 &&
+                        item.quantity >= item.displayStock
+                          ? `Stok display hanya ${item.displayStock}`
+                          : undefined
+                      }
                     >
                       <IconPlus className="size-4" />
                     </Button>
@@ -278,10 +296,10 @@ export function PosCart({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <IconDiscount2 className="size-4 text-primary" />
-            <span>Diskon:</span>
+            <span className="font-medium">Diskon:</span>
           </div>
 
-          <div className="w-48">
+          <div className="w-52">
             <Select
               value={selectedDiscount?.id || "NONE"}
               onValueChange={(val) => {
@@ -293,7 +311,7 @@ export function PosCart({
                 }
               }}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="min-h-[44px] h-11 text-xs">
                 <SelectValue placeholder="Pilih Diskon" />
               </SelectTrigger>
               <SelectContent>
@@ -338,7 +356,7 @@ export function PosCart({
 
         {/* 5. Checkout CTA */}
         {!isShiftOpen && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300">
             <IconAlertCircle className="size-4 shrink-0" />
             <span>
               Buka shift terlebih dahulu untuk memproses pembayaran kasir.
@@ -350,7 +368,7 @@ export function PosCart({
           size="lg"
           onClick={onCheckoutClick}
           disabled={!isShiftOpen || cart.length === 0}
-          className="w-full h-11 text-sm font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          className="w-full h-12 min-h-[48px] text-sm font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
         >
           <IconReceipt2 className="size-5" />
           <span>Bayar {formatIDR(totalAmount)}</span>

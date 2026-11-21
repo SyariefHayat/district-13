@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { IconPlus, IconMinus, IconCheck } from "@tabler/icons-react";
+import {
+  IconPlus,
+  IconMinus,
+  IconCheck,
+  IconAlertCircle,
+} from "@tabler/icons-react";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +66,8 @@ export function PosProductAddonDialog({
   const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
   const unitTotal = product.price + addonsTotal;
   const itemTotal = unitTotal * quantity;
+  const isMaxStockReached =
+    product.displayStock > 0 && quantity >= product.displayStock;
 
   const handleConfirm = () => {
     onConfirm(product, selectedAddons, notes, quantity);
@@ -69,7 +76,7 @@ export function PosProductAddonDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-5">
+      <DialogContent className="max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-base font-bold">
@@ -86,11 +93,16 @@ export function PosProductAddonDialog({
 
         <div className="flex flex-col gap-4 py-2">
           {/* Base Price & Stock */}
-          <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 border text-xs">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border text-xs">
             <span className="text-muted-foreground">Harga Dasar Produk:</span>
-            <span className="font-semibold text-foreground">
-              {formatIDR(product.price)}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-foreground">
+                {formatIDR(product.price)}
+              </span>
+              <Badge variant="outline" className="text-[10px]">
+                Sisa: {product.displayStock} pcs
+              </Badge>
+            </div>
           </div>
 
           {/* Addons List */}
@@ -110,9 +122,9 @@ export function PosProductAddonDialog({
                     <div
                       key={addon.id}
                       onClick={() => toggleAddon(addon.id)}
-                      className={`flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                      className={`flex items-center justify-between p-3 rounded-xl border text-xs cursor-pointer min-h-[44px] transition-colors ${
                         isChecked
-                          ? "border-primary/50 bg-primary/5 text-foreground font-medium"
+                          ? "border-primary/50 bg-primary/5 text-foreground font-semibold"
                           : "border-border/60 hover:bg-muted/40 text-muted-foreground"
                       }`}
                     >
@@ -124,7 +136,7 @@ export function PosProductAddonDialog({
                         />
                         <span>{addon.name}</span>
                       </div>
-                      <span className="font-semibold text-primary">
+                      <span className="font-bold text-primary">
                         +{formatIDR(addon.price)}
                       </span>
                     </div>
@@ -143,55 +155,66 @@ export function PosProductAddonDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Misal: Less sugar, es sedikit, pisah sambal..."
-              className="text-xs h-9"
+              className="text-xs h-11"
             />
           </div>
 
           {/* Quantity Controls */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <span className="text-xs font-semibold">Jumlah Pesanan:</span>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-8"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                disabled={quantity <= 1}
-              >
-                <IconMinus className="size-3.5" />
-              </Button>
-              <span className="w-8 text-center text-sm font-bold">
-                {quantity}
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-8"
-                onClick={() =>
-                  setQuantity((q) =>
-                    product.displayStock > 0
-                      ? Math.min(product.displayStock, q + 1)
-                      : q + 1
-                  )
-                }
-                disabled={
-                  product.displayStock > 0 && quantity >= product.displayStock
-                }
-              >
-                <IconPlus className="size-3.5" />
-              </Button>
+          <div className="flex flex-col gap-2 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold">Jumlah Pesanan:</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="min-h-[44px] min-w-[44px] rounded-md"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                >
+                  <IconMinus className="size-4" />
+                </Button>
+                <span className="w-8 text-center text-sm font-bold">
+                  {quantity}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="min-h-[44px] min-w-[44px] rounded-md"
+                  onClick={() =>
+                    setQuantity((q) =>
+                      product.displayStock > 0
+                        ? Math.min(product.displayStock, q + 1)
+                        : q + 1
+                    )
+                  }
+                  disabled={isMaxStockReached}
+                >
+                  <IconPlus className="size-4" />
+                </Button>
+              </div>
             </div>
+
+            {/* Remaining Stock Indicator */}
+            {isMaxStockReached && (
+              <div className="flex items-center gap-1.5 text-[10px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 p-2 rounded-lg">
+                <IconAlertCircle className="size-3.5 shrink-0" />
+                <span>
+                  Maksimal jumlah pesanan tercapai sesuai stok display (Sisa:{" "}
+                  {product.displayStock} pcs)
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        <DialogFooter className="flex-row items-center justify-between sm:justify-between pt-2 border-t">
+        <DialogFooter className="flex-row items-center justify-between sm:justify-between pt-3 border-t">
           <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground font-medium">
               Total Item:
             </span>
-            <span className="text-sm font-bold text-primary">
+            <span className="text-sm font-black text-primary">
               {formatIDR(itemTotal)}
             </span>
           </div>
@@ -200,16 +223,15 @@ export function PosProductAddonDialog({
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => onOpenChange(false)}
+              className="min-h-[44px] px-3.5 text-xs font-semibold"
             >
               Batal
             </Button>
             <Button
               type="button"
-              size="sm"
               onClick={handleConfirm}
-              className="gap-1.5 font-medium"
+              className="gap-1.5 font-bold min-h-[44px] px-4 text-xs"
             >
               <IconCheck className="size-4" />
               <span>Tambah ke Keranjang</span>

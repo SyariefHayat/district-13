@@ -52,17 +52,17 @@ export function PosProductCatalog({
     <div className="flex flex-col h-full gap-3">
       {/* 1. Search Bar */}
       <div className="relative">
-        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <Input
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Cari produk (nama atau SKU)..."
-          className="pl-9 pr-9 h-10 bg-background text-sm"
+          className="pl-10 pr-10 h-11 bg-background text-sm"
         />
         {searchQuery && (
           <button
             onClick={() => onSearchChange("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-2 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground"
           >
             <IconX className="size-4" />
           </button>
@@ -70,7 +70,7 @@ export function PosProductCatalog({
       </div>
 
       {/* 2. Category Chips */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {categories.map((cat) => {
           const isSelected =
             selectedCategory.toLowerCase() === cat.toLowerCase();
@@ -79,7 +79,7 @@ export function PosProductCatalog({
             <button
               key={cat}
               onClick={() => onSelectCategory(cat)}
-              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              className={`shrink-0 flex items-center gap-2 px-3.5 py-2 min-h-[44px] rounded-full text-xs font-semibold transition-all ${
                 isSelected
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50"
@@ -87,7 +87,7 @@ export function PosProductCatalog({
             >
               <span>{cat}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                className={`text-[10px] px-2 py-0.5 rounded-full ${
                   isSelected
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : "bg-background text-muted-foreground"
@@ -135,7 +135,7 @@ export function PosProductCatalog({
                   onSearchChange("");
                   onSelectCategory("Semua Kategori");
                 }}
-                className="mt-3 text-xs"
+                className="mt-3 text-xs min-h-[44px] px-4 font-semibold"
               >
                 Reset Filter
               </Button>
@@ -188,7 +188,7 @@ export function PosProductCatalog({
                       ) : product.displayStock <= 5 ? (
                         <Badge
                           variant="outline"
-                          className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 shadow-xs"
+                          className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 shadow-xs font-semibold"
                         >
                           Sisa {product.displayStock}
                         </Badge>
@@ -214,7 +214,7 @@ export function PosProductCatalog({
                   </div>
 
                   {/* Price & Action */}
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50">
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-border/50 gap-2">
                     <div className="flex flex-col">
                       <span className="text-xs sm:text-sm font-bold text-primary">
                         {formatIDR(product.price)}
@@ -229,7 +229,7 @@ export function PosProductCatalog({
                         e.stopPropagation();
                         if (!isOutOfStock) onProductClick(product);
                       }}
-                      className="h-7 px-2 text-xs gap-1 font-medium"
+                      className="min-h-[44px] px-3 text-xs gap-1 font-semibold"
                     >
                       {hasAddons ? (
                         <>

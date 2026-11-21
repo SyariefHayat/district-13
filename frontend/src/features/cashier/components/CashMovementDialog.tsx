@@ -70,8 +70,8 @@ export function CashMovementDialog({
               <IconCash className="size-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-semibold">
-                Mutasi Kas Laci
+              <DialogTitle className="text-lg font-bold">
+                Mutasi Kas Laci Kasir
               </DialogTitle>
               <DialogDescription className="text-xs">
                 Catat penambahan kas masuk atau pengeluaran tunai dari laci
@@ -84,14 +84,14 @@ export function CashMovementDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-1">
           {/* Movement Type Toggle */}
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs font-medium text-muted-foreground">
+            <Label className="text-xs font-semibold text-muted-foreground">
               Jenis Mutasi
             </Label>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant={type === "IN" ? "default" : "outline"}
-                className={`h-11 font-medium flex items-center justify-center gap-2 ${
+                className={`min-h-[44px] font-semibold flex items-center justify-center gap-2 ${
                   type === "IN"
                     ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                     : ""
@@ -99,12 +99,12 @@ export function CashMovementDialog({
                 onClick={() => setType("IN")}
               >
                 <IconArrowDownLeft className="size-4" />
-                Kas Masuk (In)
+                <span>Kas Masuk (In)</span>
               </Button>
               <Button
                 type="button"
                 variant={type === "OUT" ? "default" : "outline"}
-                className={`h-11 font-medium flex items-center justify-center gap-2 ${
+                className={`min-h-[44px] font-semibold flex items-center justify-center gap-2 ${
                   type === "OUT"
                     ? "bg-rose-600 hover:bg-rose-700 text-white"
                     : ""
@@ -112,18 +112,18 @@ export function CashMovementDialog({
                 onClick={() => setType("OUT")}
               >
                 <IconArrowUpRight className="size-4" />
-                Kas Keluar (Out)
+                <span>Kas Keluar (Out)</span>
               </Button>
             </div>
           </div>
 
           {/* Amount */}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="movement-amount" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="movement-amount" className="text-xs font-semibold">
               Nominal {type === "IN" ? "Kas Masuk" : "Kas Keluar"}
             </Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                 Rp
               </span>
               <Input
@@ -134,22 +134,22 @@ export function CashMovementDialog({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="50000"
-                className="pl-10 text-base font-semibold"
+                className="pl-10 text-base font-bold h-11"
                 autoFocus
                 required
               />
             </div>
             <p className="text-xs text-muted-foreground">
               Terbaca:{" "}
-              <span className="font-semibold text-foreground">
+              <span className="font-bold text-foreground">
                 {formatIDR(numericAmount)}
               </span>
             </p>
           </div>
 
           {/* Reason / Notes */}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="movement-notes" className="text-sm font-medium">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="movement-notes" className="text-xs font-semibold">
               Alasan / Keperluan <span className="text-destructive">*</span>
             </Label>
             <Textarea
@@ -167,23 +167,24 @@ export function CashMovementDialog({
             />
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-2 flex-row items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
+              className="min-h-[44px]"
             >
               Batal
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting || numericAmount <= 0}
-              className={
+              className={`min-h-[44px] font-bold px-4 ${
                 type === "IN"
                   ? "bg-emerald-600 hover:bg-emerald-700 text-white"
                   : "bg-rose-600 hover:bg-rose-700 text-white"
-              }
+              }`}
             >
               {isSubmitting ? (
                 <>

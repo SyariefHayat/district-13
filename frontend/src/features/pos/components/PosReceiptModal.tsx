@@ -203,9 +203,8 @@ export function PosReceiptModal({
           <Button
             type="button"
             variant="outline"
-            size="sm"
             onClick={handlePrint}
-            className="gap-1.5 text-xs h-9"
+            className="gap-2 text-xs min-h-[44px] px-4 font-semibold"
           >
             <IconPrinter className="size-4 text-muted-foreground" />
             <span>Cetak Struk</span>
@@ -213,12 +212,11 @@ export function PosReceiptModal({
 
           <Button
             type="button"
-            size="sm"
             onClick={onStartNewTransaction}
-            className="gap-1.5 text-xs h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            className="gap-2 text-xs min-h-[44px] px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
           >
             <IconPlus className="size-4" />
-            <span>Transaksi Baru</span>
+            <span>Langkah 4: Transaksi Baru</span>
           </Button>
         </DialogFooter>
       </DialogContent>

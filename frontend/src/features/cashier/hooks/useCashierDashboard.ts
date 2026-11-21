@@ -2,6 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "@/components/ui/toast";
+import { connectivity } from "@/lib/connectivity";
+import { db } from "@/lib/db";
+import {
+  openShiftLocalFirst,
+  closeShiftLocalFirst,
+  createCashMovementLocalFirst,
+  voidSaleLocalFirst,
+  hasActiveCart,
+} from "@/lib/offline-shifts";
+import { syncOutbox } from "@/lib/outbox-sync";
 import type {
   CashierProductStock,
   CashierSchedule,
@@ -41,6 +51,78 @@ export function useCashierDashboard() {
       abortRef.current = controller;
 
       try {
+        if (connectivity.isOffline) {
+          // Load active shift from IndexedDB
+          const localShift = await db.activeShift.toArray();
+          if (localShift.length > 0 && localShift[0].status === "OPEN") {
+            const openedDate = new Date(localShift[0].openedAt);
+            const durationMs = Date.now() - openedDate.getTime();
+            const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+
+            setCurrentShift({
+              id: localShift[0].shiftId,
+              userId: localShift[0].userId,
+              cashierName: user?.username || "Kasir",
+              openingCash: Number(localShift[0].startingCash || 0),
+              openedAt: localShift[0].openedAt,
+              closedAt: null,
+              expectedCash: 0,
+              closingCash: null,
+              difference: 0,
+              status: "OPEN",
+              durationHours,
+              longOpen: durationHours >= 10,
+            } as any);
+          } else {
+            setCurrentShift(null);
+          }
+
+          // Load local transactions
+          const localTxs = await db.transactions.toArray();
+          setTransactions(
+            localTxs.map((t) => ({
+              id: t.id,
+              transactionNumber: t.transactionNumber,
+              shiftId: t.shiftId,
+              userId: t.userId,
+              subtotalAmount: Number(t.subtotalAmount || 0),
+              discountAmount: Number(t.discountAmount || 0),
+              taxAmount: 0,
+              totalAmount: Number(t.totalAmount || 0),
+              paidAmount: Number(t.paidAmount || 0),
+              changeAmount: Number(t.changeAmount || 0),
+              paymentMethod: t.paymentMethod,
+              status: t.status,
+              createdAt: t.createdAt,
+              itemCount: t.items?.length || 1,
+              cashierName: user?.username || "Kasir",
+            }))
+          );
+
+          // Load local products & stock
+          const localProds = await db.products.toArray();
+          const localStock = await db.stock.toArray();
+          const stockMap = new Map(
+            localStock.map((s) => [s.productId, s.displayStock])
+          );
+          setProducts(
+            localProds.map((p) => ({
+              id: p.id,
+              name: p.name,
+              sku: p.sku || "",
+              price: Number(p.price || 0),
+              categoryName: "Umum",
+              displayStock: stockMap.get(p.id) ?? 0,
+              isAvailable: (stockMap.get(p.id) ?? 0) > 0,
+              isActive: p.isActive,
+            }))
+          );
+
+          setIsLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
+
         // 1. Fetch Current Shift
         let activeShift: CashierShift | null = null;
         try {
@@ -50,7 +132,27 @@ export function useCashierDashboard() {
           if (shiftRes.ok) {
             const shiftData = await shiftRes.json();
             if (shiftData && shiftData.id) {
-              activeShift = shiftData;
+              const openedDate = new Date(shiftData.openedAt);
+              const durationMs = Date.now() - openedDate.getTime();
+              const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+
+              activeShift = {
+                ...shiftData,
+                durationHours,
+                longOpen: durationHours >= 10,
+              };
+
+              // Cache to Dexie
+              db.activeShift
+                .put({
+                  id: "current",
+                  shiftId: shiftData.id,
+                  userId: shiftData.userId,
+                  openedAt: shiftData.openedAt,
+                  startingCash: String(shiftData.openingCash || 0),
+                  status: "OPEN",
+                })
+                .catch(() => {});
             }
           }
         } catch (e) {
@@ -149,7 +251,7 @@ export function useCashierDashboard() {
           // non-fatal
         }
 
-        // 5. Fetch Products (for counter stock lookup)
+        // 5. Fetch Products
         try {
           const prodRes = await authorizedFetch("/products?limit=50", {
             signal: controller.signal,
@@ -205,6 +307,18 @@ export function useCashierDashboard() {
         if (!normalized || parseFloat(normalized) < 0) {
           throw new Error("Nominal modal awal harus berupa angka valid");
         }
+
+        if (connectivity.isOffline) {
+          await openShiftLocalFirst(normalized, user?.username || "cashier-1");
+          toast.add({
+            title: "Shift Berhasil Dibuka (Offline)",
+            description:
+              "Shift kasir aktif lokal. Data akan disinkronkan ke server saat online.",
+          });
+          await loadData(true);
+          return true;
+        }
+
         const res = await authorizedFetch("/shifts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -232,24 +346,52 @@ export function useCashierDashboard() {
         return false;
       }
     },
-    [authorizedFetch, loadData]
+    [authorizedFetch, user?.username, loadData]
   );
 
   const closeShift = useCallback(
-    async (closingCash: string) => {
+    async (closingCash: string, withdrawalAmount?: string) => {
       if (!currentShift?.id) {
         toast.add({ title: "Tidak ada shift aktif untuk ditutup" });
         return false;
       }
+
+      if (hasActiveCart()) {
+        toast.add({
+          title: "Penutupan Shift Ditolak",
+          description:
+            "Masih ada pesanan aktif di keranjang belanja. Selesaikan atau kosongkan keranjang terlebih dahulu.",
+        });
+        return false;
+      }
+
       try {
         const normalized = closingCash.replace(/[^0-9.]/g, "");
         if (!normalized || parseFloat(normalized) < 0) {
           throw new Error("Nominal uang penutupan harus valid");
         }
+
+        if (connectivity.isOffline) {
+          await closeShiftLocalFirst(currentShift.id, normalized);
+          toast.add({
+            title: "Shift Selesai Ditutup (Offline)",
+            description:
+              "Shift berhasil ditutup secara lokal dan disimpan di antrean sync.",
+          });
+          await loadData(true);
+          return true;
+        }
+
         const res = await authorizedFetch(`/shifts/${currentShift.id}/close`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ closingCash: normalized }),
+          body: JSON.stringify({
+            closingCash: normalized,
+            hasActiveCart: false,
+            reason: withdrawalAmount
+              ? `Setor kasir: Rp ${withdrawalAmount}`
+              : undefined,
+          }),
         });
 
         if (!res.ok) {
@@ -286,6 +428,22 @@ export function useCashierDashboard() {
         if (!normalized || parseFloat(normalized) <= 0) {
           throw new Error("Nominal kas masuk/keluar harus lebih dari 0");
         }
+
+        if (connectivity.isOffline) {
+          await createCashMovementLocalFirst(
+            currentShift.id,
+            type,
+            normalized,
+            description
+          );
+          toast.add({
+            title: `Kas ${type === "IN" ? "Masuk" : "Keluar"} Berhasil Dicatat (Offline)`,
+            description: `Nominal Rp ${Number(normalized).toLocaleString("id-ID")} telah diperbarui di laci lokal.`,
+          });
+          await loadData(true);
+          return true;
+        }
+
         const res = await authorizedFetch(
           `/shifts/${currentShift.id}/cash-movements`,
           {
@@ -321,6 +479,61 @@ export function useCashierDashboard() {
       }
     },
     [authorizedFetch, currentShift?.id, loadData]
+  );
+
+  const voidTransaction = useCallback(
+    async (transactionId: string, reason: string) => {
+      if (!reason || !reason.trim()) {
+        toast.add({ title: "Alasan pembatalan (void) wajib diisi" });
+        return false;
+      }
+
+      try {
+        if (connectivity.isOffline) {
+          await voidSaleLocalFirst(transactionId, reason);
+          toast.add({
+            title: "Transaksi Berhasil Dibatalkan (Void Offline)",
+            description: "Status transaksi diperbarui dan masuk antrean sync.",
+          });
+          await loadData(true);
+          return true;
+        }
+
+        const res = await authorizedFetch(
+          `/transactions/${transactionId}/void`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reason: reason.trim() }),
+          }
+        );
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          const msg = body?.message || `Gagal void transaksi (${res.status})`;
+          throw new Error(Array.isArray(msg) ? msg.join(", ") : String(msg));
+        }
+
+        // Trigger immediate background sync
+        if (connectivity.isOnline) {
+          syncOutbox().catch(() => {});
+        }
+
+        toast.add({
+          title: "Transaksi Berhasil Dibatalkan (Void)",
+          description: `Transaksi telah dibatalkan dengan alasan: ${reason.trim()}`,
+        });
+        await loadData(true);
+        return true;
+      } catch (err: any) {
+        toast.add({
+          title: "Gagal Membatalkan Transaksi",
+          description: err.message || "Terjadi kesalahan saat memproses void",
+        });
+        return false;
+      }
+    },
+    [authorizedFetch, loadData]
   );
 
   // Derived shift performance calculations
@@ -390,5 +603,6 @@ export function useCashierDashboard() {
     openShift,
     closeShift,
     createCashMovement,
+    voidTransaction,
   };
 }

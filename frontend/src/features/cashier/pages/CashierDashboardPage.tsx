@@ -11,6 +11,7 @@ import { CashierScheduleCard } from "../components/CashierScheduleCard";
 import { OpenShiftDialog } from "../components/OpenShiftDialog";
 import { CloseShiftDialog } from "../components/CloseShiftDialog";
 import { CashMovementDialog } from "../components/CashMovementDialog";
+import { VoidTransactionDialog } from "../components/VoidTransactionDialog";
 import { SaleDetailDialog } from "@/features/sales/components/SaleDetailDialog";
 import type { SaleTransaction } from "@/features/sales/data/salesData";
 import type { CashierTransaction } from "../data/cashierData";
@@ -31,12 +32,18 @@ export default function CashierDashboardPage() {
     openShift,
     closeShift,
     createCashMovement,
+    voidTransaction,
   } = useCashierDashboard();
 
   // Dialog states
   const [openShiftOpen, setOpenShiftOpen] = React.useState(false);
   const [closeShiftOpen, setCloseShiftOpen] = React.useState(false);
   const [cashMovementOpen, setCashMovementOpen] = React.useState(false);
+
+  // Void dialog state
+  const [voidOpen, setVoidOpen] = React.useState(false);
+  const [selectedVoidTx, setSelectedVoidTx] =
+    React.useState<CashierTransaction | null>(null);
 
   // Detail dialog state
   const [detailOpen, setDetailOpen] = React.useState(false);
@@ -45,6 +52,11 @@ export default function CashierDashboardPage() {
   );
 
   const isShiftOpen = Boolean(currentShift && !currentShift.closedAt);
+
+  const handleOpenVoidDialog = (tx: CashierTransaction) => {
+    setSelectedVoidTx(tx);
+    setVoidOpen(true);
+  };
 
   const handleViewDetail = async (tx: CashierTransaction) => {
     // Map initial basic transaction
@@ -74,6 +86,8 @@ export default function CashierDashboardPage() {
         const full = await res.json();
         setSelectedTx({
           ...basic,
+          voidReason: full.voidReason,
+          voidedAt: full.voidedAt,
           items: Array.isArray(full.items)
             ? full.items.map((i: any) => ({
                 id: i.id || "",
@@ -82,8 +96,18 @@ export default function CashierDashboardPage() {
                 categoryName: i.categoryName,
                 quantity: Number(i.quantity || 1),
                 unitPrice: Number(i.unitPrice || i.price || 0),
-                subtotalPrice: Number(i.subtotalPrice || i.subtotal || 0),
+                subtotalAmount: Number(
+                  i.subtotalAmount || i.subtotalPrice || i.subtotal || 0
+                ),
                 notes: i.notes,
+                addons: Array.isArray(i.addons)
+                  ? i.addons.map((a: any) => ({
+                      id: a.id || a.addonId,
+                      addonName: a.addonName || a.name || "Addon",
+                      unitPrice: Number(a.price || a.unitPrice || 0),
+                      quantity: Number(a.quantity || 1),
+                    }))
+                  : [],
               }))
             : [],
         });
@@ -159,16 +183,17 @@ export default function CashierDashboardPage() {
 
       {/* 4. Main Operational Grid: Recent Transactions & Sidebar Widgets */}
       <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-3 lg:px-6">
-        {/* Left 2 Cols: Recent Transactions */}
+        {/* Left 2 Cols: Recent Transactions with Void action */}
         <div className="lg:col-span-2">
           <CashierRecentTransactions
             transactions={transactions}
             isLoading={isLoading}
             onViewDetail={handleViewDetail}
+            onVoidClick={handleOpenVoidDialog}
           />
         </div>
 
-        {/* Right 1 Col: Quick Stock Lookup & Schedule */}
+        {/* Right 1 Col: Quick Stock Lookup & Personal Schedule */}
         <div className="flex flex-col gap-4">
           <CashierQuickProductStock products={products} isLoading={isLoading} />
           <CashierScheduleCard
@@ -195,6 +220,7 @@ export default function CashierDashboardPage() {
         cashIn={metrics.cashIn}
         cashOut={metrics.cashOut}
         transactionCount={metrics.transactionCount}
+        durationHours={currentShift?.durationHours || 0}
         onConfirm={closeShift}
       />
 
@@ -204,10 +230,36 @@ export default function CashierDashboardPage() {
         onConfirm={createCashMovement}
       />
 
+      <VoidTransactionDialog
+        open={voidOpen}
+        onOpenChange={setVoidOpen}
+        transaction={selectedVoidTx}
+        onConfirmVoid={voidTransaction}
+      />
+
       <SaleDetailDialog
         open={detailOpen}
         onOpenChange={setDetailOpen}
         transaction={selectedTx}
+        onVoidClick={(tx) => {
+          handleOpenVoidDialog({
+            id: tx.id,
+            transactionNumber: tx.transactionNumber,
+            shiftId: tx.shiftId,
+            userId: tx.userId,
+            subtotalAmount: tx.subtotalAmount,
+            discountAmount: tx.discountAmount,
+            taxAmount: 0,
+            totalAmount: tx.totalAmount,
+            paidAmount: tx.paidAmount,
+            changeAmount: tx.changeAmount,
+            paymentMethod: tx.paymentMethod,
+            status: tx.status,
+            createdAt: tx.createdAt,
+            itemCount: tx.items ? tx.items.length : 1,
+            cashierName: tx.cashierName,
+          });
+        }}
       />
     </div>
   );

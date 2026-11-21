@@ -5,6 +5,7 @@ import {
   IconEye,
   IconReceipt2,
   IconSearch,
+  IconBan,
 } from "@tabler/icons-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,12 +26,14 @@ interface CashierRecentTransactionsProps {
   transactions: CashierTransaction[];
   isLoading: boolean;
   onViewDetail: (tx: CashierTransaction) => void;
+  onVoidClick?: (tx: CashierTransaction) => void;
 }
 
 export function CashierRecentTransactions({
   transactions,
   isLoading,
   onViewDetail,
+  onVoidClick,
 }: CashierRecentTransactionsProps) {
   const [search, setSearch] = React.useState("");
   const [filterMethod, setFilterMethod] = React.useState<string>("ALL");
@@ -54,12 +57,12 @@ export function CashierRecentTransactions({
     <Card className="border-border/60">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-3">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <IconReceipt2 className="size-4" />
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <IconReceipt2 className="size-5" />
           </div>
           <div>
-            <CardTitle className="text-base font-semibold">
-              Transaksi Terakhir Kasir
+            <CardTitle className="text-base font-bold">
+              Riwayat Transaksi Kasir
             </CardTitle>
             <p className="text-xs text-muted-foreground">
               Daftar transaksi yang diproses selama shift berjalan
@@ -72,7 +75,7 @@ export function CashierRecentTransactions({
             variant="ghost"
             size="sm"
             render={<Link to="/dashboard/transactions" />}
-            className="h-8 gap-1 text-xs text-primary font-medium"
+            className="min-h-[44px] gap-1 text-xs text-primary font-medium"
           >
             <span>Semua Transaksi</span>
             <IconArrowRight className="size-3.5" />
@@ -84,24 +87,23 @@ export function CashierRecentTransactions({
         {/* Search & Filter Bar */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-sm">
-            <IconSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Cari no. transaksi..."
+              placeholder="Cari nomor transaksi..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-xs"
+              className="h-10 pl-9 text-xs"
             />
           </div>
 
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             {["ALL", "CASH", "QRIS", "TRANSFER"].map((m) => (
               <Button
                 key={m}
                 type="button"
                 variant={filterMethod === m ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-[11px] px-2.5 font-medium"
+                className="min-h-[44px] text-xs px-3 font-semibold"
                 onClick={() => setFilterMethod(m)}
               >
                 {m === "ALL" ? "Semua" : m === "CASH" ? "Tunai" : m}
@@ -111,7 +113,7 @@ export function CashierRecentTransactions({
         </div>
 
         {/* Transactions Table */}
-        <div className="rounded-lg border overflow-hidden">
+        <div className="rounded-xl border overflow-hidden">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="text-xs">
@@ -120,7 +122,7 @@ export function CashierRecentTransactions({
                 <TableHead>Metode Bayar</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-center w-[100px]">Status</TableHead>
-                <TableHead className="text-right w-[80px]">Aksi</TableHead>
+                <TableHead className="text-right w-[110px]">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -138,52 +140,68 @@ export function CashierRecentTransactions({
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.slice(0, 10).map((tx) => (
-                  <TableRow key={tx.id} className="text-xs hover:bg-muted/30">
-                    <TableCell className="font-mono font-medium">
-                      {tx.transactionNumber}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatTimeOnly(tx.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] font-medium px-2 py-0"
-                      >
-                        {tx.paymentMethod}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatIDR(tx.totalAmount)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant={
-                          tx.status === "COMPLETED" ? "outline" : "destructive"
-                        }
-                        className={`text-[10px] px-2 py-0 ${
-                          tx.status === "COMPLETED"
-                            ? "border-emerald-500/40 text-emerald-700 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-300"
-                            : ""
-                        }`}
-                      >
-                        {tx.status === "COMPLETED" ? "Selesai" : "Void"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        onClick={() => onViewDetail(tx)}
-                        title="Lihat Detail Transaksi"
-                      >
-                        <IconEye className="size-3.5 text-muted-foreground" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filtered.slice(0, 10).map((tx) => {
+                  const isCompleted = tx.status === "COMPLETED";
+
+                  return (
+                    <TableRow key={tx.id} className="text-xs hover:bg-muted/30">
+                      <TableCell className="font-mono font-bold">
+                        {tx.transactionNumber}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatTimeOnly(tx.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] font-semibold px-2 py-0.5"
+                        >
+                          {tx.paymentMethod}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-bold">
+                        {formatIDR(tx.totalAmount)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={isCompleted ? "outline" : "destructive"}
+                          className={`text-[10px] px-2 py-0.5 font-semibold ${
+                            isCompleted
+                              ? "border-emerald-500/40 text-emerald-700 bg-emerald-50 dark:bg-emerald-950 dark:text-emerald-300"
+                              : ""
+                          }`}
+                        >
+                          {isCompleted ? "Selesai" : "Void"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            onClick={() => onViewDetail(tx)}
+                            title="Lihat Detail Transaksi"
+                          >
+                            <IconEye className="size-4 text-muted-foreground" />
+                          </Button>
+
+                          {isCompleted && onVoidClick && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-destructive hover:bg-destructive/10"
+                              onClick={() => onVoidClick(tx)}
+                              title="Void / Batalkan Transaksi"
+                            >
+                              <IconBan className="size-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

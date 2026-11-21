@@ -59,7 +59,7 @@ export function OpenShiftDialog({
               <IconDoorEnter className="size-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-semibold">
+              <DialogTitle className="text-lg font-bold">
                 Buka Shift Kasir
               </DialogTitle>
               <DialogDescription className="text-xs">
@@ -70,12 +70,12 @@ export function OpenShiftDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="opening-cash" className="text-sm font-medium">
-              Modal Awal Kasir (Uang Fisik)
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="opening-cash" className="text-xs font-semibold">
+              Modal Awal Kasir (Uang Fisik di Laci)
             </Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">
                 Rp
               </span>
               <Input
@@ -86,14 +86,14 @@ export function OpenShiftDialog({
                 value={openingCash}
                 onChange={(e) => setOpeningCash(e.target.value)}
                 placeholder="0"
-                className="pl-10 text-base font-semibold"
+                className="pl-10 text-base font-bold h-11"
                 autoFocus
                 required
               />
             </div>
             <p className="text-xs text-muted-foreground">
               Terbaca:{" "}
-              <span className="font-semibold text-foreground">
+              <span className="font-bold text-foreground">
                 {formatIDR(numericValue)}
               </span>
             </p>
@@ -109,8 +109,7 @@ export function OpenShiftDialog({
                   key={amt}
                   type="button"
                   variant={numericValue === amt ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs font-medium"
+                  className="min-h-[44px] text-xs font-semibold px-2"
                   onClick={() => setOpeningCash(amt.toString())}
                 >
                   {formatIDR(amt).replace("Rp", "").trim()}
@@ -127,16 +126,21 @@ export function OpenShiftDialog({
             </span>
           </div>
 
-          <DialogFooter className="mt-2">
+          <DialogFooter className="mt-2 flex-row items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
+              className="min-h-[44px]"
             >
               Batal
             </Button>
-            <Button type="submit" disabled={isSubmitting || numericValue < 0}>
+            <Button
+              type="submit"
+              disabled={isSubmitting || numericValue < 0}
+              className="min-h-[44px] font-bold px-4"
+            >
               {isSubmitting ? (
                 <>
                   <Spinner className="mr-2 size-4" />

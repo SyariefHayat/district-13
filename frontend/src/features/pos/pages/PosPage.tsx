@@ -67,14 +67,14 @@ export default function PosPage() {
             variant="ghost"
             size="icon"
             onClick={() => navigate("/dashboard/cashier")}
-            className="size-9 rounded-lg"
+            className="min-h-[44px] min-w-[44px] rounded-lg"
             title="Kembali ke Dashboard Kasir"
           >
             <IconArrowLeft className="size-5" />
           </Button>
 
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
               <IconReceipt2 className="size-5" />
             </div>
             <div>
@@ -100,7 +100,7 @@ export default function PosPage() {
           {isShiftOpen ? (
             <Badge
               variant="outline"
-              className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 gap-1.5 py-1 px-2.5"
+              className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 gap-2 py-2 px-3 min-h-[44px]"
             >
               <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>Shift Terbuka ({user?.username || "Kasir"})</span>
@@ -110,9 +110,9 @@ export default function PosPage() {
               size="sm"
               variant="outline"
               onClick={() => navigate("/dashboard/cashier")}
-              className="h-8 text-xs border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 gap-1.5"
+              className="min-h-[44px] text-xs border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 gap-2 px-3 font-semibold"
             >
-              <IconDoorEnter className="size-3.5" />
+              <IconDoorEnter className="size-4" />
               <span>Buka Shift di Kasir</span>
             </Button>
           )}
@@ -121,7 +121,7 @@ export default function PosPage() {
             variant="outline"
             size="icon"
             onClick={refreshPos}
-            className="size-8 rounded-lg"
+            className="min-h-[44px] min-w-[44px] rounded-lg"
             title="Segarkan Data Katalog & Shift"
           >
             <IconRefresh className="size-4 text-muted-foreground" />
