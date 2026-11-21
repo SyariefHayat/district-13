@@ -1,4 +1,5 @@
 import Dexie, { type Table } from "dexie";
+import type { UserRole } from "../context/auth-context";
 
 export interface LocalProduct {
   id: string;
@@ -128,9 +129,12 @@ export interface LocalOutboxEvent {
 
 export interface LocalOfflineCredential {
   username: string;
-  passwordHash: string;
-  role: string;
-  fullName: string;
+  salt: string;
+  verifier: string;
+  iterations: number;
+  role: UserRole;
+  fullName?: string;
+  isActive: boolean;
   lastSync: string;
 }
 

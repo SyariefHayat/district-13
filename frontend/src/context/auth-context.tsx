@@ -8,6 +8,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import {
+  storeOfflineCredential,
+  loginOffline,
+  verifyOfflineUnlock,
+} from "@/lib/offline-auth";
+import { connectivity } from "@/lib/connectivity";
 
 export type UserRole = "OWNER" | "ADMIN" | "CASHIER";
 export type AuthUser = { username: string; role: UserRole };
@@ -174,22 +180,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (username: string, password: string) => {
-      const response = await fetch("/auth/login", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(getErrorMessage(body, response.status));
-      sessionStorage.setItem(USERNAME_KEY, username);
-      sessionStorage.removeItem(SESSION_LOCKED_KEY);
-      const claims = readTokenClaims(body.accessToken);
-      setUser({ username, role: claims.role });
-      setAccessToken(body.accessToken);
-      setIsLocked(false);
-      lastActivityRef.current = Date.now();
-      scheduleAutoRefresh(body.accessToken);
+      try {
+        const response = await fetch("/auth/login", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok)
+          throw new Error(getErrorMessage(body, response.status));
+        sessionStorage.setItem(USERNAME_KEY, username);
+        sessionStorage.removeItem(SESSION_LOCKED_KEY);
+        const claims = readTokenClaims(body.accessToken);
+        setUser({ username, role: claims.role });
+        setAccessToken(body.accessToken);
+        setIsLocked(false);
+        lastActivityRef.current = Date.now();
+        scheduleAutoRefresh(body.accessToken);
+
+        // Derive PBKDF2 verifier and store in IndexedDB (T-43, SEC-06)
+        // Plaintext password is NEVER stored
+        void storeOfflineCredential(username, password, claims.role).catch(
+          (err) =>
+            console.warn("Failed to store offline credential verifier:", err)
+        );
+      } catch (err: any) {
+        if (
+          err instanceof TypeError ||
+          err?.message?.includes("fetch") ||
+          err?.message?.includes("Failed to fetch") ||
+          err?.message?.includes("NetworkError") ||
+          connectivity.isOffline
+        ) {
+          // Fallback to offline PBKDF2 verification (T-43, USR-004)
+          const offlineUser = await loginOffline(username, password);
+          sessionStorage.setItem(USERNAME_KEY, offlineUser.username);
+          sessionStorage.removeItem(SESSION_LOCKED_KEY);
+          setUser({ username: offlineUser.username, role: offlineUser.role });
+          setAccessToken("offline-token");
+          setIsLocked(false);
+          lastActivityRef.current = Date.now();
+          return;
+        }
+        throw err;
+      }
     },
     [scheduleAutoRefresh]
   );
@@ -203,22 +238,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Sesi tidak ditemukan. Silakan login kembali.");
       }
 
-      const response = await fetch("/auth/login", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: currentUsername, password }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(getErrorMessage(body, response.status));
+      try {
+        const response = await fetch("/auth/login", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: currentUsername, password }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok)
+          throw new Error(getErrorMessage(body, response.status));
 
-      sessionStorage.removeItem(SESSION_LOCKED_KEY);
-      const claims = readTokenClaims(body.accessToken);
-      setUser({ username: currentUsername, role: claims.role });
-      setAccessToken(body.accessToken);
-      setIsLocked(false);
-      lastActivityRef.current = Date.now();
-      scheduleAutoRefresh(body.accessToken);
+        sessionStorage.removeItem(SESSION_LOCKED_KEY);
+        const claims = readTokenClaims(body.accessToken);
+        setUser({ username: currentUsername, role: claims.role });
+        setAccessToken(body.accessToken);
+        setIsLocked(false);
+        lastActivityRef.current = Date.now();
+        scheduleAutoRefresh(body.accessToken);
+
+        // Refresh verifier in background
+        void storeOfflineCredential(
+          currentUsername,
+          password,
+          claims.role
+        ).catch(() => {});
+      } catch (err: any) {
+        if (
+          err instanceof TypeError ||
+          err?.message?.includes("fetch") ||
+          err?.message?.includes("Failed to fetch") ||
+          connectivity.isOffline
+        ) {
+          const isValid = await verifyOfflineUnlock(currentUsername, password);
+          if (!isValid) {
+            throw new Error("Kata sandi salah.");
+          }
+          sessionStorage.removeItem(SESSION_LOCKED_KEY);
+          setIsLocked(false);
+          lastActivityRef.current = Date.now();
+          return;
+        }
+        throw err;
+      }
     },
     [clearSession, scheduleAutoRefresh, user]
   );
