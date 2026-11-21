@@ -8,8 +8,14 @@ import {
   IconShieldLock,
   IconCheck,
   IconX,
+  IconBluetooth,
+  IconPrinter,
 } from "@tabler/icons-react";
 import { useAuth } from "@/context/auth-context";
+import {
+  useBluetoothPrinter,
+  saveCachedStoreConfig,
+} from "@/lib/escpos-printer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,6 +99,86 @@ export default function SettingsPage() {
   // Queue state
   const [isResettingQueue, setIsResettingQueue] = React.useState(false);
 
+  // Bluetooth Printer Driver
+  const {
+    isSupported: isBtSupported,
+    status: btStatus,
+    deviceName: btDeviceName,
+    isPrinting: isBtPrinting,
+    connect: connectBluetooth,
+    disconnect: disconnectBluetooth,
+    printReceipt: printBtReceipt,
+  } = useBluetoothPrinter();
+
+  const handleTestPrint = async () => {
+    try {
+      if (!isBtSupported) {
+        toast.add({
+          title: "Web Bluetooth Tidak Didukung",
+          description:
+            "Browser ini tidak mendukung Web Bluetooth API. Gunakan Chrome via HTTPS.",
+          type: "warning",
+        });
+        return;
+      }
+
+      if (btStatus !== "connected") {
+        const res = await connectBluetooth();
+        if (!res.success) {
+          toast.add({
+            title: "Koneksi Gagal",
+            description: res.error || "Gagal menyambungkan ke printer.",
+            type: "warning",
+          });
+          return;
+        }
+      }
+
+      const res = await printBtReceipt({
+        storeName: settings.storeName,
+        storeAddress: settings.storeAddress,
+        receiptFooter: settings.receiptFooter,
+        transactionNumber: "TRX-TEST-PRINT",
+        date: new Date(),
+        cashierName: user?.username || "Admin",
+        paymentMethod: "CASH",
+        items: [
+          {
+            name: "Uji Coba Cetak ESC/POS",
+            quantity: 1,
+            unitPrice: 15000,
+            subtotalPrice: 15000,
+            notes: "Koneksi Web Bluetooth Berhasil!",
+          },
+        ],
+        subtotalAmount: 15000,
+        totalAmount: 15000,
+        paidAmount: 15000,
+        changeAmount: 0,
+      });
+
+      if (res.success) {
+        toast.add({
+          title: "Uji Cetak Berhasil",
+          description: "Struk uji coba telah dicetak oleh printer thermal.",
+          type: "success",
+        });
+      } else {
+        toast.add({
+          title: "Uji Cetak Gagal",
+          description: res.error || "Gagal mengirim data cetak ke printer.",
+          type: "warning",
+        });
+      }
+    } catch (err: any) {
+      toast.add({
+        title: "Kendala Uji Cetak",
+        description: err.message || "Terjadi kesalahan saat mencetak.",
+        type: "error",
+      });
+    }
+  };
+
   // Fetch settings & devices
   const loadSettings = React.useCallback(async () => {
     try {
@@ -100,6 +186,11 @@ export default function SettingsPage() {
       const res = await authorizedFetch("/settings");
       if (res.ok) {
         const data = (await res.json()) as Partial<StoreSettings>;
+        saveCachedStoreConfig({
+          storeName: data.storeName,
+          storeAddress: data.storeAddress,
+          receiptFooter: data.receiptFooter,
+        });
         setSettings((prev) => ({
           ...prev,
           storeName: data.storeName ?? prev.storeName,
@@ -166,6 +257,12 @@ export default function SettingsPage() {
             : body?.message || "Gagal menyimpan pengaturan"
         );
       }
+
+      saveCachedStoreConfig({
+        storeName: settings.storeName,
+        storeAddress: settings.storeAddress,
+        receiptFooter: settings.receiptFooter,
+      });
 
       toast.add({
         title: "Pengaturan berhasil disimpan",
@@ -590,6 +687,94 @@ export default function SettingsPage() {
                   </Table>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* CARD: BLUETOOTH THERMAL PRINTER (ESC/POS 58MM) */}
+          <Card className="mt-4">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <IconBluetooth className="size-5 text-emerald-600" />
+                  <span>Printer Kasir Bluetooth (ESC/POS 58mm)</span>
+                </CardTitle>
+                <CardDescription>
+                  Pengaturan koneksi nirkabel printer thermal (misal EPPOS
+                  EP-RPP02 / POS-58) via Web Bluetooth API.
+                </CardDescription>
+              </div>
+              <Badge
+                variant={btStatus === "connected" ? "default" : "secondary"}
+                className={
+                  btStatus === "connected"
+                    ? "bg-emerald-600 text-white"
+                    : "bg-muted text-muted-foreground"
+                }
+              >
+                {btStatus === "connected"
+                  ? "Terhubung"
+                  : btStatus === "connecting"
+                    ? "Menghubungkan..."
+                    : "Terputus"}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-xl border p-4 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                    Status Driver Web Bluetooth
+                  </p>
+                  <p className="text-sm font-semibold mt-0.5">
+                    {isBtSupported
+                      ? `Web Bluetooth didukung · ${btDeviceName ? `Perangkat: ${btDeviceName}` : "Belum ada printer aktif"}`
+                      : "Web Bluetooth tidak didukung pada browser ini (gunakan Chrome di Android/Desktop via HTTPS)"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {btStatus === "connected" ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={disconnectBluetooth}
+                        className="text-xs"
+                      >
+                        Putuskan
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={handleTestPrint}
+                        disabled={isBtPrinting}
+                        className="text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      >
+                        {isBtPrinting ? (
+                          <IconRefresh className="size-3.5 animate-spin" />
+                        ) : (
+                          <IconPrinter className="size-3.5" />
+                        )}
+                        <span>
+                          {isBtPrinting ? "Mencetak..." : "Uji Cetak Struk"}
+                        </span>
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={handleTestPrint}
+                      disabled={isBtPrinting || !isBtSupported}
+                      className="text-xs gap-1.5 bg-primary"
+                    >
+                      <IconBluetooth className="size-3.5" />
+                      <span>Sambungkan & Uji Cetak</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

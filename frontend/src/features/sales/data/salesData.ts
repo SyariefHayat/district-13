@@ -19,6 +19,7 @@ export interface SaleItem {
   unitPrice: number;
   subtotalAmount: number;
   addons?: SaleItemAddon[];
+  notes?: string;
 }
 
 export interface SaleTransaction {

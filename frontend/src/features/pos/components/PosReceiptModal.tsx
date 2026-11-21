@@ -1,5 +1,11 @@
 import { useRef } from "react";
-import { IconCheck, IconPrinter, IconPlus } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconPrinter,
+  IconPlus,
+  IconBluetooth,
+  IconRefresh,
+} from "@tabler/icons-react";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +16,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "@/components/ui/toast";
 import { formatIDR } from "@/features/product/data/productData";
 import { formatSaleDate } from "@/features/sales/data/salesData";
 import type { PosCompletedTransaction } from "../types/posTypes";
+import {
+  useBluetoothPrinter,
+  mapPosTransactionToReceipt,
+  getCachedStoreConfig,
+} from "@/lib/escpos-printer";
 
 interface PosReceiptModalProps {
   open: boolean;
@@ -28,11 +40,74 @@ export function PosReceiptModal({
   onStartNewTransaction,
 }: PosReceiptModalProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const storeConfig = getCachedStoreConfig();
+
+  const {
+    isSupported: isBtSupported,
+    status: btStatus,
+    deviceName: btDeviceName,
+    isPrinting: isBtPrinting,
+    connect: connectBluetooth,
+    printReceipt: printBtReceipt,
+  } = useBluetoothPrinter();
 
   if (!transaction) return null;
 
-  const handlePrint = () => {
+  const handleBrowserPrint = () => {
     window.print();
+  };
+
+  const handleBluetoothPrint = async () => {
+    try {
+      if (!isBtSupported) {
+        toast.add({
+          title: "Web Bluetooth Tidak Didukung",
+          description:
+            "Browser ini tidak mendukung Web Bluetooth. Silakan gunakan Chrome di Android/Desktop via HTTPS, atau cetak melalui dialog browser.",
+          type: "warning",
+        });
+        return;
+      }
+
+      if (btStatus !== "connected") {
+        const pairRes = await connectBluetooth();
+        if (!pairRes.success) {
+          toast.add({
+            title: "Printer Bluetooth Belum Terhubung",
+            description:
+              pairRes.error ||
+              "Gagal menyambungkan ke printer Bluetooth. Silakan gunakan Cetak Browser sebagai alternatif.",
+            type: "warning",
+          });
+          return;
+        }
+      }
+
+      const receiptData = mapPosTransactionToReceipt(transaction);
+      const printRes = await printBtReceipt(receiptData);
+
+      if (printRes.success) {
+        toast.add({
+          title: "Struk Berhasil Dicetak",
+          description: "Perintah cetak ESC/POS telah dikirim ke printer.",
+          type: "success",
+        });
+      } else {
+        toast.add({
+          title: "Gagal Mencetak via Bluetooth",
+          description:
+            printRes.error ||
+            "Pastikan printer thermal menyala dan kertas tersedia. Transaksi Anda tetap tersimpan.",
+          type: "warning",
+        });
+      }
+    } catch (err: any) {
+      toast.add({
+        title: "Kendala Printer",
+        description: err.message || "Gagal memproses pencetakan struk.",
+        type: "warning",
+      });
+    }
   };
 
   return (
@@ -53,9 +128,21 @@ export function PosReceiptModal({
               </DialogDescription>
             </div>
           </div>
-          <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[11px] px-2.5 py-0.5">
-            LUNAS
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[11px] px-2.5 py-0.5">
+              LUNAS
+            </Badge>
+            {isBtSupported && (
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                <IconBluetooth
+                  className={`size-3 ${btStatus === "connected" ? "text-emerald-500" : "text-muted-foreground"}`}
+                />
+                {btStatus === "connected"
+                  ? btDeviceName || "Thermal Ready"
+                  : "BT Standby"}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Digital Printable Receipt Area */}
@@ -67,14 +154,17 @@ export function PosReceiptModal({
             {/* Store Branding */}
             <div className="text-center flex flex-col items-center gap-0.5">
               <h3 className="font-bold text-sm tracking-wider uppercase text-foreground print:text-black">
-                DISTRICT 13 CAFE & WARKOP
+                {storeConfig.storeName || "DISTRICT 13 CAFE & WARKOP"}
               </h3>
               <p className="text-[10px] text-muted-foreground print:text-gray-600">
-                Jl. Boulevard No. 13 · District 13 POS
+                {storeConfig.storeAddress ||
+                  "Jl. Boulevard No. 13 · District 13 POS"}
               </p>
-              <p className="text-[10px] text-muted-foreground print:text-gray-600">
-                Telp: 0812-3456-7890
-              </p>
+              {storeConfig.storePhone && (
+                <p className="text-[10px] text-muted-foreground print:text-gray-600">
+                  Telp: {storeConfig.storePhone}
+                </p>
+              )}
             </div>
 
             <Separator className="border-dashed" />
@@ -187,9 +277,9 @@ export function PosReceiptModal({
 
             {/* Receipt Footer */}
             <div className="text-center text-[10px] text-muted-foreground print:text-gray-600 flex flex-col gap-0.5 pt-1">
-              <p className="font-semibold">Terima Kasih Atas Kunjungan Anda!</p>
-              <p>
-                Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan.
+              <p className="font-semibold whitespace-pre-line">
+                {storeConfig.receiptFooter ||
+                  "Terima Kasih Atas Kunjungan Anda!"}
               </p>
               <p className="font-mono text-[9px] mt-1">
                 ID Shift: {transaction.shiftId.slice(0, 8)}...
@@ -199,16 +289,34 @@ export function PosReceiptModal({
         </div>
 
         {/* Modal Actions */}
-        <DialogFooter className="p-4 bg-muted/20 border-t flex-row items-center justify-between sm:justify-between gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handlePrint}
-            className="gap-2 text-xs min-h-[44px] px-4 font-semibold"
-          >
-            <IconPrinter className="size-4 text-muted-foreground" />
-            <span>Cetak Struk</span>
-          </Button>
+        <DialogFooter className="p-4 bg-muted/20 border-t flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleBluetoothPrint}
+              disabled={isBtPrinting}
+              className="gap-2 text-xs min-h-[44px] px-4 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {isBtPrinting ? (
+                <IconRefresh className="size-4 animate-spin" />
+              ) : (
+                <IconBluetooth className="size-4" />
+              )}
+              <span>{isBtPrinting ? "Mencetak..." : "Cetak Bluetooth"}</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBrowserPrint}
+              className="gap-2 text-xs min-h-[44px] px-3 font-semibold text-muted-foreground"
+              title="Cetak via browser atau simpan PDF"
+            >
+              <IconPrinter className="size-4" />
+              <span className="hidden sm:inline">Browser</span>
+            </Button>
+          </div>
 
           <Button
             type="button"

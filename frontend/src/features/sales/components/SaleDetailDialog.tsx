@@ -5,6 +5,8 @@ import {
   IconReceipt,
   IconUser,
   IconX,
+  IconBluetooth,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,11 +18,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "@/components/ui/toast";
 import {
   formatIDR,
   formatSaleDate,
   type SaleTransaction,
 } from "../data/salesData";
+import {
+  useBluetoothPrinter,
+  mapSaleTransactionToReceipt,
+} from "@/lib/escpos-printer";
 
 interface SaleDetailDialogProps {
   open: boolean;
@@ -35,12 +42,72 @@ export function SaleDetailDialog({
   transaction,
   onVoidClick,
 }: SaleDetailDialogProps) {
+  const {
+    isSupported: isBtSupported,
+    status: btStatus,
+    isPrinting: isBtPrinting,
+    connect: connectBluetooth,
+    printReceipt: printBtReceipt,
+  } = useBluetoothPrinter();
+
   if (!transaction) return null;
 
   const isVoided = transaction.status === "VOIDED";
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleBluetoothPrint = async () => {
+    try {
+      if (!isBtSupported) {
+        toast.add({
+          title: "Web Bluetooth Tidak Didukung",
+          description:
+            "Gunakan browser Chrome di Android/Desktop via HTTPS untuk mencetak via Bluetooth.",
+          type: "warning",
+        });
+        return;
+      }
+
+      if (btStatus !== "connected") {
+        const pairRes = await connectBluetooth();
+        if (!pairRes.success) {
+          toast.add({
+            title: "Printer Bluetooth Belum Terhubung",
+            description:
+              pairRes.error || "Gagal menyambungkan printer Bluetooth.",
+            type: "warning",
+          });
+          return;
+        }
+      }
+
+      const receiptData = mapSaleTransactionToReceipt(transaction);
+      const printRes = await printBtReceipt(receiptData);
+
+      if (printRes.success) {
+        toast.add({
+          title: "Struk Berhasil Dicetak",
+          description: "Struk transaksi telah dikirim ke printer Bluetooth.",
+          type: "success",
+        });
+      } else {
+        toast.add({
+          title: "Gagal Mencetak via Bluetooth",
+          description:
+            printRes.error ||
+            "Pastikan printer thermal menyala dan kertas tersedia.",
+          type: "warning",
+        });
+      }
+    } catch (err: any) {
+      toast.add({
+        title: "Kendala Printer",
+        description: err.message || "Gagal memproses cetak struk.",
+        type: "warning",
+      });
+    }
   };
 
   return (
@@ -219,16 +286,30 @@ export function SaleDetailDialog({
           </div>
           <div className="flex items-center gap-2">
             <Button
+              variant="default"
+              size="sm"
+              onClick={handleBluetoothPrint}
+              disabled={isBtPrinting}
+              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {isBtPrinting ? (
+                <IconRefresh className="size-3.5 animate-spin" />
+              ) : (
+                <IconBluetooth className="size-3.5" />
+              )}
+              <span>{isBtPrinting ? "Mencetak..." : "Cetak Bluetooth"}</span>
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               onClick={handlePrint}
               className="gap-1.5"
             >
               <IconPrinter className="size-4" />
-              <span>Cetak</span>
+              <span>Cetak Browser</span>
             </Button>
             <Button
-              variant="default"
+              variant="outline"
               size="sm"
               onClick={() => onOpenChange(false)}
             >
