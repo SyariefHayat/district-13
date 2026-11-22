@@ -69,6 +69,7 @@ import { toast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/spinner";
 import {
   formatScheduleDate,
+  isCrossingMidnight,
   SCHEDULE_STATUS_CONFIG,
   SHIFT_TYPE_CONFIG,
   type ScheduleItem,
@@ -302,15 +303,26 @@ export function ScheduleTable({
           ),
           cell: ({ row }) => {
             const cfg = SHIFT_TYPE_CONFIG[row.original.shiftType];
+            const crossesMidnight =
+              row.original.shiftType === "NIGHT" ||
+              isCrossingMidnight(row.original.startTime, row.original.endTime);
             return (
               <div className="flex flex-col gap-1 py-0.5">
-                <span
-                  className={`inline-flex items-center w-fit px-2 py-0.5 rounded text-xs font-medium border ${cfg.color}`}
-                >
-                  {cfg.label.split(" ")[0]} {cfg.label.split(" ")[1] || ""}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    className={`inline-flex items-center w-fit px-2 py-0.5 rounded text-xs font-medium border ${cfg.color}`}
+                  >
+                    {cfg.label.split(" ")[0]} {cfg.label.split(" ")[1] || ""}
+                  </span>
+                  {crossesMidnight && (
+                    <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                      Lintas Malam
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground font-mono">
                   {row.original.startTime} - {row.original.endTime}
+                  {crossesMidnight && " (+1)"}
                 </span>
               </div>
             );

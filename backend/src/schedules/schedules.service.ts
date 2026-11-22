@@ -97,6 +97,10 @@ export class SchedulesService {
     return rows;
   }
 
+  async findMySchedules(query: ListSchedulesDto, actor: AuthenticatedUser) {
+    return this.findAll({ ...query, userId: actor.id }, actor);
+  }
+
   async findOne(id: string, actor: AuthenticatedUser) {
     const [schedule] = await this.database.db
       .select({

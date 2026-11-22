@@ -47,6 +47,15 @@ export class SchedulesController {
     return this.schedulesService.findAll(query, actor);
   }
 
+  @Get('me')
+  @AnyPermissions(PERMISSIONS.schedulesReadAll, PERMISSIONS.schedulesReadOwn)
+  findMySchedules(
+    @Query() query: ListSchedulesDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.schedulesService.findMySchedules(query, actor);
+  }
+
   @Get(':id')
   @AnyPermissions(PERMISSIONS.schedulesReadAll, PERMISSIONS.schedulesReadOwn)
   findOne(

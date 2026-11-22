@@ -319,6 +319,17 @@ export function ScheduleFormDialog({
               </div>
             </div>
 
+            {(shiftType === "NIGHT" ||
+              (startTime === "23:00" && endTime === "08:00")) && (
+              <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-2.5 text-xs text-purple-700 dark:text-purple-300">
+                <span className="font-semibold">
+                  Shift Malam (23.00 - 08.00):
+                </span>{" "}
+                Disimpan satu entri pada tanggal mulai ({date}) dan ditampilkan
+                utuh melintasi pergantian hari/tengah malam (+1 hari).
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="status" className="text-xs font-medium">
                 Status Penugasan

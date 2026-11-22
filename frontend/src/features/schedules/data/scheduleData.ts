@@ -155,3 +155,18 @@ export function formatScheduleDate(dateStr: string): string {
     return dateStr;
   }
 }
+
+/**
+ * Detects if a shift crosses midnight (e.g. Shift 3 Malam 23:00 - 08:00).
+ * In accordance with REQ-F-SCH-005, midnight-crossing shifts are kept
+ * as a single unified entry on the start date without splitting.
+ */
+export function isCrossingMidnight(
+  startTime?: string | null,
+  endTime?: string | null
+): boolean {
+  if (!startTime || !endTime) return false;
+  const [sh] = startTime.split(":").map(Number);
+  const [eh] = endTime.split(":").map(Number);
+  return sh > eh || (sh === 23 && eh === 8) || (sh === 23 && eh === 0);
+}

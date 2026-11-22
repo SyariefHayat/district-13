@@ -221,9 +221,9 @@ export function useCashierDashboard() {
           // non-fatal
         }
 
-        // 4. Fetch Schedules
+        // 4. Fetch Cashier's Personal Schedules (/schedules/me)
         try {
-          const schedRes = await authorizedFetch("/schedules?limit=10", {
+          const schedRes = await authorizedFetch("/schedules/me?limit=10", {
             signal: controller.signal,
           });
           if (schedRes.ok) {

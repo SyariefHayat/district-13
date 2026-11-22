@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateOnly } from "../data/cashierData";
+import { isCrossingMidnight } from "@/features/schedules/data/scheduleData";
 import type { CashierSchedule } from "../data/cashierData";
 
 interface CashierScheduleCardProps {
@@ -68,6 +69,14 @@ export function CashierScheduleCard({
             </p>
             <p className="text-xs text-muted-foreground">
               Pukul {todaySchedule.startTime} s/d {todaySchedule.endTime} WIB
+              {isCrossingMidnight(
+                todaySchedule.startTime,
+                todaySchedule.endTime
+              ) && (
+                <span className="ml-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                  (+1 hari • Lintas Malam)
+                </span>
+              )}
             </p>
             {todaySchedule.notes && (
               <p className="text-[11px] text-muted-foreground italic border-t pt-1 border-primary/10">
@@ -105,6 +114,7 @@ export function CashierScheduleCard({
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         {formatDateOnly(s.date)} • {s.startTime} - {s.endTime}
+                        {isCrossingMidnight(s.startTime, s.endTime) && " (+1)"}
                       </p>
                     </div>
                   </div>

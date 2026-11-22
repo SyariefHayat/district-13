@@ -19,10 +19,22 @@ import {
   roleHasPermission,
 } from '../auth/permissions/permissions.js';
 import { SchedulesController } from './schedules.controller.js';
+import { ShiftTypesController } from './shift-types.controller.js';
 
 function methodMetadata(key: string, method: keyof SchedulesController) {
   const handler = Object.getOwnPropertyDescriptor(
     SchedulesController.prototype,
+    method,
+  )?.value;
+  return Reflect.getMetadata(key, handler);
+}
+
+function shiftTypesMethodMetadata(
+  key: string,
+  method: keyof ShiftTypesController,
+) {
+  const handler = Object.getOwnPropertyDescriptor(
+    ShiftTypesController.prototype,
     method,
   )?.value;
   return Reflect.getMetadata(key, handler);
@@ -54,6 +66,10 @@ describe('SchedulesController authorization', () => {
       PERMISSIONS.schedulesReadAll,
       PERMISSIONS.schedulesReadOwn,
     ]);
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'findMySchedules')).toEqual([
+      PERMISSIONS.schedulesReadAll,
+      PERMISSIONS.schedulesReadOwn,
+    ]);
     expect(methodMetadata(ANY_PERMISSIONS_KEY, 'findOne')).toEqual([
       PERMISSIONS.schedulesReadAll,
       PERMISSIONS.schedulesReadOwn,
@@ -70,5 +86,43 @@ describe('SchedulesController authorization', () => {
     );
     expect(roleHasPermission('ADMIN', PERMISSIONS.schedulesReadAll)).toBe(true);
     expect(roleHasPermission('OWNER', PERMISSIONS.schedulesReadAll)).toBe(true);
+  });
+
+  describe('ShiftTypesController', () => {
+    it('permits read access to shift-types for both management and cashiers', () => {
+      expect(shiftTypesMethodMetadata(ANY_PERMISSIONS_KEY, 'findAll')).toEqual([
+        PERMISSIONS.schedulesReadAll,
+        PERMISSIONS.schedulesReadOwn,
+      ]);
+    });
+
+    it('returns the 3 patent shifts with Shift 3 Malam crossing midnight (REQ: SCH-004, SCH-005)', async () => {
+      const mockDb: any = {
+        db: {
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        },
+      };
+      const controller = new ShiftTypesController(mockDb);
+      const types = await controller.findAll();
+
+      expect(types).toHaveLength(3);
+      expect(types[0].code).toBe('S1');
+      expect(types[0].name).toBe('Shift 1 Pagi');
+      expect(types[0].crossesMidnight).toBe(false);
+
+      expect(types[1].code).toBe('S2');
+      expect(types[1].name).toBe('Shift 2 Sore');
+      expect(types[1].crossesMidnight).toBe(false);
+
+      expect(types[2].code).toBe('S3');
+      expect(types[2].name).toBe('Shift 3 Malam');
+      expect(types[2].startTime).toBe('23:00:00');
+      expect(types[2].endTime).toBe('08:00:00');
+      expect(types[2].crossesMidnight).toBe(true);
+    });
   });
 });
