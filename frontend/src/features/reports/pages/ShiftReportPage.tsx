@@ -2,70 +2,54 @@ import * as React from "react";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/auth-context";
 import { ShiftReportHeader } from "../components/ShiftReportHeader";
 import { ShiftReportStatsCards } from "../components/ShiftReportStatsCards";
 import { ShiftReportTable } from "../components/ShiftReportTable";
 import { ShiftReportDetailDialog } from "../components/ShiftReportDetailDialog";
 import { useShiftReportData } from "../hooks/useShiftReportData";
+import { downloadReportExport } from "../utils/exportReport";
 import type { ShiftReportItem } from "../data/shiftReportData";
 
 export default function ShiftReportPage() {
+  const { authorizedFetch } = useAuth();
   const { summary, shifts, users, isLoading, isSyncing, error, refetch } =
     useShiftReportData();
 
   const [selectedShift, setSelectedShift] =
     React.useState<ShiftReportItem | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handleViewDetails = (shift: ShiftReportItem) => {
     setSelectedShift(shift);
     setDialogOpen(true);
   };
 
-  const handleExport = (itemsToExport?: ShiftReportItem[]) => {
-    const list =
-      itemsToExport && itemsToExport.length > 0 ? itemsToExport : shifts;
-
-    if (!list.length) {
+  const handleExport = async (format: "xlsx" | "csv" = "xlsx") => {
+    setIsExporting(true);
+    try {
+      await downloadReportExport(authorizedFetch, "shifts", format);
       toast.add({
-        title: "Tidak ada data shift untuk diekspor",
+        title: `Laporan shift berhasil diekspor (${format.toUpperCase()})`,
       });
-      return;
+    } catch (err: any) {
+      toast.add({
+        title: "Gagal mengekspor laporan shift",
+        description: err.message,
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const exportRows = list.map((item) => ({
-      Kasir: item.cashierName || item.username,
-      Username: item.username,
-      "Waktu Buka": item.openedAt,
-      "Waktu Tutup": item.closedAt || "Sedang Berjalan",
-      "Total Transaksi": item.transactionCount,
-      "Modal Awal": item.openingCash,
-      "Kas Sistem": item.expectedCash,
-      "Kas Akhir": item.closingCash ?? "-",
-      "Selisih Kas": item.cashDifference ?? "-",
-      Status: item.status === "OPEN" ? "Aktif" : "Selesai",
-    }));
-
-    const json = JSON.stringify(exportRows, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `laporan-shift-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.add({
-      title: `Berhasil mengekspor ${list.length} data shift`,
-    });
   };
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <ShiftReportHeader
-        onExport={() => handleExport()}
+        onExport={handleExport}
         onRefresh={() => void refetch()}
         isRefreshing={isSyncing}
+        isExporting={isExporting}
       />
 
       {error && (
@@ -93,7 +77,7 @@ export default function ShiftReportPage() {
         users={users}
         isLoading={isLoading}
         onViewDetails={handleViewDetails}
-        onExport={handleExport}
+        onExport={() => void handleExport("xlsx")}
       />
 
       <ShiftReportDetailDialog

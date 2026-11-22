@@ -2,67 +2,54 @@ import * as React from "react";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/auth-context";
 import { CashReportHeader } from "../components/CashReportHeader";
 import { CashReportStatsCards } from "../components/CashReportStatsCards";
 import { CashReportTable } from "../components/CashReportTable";
 import { CashReportDetailDialog } from "../components/CashReportDetailDialog";
 import { useCashReportData } from "../hooks/useCashReportData";
+import { downloadReportExport } from "../utils/exportReport";
 import type { CashMovementItem } from "../data/cashReportData";
 
 export default function CashReportPage() {
+  const { authorizedFetch } = useAuth();
   const { summary, movements, users, isLoading, isSyncing, error, refetch } =
     useCashReportData();
 
   const [selectedMovement, setSelectedMovement] =
     React.useState<CashMovementItem | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handleViewDetails = (item: CashMovementItem) => {
     setSelectedMovement(item);
     setDialogOpen(true);
   };
 
-  const handleExport = (itemsToExport?: CashMovementItem[]) => {
-    const list =
-      itemsToExport && itemsToExport.length > 0 ? itemsToExport : movements;
-
-    if (!list.length) {
+  const handleExport = async (format: "xlsx" | "csv" = "xlsx") => {
+    setIsExporting(true);
+    try {
+      await downloadReportExport(authorizedFetch, "cash", format);
       toast.add({
-        title: "Tidak ada data mutasi kas untuk diekspor",
+        title: `Laporan arus kas berhasil diekspor (${format.toUpperCase()})`,
       });
-      return;
+    } catch (err: any) {
+      toast.add({
+        title: "Gagal mengekspor laporan arus kas",
+        description: err.message,
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const exportRows = list.map((item) => ({
-      ID: item.id,
-      Waktu: item.createdAt,
-      Tipe: item.type === "IN" ? "Kas Masuk" : "Kas Keluar",
-      Keterangan: item.description,
-      Petugas: item.recordedByName || item.recordedBy,
-      Nominal: item.amount,
-      Shift: item.shiftId,
-    }));
-
-    const json = JSON.stringify(exportRows, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `laporan-kas-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.add({
-      title: `Berhasil mengekspor ${list.length} data mutasi kas`,
-    });
   };
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <CashReportHeader
-        onExport={() => handleExport()}
+        onExport={handleExport}
         onRefresh={() => void refetch()}
         isRefreshing={isSyncing}
+        isExporting={isExporting}
       />
 
       {error && (
@@ -90,7 +77,7 @@ export default function CashReportPage() {
         users={users}
         isLoading={isLoading}
         onViewDetails={handleViewDetails}
-        onExport={handleExport}
+        onExport={() => void handleExport("xlsx")}
       />
 
       <CashReportDetailDialog

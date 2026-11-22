@@ -2,14 +2,17 @@ import * as React from "react";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/auth-context";
 import { ProfitReportHeader } from "../components/ProfitReportHeader";
 import { ProfitReportStatsCards } from "../components/ProfitReportStatsCards";
 import { ProfitReportTable } from "../components/ProfitReportTable";
 import { ProfitReportDetailDialog } from "../components/ProfitReportDetailDialog";
 import { useProfitReportData } from "../hooks/useProfitReportData";
+import { downloadReportExport } from "../utils/exportReport";
 import type { ProductProfitItem } from "../data/profitReportData";
 
 export default function ProfitReportPage() {
+  const { authorizedFetch } = useAuth();
   const {
     summary,
     products,
@@ -23,56 +26,37 @@ export default function ProfitReportPage() {
   const [selectedProduct, setSelectedProduct] =
     React.useState<ProductProfitItem | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handleViewDetails = (item: ProductProfitItem) => {
     setSelectedProduct(item);
     setDialogOpen(true);
   };
 
-  const handleExport = (itemsToExport?: ProductProfitItem[]) => {
-    const list =
-      itemsToExport && itemsToExport.length > 0 ? itemsToExport : products;
-
-    if (!list.length) {
+  const handleExport = async (format: "xlsx" | "csv" = "xlsx") => {
+    setIsExporting(true);
+    try {
+      await downloadReportExport(authorizedFetch, "profit", format);
       toast.add({
-        title: "Tidak ada data profit untuk diekspor",
+        title: `Laporan analitik profit berhasil diekspor (${format.toUpperCase()})`,
       });
-      return;
+    } catch (err: any) {
+      toast.add({
+        title: "Gagal mengekspor laporan analitik profit",
+        description: err.message,
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const exportRows = list.map((item) => ({
-      Produk: item.name,
-      SKU: item.sku,
-      Kategori: item.category,
-      "Terjual (pcs)": item.unitsSold,
-      "Harga Jual": item.sellingPrice,
-      "Modal HPP": item.costPrice,
-      "Total Omzet": item.totalRevenue,
-      "Total HPP": item.totalCogs,
-      "Laba Kotor": item.grossProfit,
-      "Margin (%)": `${item.profitMargin}%`,
-    }));
-
-    const json = JSON.stringify(exportRows, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `laporan-profit-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.add({
-      title: `Berhasil mengekspor ${list.length} data profit produk`,
-    });
   };
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <ProfitReportHeader
-        onExport={() => handleExport()}
+        onExport={handleExport}
         onRefresh={() => void refetch()}
         isRefreshing={isSyncing}
+        isExporting={isExporting}
       />
 
       {error && (
@@ -100,7 +84,7 @@ export default function ProfitReportPage() {
         categories={categories}
         isLoading={isLoading}
         onViewDetails={handleViewDetails}
-        onExport={handleExport}
+        onExport={() => void handleExport("xlsx")}
       />
 
       <ProfitReportDetailDialog

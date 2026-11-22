@@ -2,76 +2,54 @@ import * as React from "react";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/auth-context";
 import { CashierAuditHeader } from "../components/CashierAuditHeader";
 import { CashierAuditStatsCards } from "../components/CashierAuditStatsCards";
 import { CashierAuditTable } from "../components/CashierAuditTable";
 import { CashierAuditDetailDialog } from "../components/CashierAuditDetailDialog";
 import { useCashierAuditData } from "../hooks/useCashierAuditData";
+import { downloadReportExport } from "../utils/exportReport";
 import type { CashierAuditItem } from "../data/cashierAuditData";
 
 export default function CashierAuditPage() {
+  const { authorizedFetch } = useAuth();
   const { summary, cashiers, isLoading, isSyncing, error, refetch } =
     useCashierAuditData();
 
   const [selectedCashier, setSelectedCashier] =
     React.useState<CashierAuditItem | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handleViewDetails = (item: CashierAuditItem) => {
     setSelectedCashier(item);
     setDialogOpen(true);
   };
 
-  const handleExport = (itemsToExport?: CashierAuditItem[]) => {
-    const list =
-      itemsToExport && itemsToExport.length > 0 ? itemsToExport : cashiers;
-
-    if (!list.length) {
+  const handleExport = async (format: "xlsx" | "csv" = "xlsx") => {
+    setIsExporting(true);
+    try {
+      await downloadReportExport(authorizedFetch, "cashiers", format);
       toast.add({
-        title: "Tidak ada data audit kasir untuk diekspor",
+        title: `Laporan audit kasir berhasil diekspor (${format.toUpperCase()})`,
       });
-      return;
+    } catch (err: any) {
+      toast.add({
+        title: "Gagal mengekspor laporan audit kasir",
+        description: err.message,
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const exportRows = list.map((item) => ({
-      "Nama Kasir": item.cashierName,
-      "Kode Kasir": item.cashierCode,
-      Jabatan: item.role,
-      "Total Shift": item.totalShifts,
-      "Total Transaksi": item.totalTransactions,
-      "Total Penjualan": item.totalSales,
-      "Kas Diharapkan": item.cashExpected,
-      "Kas Aktual": item.cashActual,
-      "Selisih Kas": item.cashDifference,
-      "Akurasi Rekonsiliasi": `${item.accuracyRate}%`,
-      "Jumlah Void": item.voidCount,
-      "Nominal Void": item.voidAmount,
-      "Diskon Diberikan": item.discountAmount,
-      Status: item.auditStatus,
-      "Tanggal Audit": item.lastAuditDate,
-      Catatan: item.notes || "-",
-    }));
-
-    const json = JSON.stringify(exportRows, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit-kasir-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.add({
-      title: `Berhasil mengekspor ${list.length} data audit kasir`,
-    });
   };
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <CashierAuditHeader
-        onExport={() => handleExport()}
+        onExport={handleExport}
         onRefresh={() => void refetch()}
         isRefreshing={isSyncing}
+        isExporting={isExporting}
       />
 
       {error && (
@@ -98,7 +76,7 @@ export default function CashierAuditPage() {
         cashiers={cashiers}
         isLoading={isLoading}
         onViewDetails={handleViewDetails}
-        onExport={handleExport}
+        onExport={() => void handleExport("xlsx")}
       />
 
       <CashierAuditDetailDialog

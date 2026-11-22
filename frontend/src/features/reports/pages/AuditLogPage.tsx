@@ -17,56 +17,83 @@ export default function AuditLogPage() {
     null
   );
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handleViewDetails = (item: AuditLogItem) => {
     setSelectedLog(item);
     setDialogOpen(true);
   };
 
-  const handleExport = (itemsToExport?: AuditLogItem[]) => {
-    const list =
-      itemsToExport && itemsToExport.length > 0 ? itemsToExport : logs;
+  const handleExport = async (format: "xlsx" | "csv" = "xlsx") => {
+    setIsExporting(true);
+    try {
+      const list = logs;
+      if (!list.length) {
+        toast.add({
+          title: "Tidak ada catatan audit log untuk diekspor",
+        });
+        return;
+      }
 
-    if (!list.length) {
-      toast.add({
-        title: "Tidak ada catatan audit log untuk diekspor",
+      const headers = [
+        "ID",
+        "Waktu",
+        "Pengguna / Aktor",
+        "Jabatan",
+        "Aksi",
+        "Tipe Entitas",
+        "ID Entitas",
+        "Keterangan",
+        "IP Address",
+        "Metadata",
+      ];
+
+      const rows = list.map((item) => [
+        item.id,
+        item.createdAt,
+        item.userName,
+        item.userRole || "-",
+        item.action,
+        item.entityType,
+        item.entityId || "-",
+        item.description,
+        item.ipAddress || "-",
+        item.metadata ? JSON.stringify(item.metadata) : "-",
+      ]);
+
+      const csvContent = [headers, ...rows]
+        .map((r) =>
+          r.map((c) => `"${String(c).replaceAll('"', '""')}"`).join(",")
+        )
+        .join("\n");
+
+      const blob = new Blob([csvContent], {
+        type: "text/csv;charset=utf-8;",
       });
-      return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.${format === "xlsx" ? "csv" : "csv"}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.add({
+        title: `Berhasil mengekspor ${list.length} catatan audit log`,
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const exportRows = list.map((item) => ({
-      ID: item.id,
-      Waktu: item.createdAt,
-      "Pengguna / Aktor": item.userName,
-      Jabatan: item.userRole || "-",
-      Aksi: item.action,
-      "Tipe Entitas": item.entityType,
-      "ID Entitas": item.entityId || "-",
-      Keterangan: item.description,
-      "IP Address": item.ipAddress || "-",
-      Metadata: item.metadata ? JSON.stringify(item.metadata) : "-",
-    }));
-
-    const json = JSON.stringify(exportRows, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `audit-log-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.add({
-      title: `Berhasil mengekspor ${list.length} catatan audit log`,
-    });
   };
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <AuditLogHeader
-        onExport={() => handleExport()}
+        onExport={handleExport}
         onRefresh={() => void refetch()}
         isRefreshing={isSyncing}
+        isExporting={isExporting}
       />
 
       {error && (
@@ -93,7 +120,7 @@ export default function AuditLogPage() {
         logs={logs}
         isLoading={isLoading}
         onViewDetails={handleViewDetails}
-        onExport={handleExport}
+        onExport={() => void handleExport("xlsx")}
       />
 
       <AuditLogDetailDialog

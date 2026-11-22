@@ -1,13 +1,25 @@
 import { Button } from "@/components/ui/button";
-import { IconDownload, IconRefresh } from "@tabler/icons-react";
+import {
+  IconDownload,
+  IconFileSpreadsheet,
+  IconFileTypeCsv,
+  IconRefresh,
+} from "@tabler/icons-react";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ProfitReportHeaderProps {
   title?: string;
   description?: string;
-  onExport?: () => void;
+  onExport?: (format: "xlsx" | "csv") => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  isExporting?: boolean;
 }
 
 export function ProfitReportHeader({
@@ -16,6 +28,7 @@ export function ProfitReportHeader({
   onExport,
   onRefresh,
   isRefreshing = false,
+  isExporting = false,
 }: ProfitReportHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between px-4 md:px-6">
@@ -45,15 +58,42 @@ export function ProfitReportHeader({
             <span>Segarkan</span>
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="default"
-          onClick={onExport}
-          className="gap-1.5 shadow-xs"
-        >
-          <IconDownload data-icon="inline-start" className="size-4" />
-          <span>Export</span>
-        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="outline"
+                size="default"
+                disabled={isExporting}
+                className="gap-1.5 shadow-xs"
+              >
+                {isExporting ? (
+                  <Spinner className="size-4" />
+                ) : (
+                  <IconDownload data-icon="inline-start" className="size-4" />
+                )}
+                <span>{isExporting ? "Mengekspor..." : "Ekspor"}</span>
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => onExport?.("xlsx")}
+              className="gap-2 cursor-pointer"
+            >
+              <IconFileSpreadsheet className="size-4 text-emerald-600" />
+              <span>Ekspor Excel (.xlsx)</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onExport?.("csv")}
+              className="gap-2 cursor-pointer"
+            >
+              <IconFileTypeCsv className="size-4 text-blue-600" />
+              <span>Ekspor CSV (.csv)</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

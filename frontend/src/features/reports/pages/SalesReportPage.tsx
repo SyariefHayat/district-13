@@ -2,70 +2,55 @@ import * as React from "react";
 import { IconAlertCircle, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
+import { useAuth } from "@/context/auth-context";
 import { SalesReportHeader } from "../components/SalesReportHeader";
 import { SalesReportStatsCards } from "../components/SalesReportStatsCards";
 import { SalesReportTable } from "../components/SalesReportTable";
 import { SalesReportDetailDialog } from "../components/SalesReportDetailDialog";
+import { ReconciliationCard } from "../components/ReconciliationCard";
 import { useSalesReportData } from "../hooks/useSalesReportData";
+import { downloadReportExport } from "../utils/exportReport";
 import type { SalesReportItem } from "../data/salesReportData";
 
 export default function SalesReportPage() {
+  const { authorizedFetch } = useAuth();
   const { summary, transactions, users, isLoading, isSyncing, error, refetch } =
     useSalesReportData();
 
   const [selectedTransaction, setSelectedTransaction] =
     React.useState<SalesReportItem | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const handleViewDetails = (item: SalesReportItem) => {
     setSelectedTransaction(item);
     setDialogOpen(true);
   };
 
-  const handleExport = (itemsToExport?: SalesReportItem[]) => {
-    const list =
-      itemsToExport && itemsToExport.length > 0 ? itemsToExport : transactions;
-
-    if (!list.length) {
+  const handleExport = async (format: "xlsx" | "csv" = "xlsx") => {
+    setIsExporting(true);
+    try {
+      await downloadReportExport(authorizedFetch, "sales", format);
       toast.add({
-        title: "Tidak ada data penjualan untuk diekspor",
+        title: `Laporan penjualan berhasil diekspor (${format.toUpperCase()})`,
       });
-      return;
+    } catch (err: any) {
+      toast.add({
+        title: "Gagal mengekspor laporan",
+        description: err.message,
+      });
+    } finally {
+      setIsExporting(false);
     }
-
-    const exportRows = list.map((item) => ({
-      "No. Transaksi": item.transactionNumber,
-      Waktu: item.createdAt,
-      Kasir: item.cashierName || "-",
-      "Metode Pembayaran": item.paymentMethod,
-      "Subtotal (Gross)": item.subtotalAmount,
-      Diskon: item.discountAmount,
-      "Total Bersih (Net)": item.totalAmount,
-      "Nominal Bayar": item.paidAmount,
-      Kembalian: item.changeAmount,
-      Status: item.status,
-    }));
-
-    const json = JSON.stringify(exportRows, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `laporan-penjualan-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    toast.add({
-      title: `Berhasil mengekspor ${list.length} data transaksi`,
-    });
   };
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <SalesReportHeader
-        onExport={() => handleExport()}
+        onExport={handleExport}
         onRefresh={() => void refetch()}
         isRefreshing={isSyncing}
+        isExporting={isExporting}
       />
 
       {error && (
@@ -93,8 +78,13 @@ export default function SalesReportPage() {
         users={users}
         isLoading={isLoading}
         onViewDetails={handleViewDetails}
-        onExport={handleExport}
+        onExport={() => void handleExport("xlsx")}
       />
+
+      {/* Catatan & Tabel Rekonsiliasi Penjualan Harian vs Shift (T-57) */}
+      <div className="px-4 md:px-6">
+        <ReconciliationCard />
+      </div>
 
       <SalesReportDetailDialog
         open={dialogOpen}

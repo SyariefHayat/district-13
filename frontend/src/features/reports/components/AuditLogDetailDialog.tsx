@@ -172,6 +172,49 @@ export function AuditLogDetailDialog({
             </div>
           </div>
 
+          {/* Before / After comparison if present (T-58) */}
+          {log.metadata &&
+            (log.metadata.before !== undefined ||
+              log.metadata.after !== undefined ||
+              log.metadata.previous !== undefined ||
+              log.metadata.new !== undefined) && (
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                  Perbandingan Nilai: Sebelum vs Sesudah
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-lg border border-red-200 bg-red-50/50 p-3 dark:border-red-900/40 dark:bg-red-950/20">
+                    <span className="font-semibold text-red-700 dark:text-red-400 block mb-1">
+                      Nilai Sebelum (Previous)
+                    </span>
+                    <pre className="font-mono text-[11px] overflow-x-auto text-red-950 dark:text-red-200">
+                      {JSON.stringify(
+                        log.metadata.before ??
+                          log.metadata.previous ??
+                          "Tidak ada data sebelumnya",
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400 block mb-1">
+                      Nilai Sesudah (New / Current)
+                    </span>
+                    <pre className="font-mono text-[11px] overflow-x-auto text-emerald-950 dark:text-emerald-200">
+                      {JSON.stringify(
+                        log.metadata.after ??
+                          log.metadata.new ??
+                          "Tidak ada data baru",
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
           {/* Payload Metadata */}
           {log.metadata && Object.keys(log.metadata).length > 0 && (
             <div>
