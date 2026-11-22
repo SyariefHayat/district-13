@@ -44,6 +44,7 @@ import type { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import type { ListTransactionsDto } from './dto/list-transactions.dto.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 import { getWibBusinessDate } from '../common/utils/formatters.js';
+import { DailySummariesService } from '../reports/daily-summaries.service.js';
 
 type NormalizedItem = {
   productId: string;
@@ -57,6 +58,7 @@ export class TransactionsService {
     private readonly database: DatabaseService,
     private readonly inventoryService: InventoryService,
     @Optional() private readonly auditLogs?: AuditLogsService,
+    @Optional() private readonly dailySummaries?: DailySummariesService,
   ) {}
 
   async create(
@@ -421,6 +423,26 @@ export class TransactionsService {
         },
       ]);
 
+      await this.dailySummaries?.onTransactionCompleted(
+        {
+          id: transaction.id,
+          transactionNumber,
+          userId: actor.id,
+          subtotalAmount: Number(transaction.subtotalAmount),
+          discountAmount: Number(transaction.discountAmount),
+          totalAmount: Number(transaction.totalAmount),
+          paymentMethod: transaction.paymentMethod as 'CASH' | 'QRIS',
+          createdAt: transaction.createdAt,
+          items: calculated.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: Number(item.productPrice) / 100,
+            subtotalAmount: Number(item.itemCents) / 100,
+          })),
+        },
+        tx,
+      );
+
       const response = {
         id: transaction.id,
         transactionNumber,
@@ -669,6 +691,14 @@ export class TransactionsService {
           event: 'INVENTORY_VOID_RETURNED',
         },
       ]);
+
+      const txBusinessDate = getWibBusinessDate(transaction.createdAt);
+      await this.dailySummaries?.onTransactionVoided(
+        txBusinessDate,
+        transaction.userId,
+        Number(transaction.totalAmount),
+        tx,
+      );
 
       return voided;
     });

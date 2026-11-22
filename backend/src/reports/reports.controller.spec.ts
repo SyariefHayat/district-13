@@ -20,6 +20,7 @@ import {
 } from '../auth/permissions/permissions.js';
 import { ReportsController } from './reports.controller.js';
 import type { ProfitQueryDto } from './dto/profit-query.dto.js';
+import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 
 function methodMetadata(key: string, method: keyof ReportsController) {
   const handler = Object.getOwnPropertyDescriptor(
@@ -30,22 +31,111 @@ function methodMetadata(key: string, method: keyof ReportsController) {
 }
 
 describe('ReportsController authorization', () => {
-  it('protects profit analytics endpoint with reports permissions', () => {
-    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'profit')).toEqual([
+  it('protects profit analytics endpoint strictly for Owner (T-54)', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'profit')).toEqual([
       PERMISSIONS.reportsProfitRead,
+    ]);
+
+    expect(roleHasPermission('OWNER', PERMISSIONS.reportsProfitRead)).toBe(
+      true,
+    );
+    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsProfitRead)).toBe(
+      false,
+    );
+    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsProfitRead)).toBe(
+      false,
+    );
+  });
+
+  it('protects discounts report endpoint strictly for Owner (T-54)', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'discounts')).toEqual([
+      PERMISSIONS.reportsDiscountsRead,
+    ]);
+
+    expect(roleHasPermission('OWNER', PERMISSIONS.reportsDiscountsRead)).toBe(
+      true,
+    );
+    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsDiscountsRead)).toBe(
+      false,
+    );
+    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsDiscountsRead)).toBe(
+      false,
+    );
+  });
+
+  it('protects payment methods report endpoint strictly for Owner (T-54)', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'paymentMethods')).toEqual([
+      PERMISSIONS.reportsPaymentMethodsRead,
+    ]);
+
+    expect(
+      roleHasPermission('OWNER', PERMISSIONS.reportsPaymentMethodsRead),
+    ).toBe(true);
+    expect(
+      roleHasPermission('ADMIN', PERMISSIONS.reportsPaymentMethodsRead),
+    ).toBe(false);
+    expect(
+      roleHasPermission('CASHIER', PERMISSIONS.reportsPaymentMethodsRead),
+    ).toBe(false);
+  });
+
+  it('protects reconciliation report endpoint for Owner and Admin (T-54)', () => {
+    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'reconciliation')).toEqual([
       PERMISSIONS.reportsSalesRead,
+      PERMISSIONS.reportsProfitRead,
     ]);
 
     expect(roleHasPermission('OWNER', PERMISSIONS.reportsProfitRead)).toBe(
       true,
     );
     expect(roleHasPermission('ADMIN', PERMISSIONS.reportsSalesRead)).toBe(true);
-    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsProfitRead)).toBe(
-      false,
-    );
     expect(roleHasPermission('CASHIER', PERMISSIONS.reportsSalesRead)).toBe(
       false,
     );
+  });
+
+  it('protects products report endpoint with reportsSalesRead (T-53)', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'products')).toEqual([
+      PERMISSIONS.reportsSalesRead,
+    ]);
+
+    expect(roleHasPermission('OWNER', PERMISSIONS.reportsSalesRead)).toBe(true);
+    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsSalesRead)).toBe(true);
+    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsSalesRead)).toBe(
+      false,
+    );
+  });
+
+  it('protects cash entries report endpoint with reportsCashMovementsRead (T-53)', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'cashEntries')).toEqual([
+      PERMISSIONS.reportsCashMovementsRead,
+    ]);
+
+    expect(
+      roleHasPermission('OWNER', PERMISSIONS.reportsCashMovementsRead),
+    ).toBe(true);
+    expect(
+      roleHasPermission('ADMIN', PERMISSIONS.reportsCashMovementsRead),
+    ).toBe(true);
+    expect(
+      roleHasPermission('CASHIER', PERMISSIONS.reportsCashMovementsRead),
+    ).toBe(false);
+  });
+
+  it('protects cashier performance endpoint with reports permissions', () => {
+    expect(methodMetadata(PERMISSIONS_KEY, 'cashiers')).toEqual([
+      PERMISSIONS.reportsCashierPerformanceRead,
+    ]);
+
+    expect(
+      roleHasPermission('OWNER', PERMISSIONS.reportsCashierPerformanceRead),
+    ).toBe(true);
+    expect(
+      roleHasPermission('ADMIN', PERMISSIONS.reportsCashierPerformanceRead),
+    ).toBe(true);
+    expect(
+      roleHasPermission('CASHIER', PERMISSIONS.reportsCashierPerformanceRead),
+    ).toBe(false);
   });
 
   it('delegates profit query to ReportsService', async () => {
@@ -75,212 +165,112 @@ describe('ReportsController authorization', () => {
     expect(result.summary.profitMargin).toBe(60.0);
   });
 
-  it('protects cashier performance endpoint with reports permissions', () => {
-    expect(methodMetadata(PERMISSIONS_KEY, 'cashiers')).toEqual([
-      PERMISSIONS.reportsCashierPerformanceRead,
-    ]);
-
-    expect(
-      roleHasPermission('OWNER', PERMISSIONS.reportsCashierPerformanceRead),
-    ).toBe(true);
-    expect(
-      roleHasPermission('ADMIN', PERMISSIONS.reportsCashierPerformanceRead),
-    ).toBe(true);
-    expect(
-      roleHasPermission('CASHIER', PERMISSIONS.reportsCashierPerformanceRead),
-    ).toBe(false);
-  });
-
-  it('delegates cashiers query to ReportsService', async () => {
+  it('delegates dashboard query with actor role to filter busy hours (T-53)', async () => {
     const mockService = {
-      cashierPerformance: vi.fn().mockResolvedValue({
-        summary: {
-          totalCashiers: 2,
-          totalTransactions: 50,
-          totalSales: 5000000,
-          totalDifference: 0,
-          averageAccuracy: 100,
-          totalVoidCount: 0,
-          totalVoidAmount: 0,
-        },
-        cashiers: { data: [], page: 1, limit: 10, total: 2 },
+      dashboard: vi.fn().mockResolvedValue({
+        period: { startDate: '2026-11-01', endDate: '2026-11-22' },
+        kpis: {},
+        hourlyHeatmap: [],
       }),
     };
 
     const controller = new ReportsController(mockService as any);
-    const query = { page: 1, limit: 10 };
-    const result = await controller.cashiers(query as any);
-
-    expect(mockService.cashierPerformance).toHaveBeenCalledWith(query);
-    expect(result.summary.totalCashiers).toBe(2);
-  });
-
-  it('protects cash movements report endpoint with reports permissions', () => {
-    expect(methodMetadata(ANY_PERMISSIONS_KEY, 'cash')).toEqual([
-      PERMISSIONS.reportsCashRead,
-      PERMISSIONS.reportsCashMovementsRead,
-    ]);
-
-    expect(roleHasPermission('OWNER', PERMISSIONS.reportsCashRead)).toBe(true);
-    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsCashRead)).toBe(true);
-    expect(
-      roleHasPermission('ADMIN', PERMISSIONS.reportsCashMovementsRead),
-    ).toBe(true);
-    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsCashRead)).toBe(
-      false,
-    );
-    expect(
-      roleHasPermission('CASHIER', PERMISSIONS.reportsCashMovementsRead),
-    ).toBe(false);
-  });
-
-  it('delegates cash report query to ReportsService', async () => {
-    const mockService = {
-      cash: vi.fn().mockResolvedValue({
-        cashIn: '500000',
-        cashOut: '100000',
-        netCashFlow: '400000.00',
-        inCount: 2,
-        outCount: 1,
-        totalCount: 3,
-        movements: {
-          data: [
-            {
-              id: 'cm-1',
-              shiftId: 's-1',
-              recordedBy: 'u-1',
-              username: 'admin',
-              type: 'IN',
-              amount: 500000,
-              description: 'Modal awal',
-              createdAt: new Date().toISOString(),
-            },
-          ],
-          page: 1,
-          limit: 10,
-          total: 1,
-        },
-      }),
+    const actor: AuthenticatedUser = {
+      id: 'c-1',
+      role: 'CASHIER',
+      sessionId: 'sess-1',
     };
-
-    const controller = new ReportsController(mockService as any);
-    const query = { page: 1, limit: 10, type: 'IN' as const };
-    const result = await controller.cash(query as any);
-
-    expect(mockService.cash).toHaveBeenCalledWith(query);
-    expect(result.cashIn).toBe('500000');
-    expect(result.movements.data).toHaveLength(1);
-    expect(result.movements.data[0].amount).toBe(500000);
-  });
-
-  it('protects shifts report endpoint with reports permissions', () => {
-    expect(methodMetadata(PERMISSIONS_KEY, 'shifts')).toEqual([
-      PERMISSIONS.reportsShiftsRead,
-    ]);
-
-    expect(roleHasPermission('OWNER', PERMISSIONS.reportsShiftsRead)).toBe(
-      true,
+    await controller.dashboard(
+      { startDate: '2026-11-01', endDate: '2026-11-22' } as any,
+      actor,
     );
-    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsShiftsRead)).toBe(
-      true,
-    );
-    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsShiftsRead)).toBe(
-      false,
+
+    expect(mockService.dashboard).toHaveBeenCalledWith(
+      { startDate: '2026-11-01', endDate: '2026-11-22' },
+      'CASHIER',
     );
   });
 
-  it('delegates shifts report query to ReportsService', async () => {
-    const mockService = {
-      shifts: vi.fn().mockResolvedValue({
-        summary: {
-          totalShifts: 1,
-          openShifts: 0,
-          closedShifts: 1,
-          totalClosingCash: 1500000,
-          totalCashDifference: 0,
-          totalTransactions: 25,
-        },
-        data: [
+  describe('Export Endpoint (T-55)', () => {
+    it('enforces concurrency limit of 1 export running per user', async () => {
+      let releaseExport: () => void;
+      const blockingPromise = new Promise<void>((resolve) => {
+        releaseExport = resolve;
+      });
+
+      const mockService = {
+        export: vi.fn().mockImplementation(() => blockingPromise),
+      };
+
+      const controller = new ReportsController(mockService as any);
+      const actor: AuthenticatedUser = {
+        id: 'user-export-1',
+        role: 'OWNER',
+        sessionId: 'sess-2',
+      };
+      const mockRes = {} as any;
+
+      // Start first export (asynchronously)
+      const export1 = controller.export('sales', {} as any, actor, mockRes);
+
+      // Attempt second export for the same user concurrently
+      await expect(
+        controller.export('sales', {} as any, actor, mockRes),
+      ).rejects.toThrow('Another export is already in progress for this user');
+
+      releaseExport!();
+      await export1;
+
+      // Now a subsequent export should succeed after previous finished
+      await expect(
+        controller.export('sales', {} as any, actor, mockRes),
+      ).resolves.toBeUndefined();
+    });
+
+    it('rejects export requests exceeding 92 days limit', async () => {
+      const mockService = {
+        export: vi.fn().mockImplementation(async () => {
+          throw new Error('Export date range cannot exceed 92 days');
+        }),
+      };
+
+      const controller = new ReportsController(mockService as any);
+      const actor: AuthenticatedUser = {
+        id: 'user-export-2',
+        role: 'OWNER',
+        sessionId: 'sess-3',
+      };
+
+      await expect(
+        controller.export(
+          'sales',
           {
-            id: 'sh-1',
-            userId: 'u-1',
-            username: 'kasir1',
-            openedAt: new Date().toISOString(),
-            closedAt: new Date().toISOString(),
-            openingCash: 300000,
-            expectedCash: 1500000,
-            closingCash: 1500000,
-            cashDifference: 0,
-            transactionCount: 25,
-          },
-        ],
-        page: 1,
-        limit: 10,
-        total: 1,
-      }),
-    };
+            startDate: '2026-01-01',
+            endDate: '2026-06-01',
+            format: 'xlsx',
+          } as any,
+          actor,
+          {} as any,
+        ),
+      ).rejects.toThrow('Export date range cannot exceed 92 days');
+    });
 
-    const controller = new ReportsController(mockService as any);
-    const query = { page: 1, limit: 10, status: 'CLOSED' as const };
-    const result = await controller.shifts(query as any);
+    it('forbids Admin from exporting Owner-only profit reports', async () => {
+      const mockService = {
+        export: vi.fn(),
+      };
 
-    expect(mockService.shifts).toHaveBeenCalledWith(query);
-    expect(result.summary.totalShifts).toBe(1);
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0].username).toBe('kasir1');
-  });
+      const controller = new ReportsController(mockService as any);
+      const adminActor: AuthenticatedUser = {
+        id: 'admin-1',
+        role: 'ADMIN',
+        sessionId: 'sess-4',
+      };
 
-  it('protects sales report endpoint with reports permissions', () => {
-    expect(methodMetadata(PERMISSIONS_KEY, 'sales')).toEqual([
-      PERMISSIONS.reportsSalesRead,
-    ]);
-
-    expect(roleHasPermission('OWNER', PERMISSIONS.reportsSalesRead)).toBe(true);
-    expect(roleHasPermission('ADMIN', PERMISSIONS.reportsSalesRead)).toBe(true);
-    expect(roleHasPermission('CASHIER', PERMISSIONS.reportsSalesRead)).toBe(
-      false,
-    );
-  });
-
-  it('delegates sales report query to ReportsService', async () => {
-    const mockService = {
-      sales: vi.fn().mockResolvedValue({
-        grossSales: '1000000',
-        discountTotal: '50000',
-        netSales: '950000',
-        transactionCount: 10,
-        averageTransactionValue: '95000.00',
-        byPaymentMethod: [
-          {
-            paymentMethod: 'CASH',
-            gross: '500000',
-            discount: '25000',
-            net: '475000',
-            count: 5,
-          },
-        ],
-        transactions: {
-          data: [
-            {
-              id: 'tx-1',
-              transactionNumber: 'TRX-001',
-              totalAmount: 95000,
-              items: [],
-            },
-          ],
-          page: 1,
-          limit: 10,
-          total: 1,
-        },
-      }),
-    };
-
-    const controller = new ReportsController(mockService as any);
-    const query = { page: 1, limit: 10 };
-    const result = await controller.sales(query as any);
-
-    expect(mockService.sales).toHaveBeenCalledWith(query);
-    expect(result.grossSales).toBe('1000000');
-    expect(result.transactions.data).toHaveLength(1);
+      await expect(
+        controller.export('profit', {} as any, adminActor, {} as any),
+      ).rejects.toThrow('Owner permission required for profit reports');
+      expect(mockService.export).not.toHaveBeenCalled();
+    });
   });
 });

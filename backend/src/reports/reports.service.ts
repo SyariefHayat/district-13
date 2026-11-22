@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { and, count, desc, eq, gte, inArray, lt, sql, sum } from 'drizzle-orm';
+import type { Response } from 'express';
+import ExcelJS from 'exceljs';
 import { DatabaseService } from '../drizzle/database/database.service.js';
 import {
   cashMovements,
@@ -15,6 +17,9 @@ import {
 import type { ReportQueryDto } from './dto/report-query.dto.js';
 import type { OverviewQueryDto } from './dto/overview-query.dto.js';
 import type { ProfitQueryDto } from './dto/profit-query.dto.js';
+import type { ExportQueryDto } from './dto/export-query.dto.js';
+import type { AuthenticatedUser } from '../auth/types/auth.types.js';
+import { getWibBusinessDate } from '../common/utils/formatters.js';
 
 @Injectable()
 export class ReportsService {
@@ -1022,5 +1027,686 @@ export class ReportsService {
         total: items.length,
       },
     };
+  }
+
+  async dashboard(q: OverviewQueryDto, userRole?: string) {
+    const result = await this.overview(q);
+    // Busy hours heatmap is restricted to Owner and Admin only (T-53)
+    if (userRole !== 'OWNER' && userRole !== 'ADMIN') {
+      return {
+        ...result,
+        hourlyHeatmap: [],
+      };
+    }
+    return result;
+  }
+
+  async products(q: ReportQueryDto) {
+    const txWhere = [
+      ...this.dateFilter(q, transactions.createdAt),
+      eq(transactions.status, 'COMPLETED'),
+    ];
+    if (q.productId) txWhere.push(eq(transactionItems.productId, q.productId));
+    if (q.categoryId) txWhere.push(eq(products.categoryId, q.categoryId));
+
+    const rows = await this.database.db
+      .select({
+        productId: transactionItems.productId,
+        productName: transactionItems.productName,
+        categoryId: products.categoryId,
+        categoryName: sql<string>`coalesce(${categories.name}, 'Umum')`,
+        quantitySold: sql<number>`coalesce(sum(${transactionItems.quantity}), 0)::int`,
+        totalRevenue: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}), 0)`,
+      })
+      .from(transactionItems)
+      .innerJoin(
+        transactions,
+        eq(transactionItems.transactionId, transactions.id),
+      )
+      .innerJoin(products, eq(transactionItems.productId, products.id))
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(and(...txWhere))
+      .groupBy(
+        transactionItems.productId,
+        transactionItems.productName,
+        products.categoryId,
+        categories.name,
+      )
+      .orderBy(desc(sql`sum(${transactionItems.subtotalAmount})`));
+
+    const totalQuantity = rows.reduce(
+      (acc, r) => acc + Number(r.quantitySold || 0),
+      0,
+    );
+    const totalRevenue = rows.reduce(
+      (acc, r) => acc + Number(r.totalRevenue || 0),
+      0,
+    );
+
+    const page = q.page || 1;
+    const limit = q.limit || 20;
+    const offset = (page - 1) * limit;
+    const pagedData = rows.slice(offset, offset + limit).map((r) => {
+      const qty = Number(r.quantitySold || 0);
+      const rev = Number(r.totalRevenue || 0);
+      return {
+        productId: r.productId,
+        productName: r.productName,
+        categoryId: r.categoryId,
+        categoryName: r.categoryName,
+        quantitySold: qty,
+        totalRevenue: rev,
+        averagePrice: qty > 0 ? Number((rev / qty).toFixed(2)) : 0,
+      };
+    });
+
+    return {
+      summary: {
+        totalProducts: rows.length,
+        totalQuantitySold: totalQuantity,
+        totalRevenue,
+      },
+      data: pagedData,
+      page,
+      limit,
+      total: rows.length,
+    };
+  }
+
+  async cashEntries(q: ReportQueryDto) {
+    const movementDateFilters = this.dateFilter(q, cashMovements.createdAt);
+    const filters = [...movementDateFilters];
+    if (q.shiftId) filters.push(eq(cashMovements.shiftId, q.shiftId));
+    if (q.userId) filters.push(eq(cashMovements.recordedBy, q.userId));
+    if (q.type) filters.push(eq(cashMovements.type, q.type));
+
+    const where = and(...filters);
+
+    const [moves] = await this.database.db
+      .select({
+        cashIn: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='IN'),0)`,
+        cashOut: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='OUT'),0)`,
+        inCount: sql<number>`count(*) filter (where ${cashMovements.type}='IN')`,
+        outCount: sql<number>`count(*) filter (where ${cashMovements.type}='OUT')`,
+        totalCount: count(),
+      })
+      .from(cashMovements)
+      .where(where);
+
+    const rows = await this.database.db
+      .select({
+        id: cashMovements.id,
+        shiftId: cashMovements.shiftId,
+        recordedBy: cashMovements.recordedBy,
+        username: users.username,
+        type: cashMovements.type,
+        amount: sql<string>`${cashMovements.amount}::text`,
+        description: cashMovements.description,
+        createdAt: cashMovements.createdAt,
+      })
+      .from(cashMovements)
+      .leftJoin(users, eq(users.id, cashMovements.recordedBy))
+      .where(where)
+      .orderBy(desc(cashMovements.createdAt))
+      .limit(q.limit)
+      .offset((q.page - 1) * q.limit);
+
+    const [totalResult] = await this.database.db
+      .select({ total: count() })
+      .from(cashMovements)
+      .where(where);
+
+    const cashInVal = Number(moves?.cashIn || 0);
+    const cashOutVal = Number(moves?.cashOut || 0);
+
+    return {
+      summary: {
+        cashIn: cashInVal,
+        cashOut: cashOutVal,
+        netCashFlow: cashInVal - cashOutVal,
+        inCount: Number(moves?.inCount || 0),
+        outCount: Number(moves?.outCount || 0),
+        totalCount: Number(moves?.totalCount || 0),
+      },
+      data: rows.map((m) => ({
+        id: m.id,
+        shiftId: m.shiftId,
+        recordedBy: m.recordedBy,
+        username: m.username,
+        type: m.type,
+        amount: Number(m.amount) || 0,
+        description: m.description || '',
+        createdAt: m.createdAt,
+      })),
+      page: q.page,
+      limit: q.limit,
+      total: Number(totalResult?.total || 0),
+    };
+  }
+
+  async discounts(q: ReportQueryDto) {
+    const whereFilters = [
+      ...this.dateFilter(q, transactions.createdAt),
+      eq(transactions.status, 'COMPLETED'),
+      sql`${transactions.discountAmount} > 0`,
+    ];
+    if (q.userId) whereFilters.push(eq(transactions.userId, q.userId));
+    const where = and(...whereFilters);
+
+    const [totals] = await this.database.db
+      .select({
+        totalDiscount: sql<string>`coalesce(sum(${transactions.discountAmount}), 0)`,
+        totalSales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        count: count(),
+      })
+      .from(transactions)
+      .where(where);
+
+    const breakdown = await this.database.db
+      .select({
+        reason: sql<string>`coalesce(${transactions.discountReason}, 'Tanpa Alasan')`,
+        count: count(),
+        totalDiscount: sql<string>`coalesce(sum(${transactions.discountAmount}), 0)`,
+        totalSales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+      })
+      .from(transactions)
+      .where(where)
+      .groupBy(transactions.discountReason);
+
+    const rows = await this.database.db
+      .select({
+        id: transactions.id,
+        transactionNumber: transactions.transactionNumber,
+        userId: transactions.userId,
+        cashierUsername: users.username,
+        subtotalAmount: transactions.subtotalAmount,
+        discountAmount: transactions.discountAmount,
+        discountReason: transactions.discountReason,
+        totalAmount: transactions.totalAmount,
+        createdAt: transactions.createdAt,
+      })
+      .from(transactions)
+      .leftJoin(users, eq(users.id, transactions.userId))
+      .where(where)
+      .orderBy(desc(transactions.createdAt))
+      .limit(q.limit)
+      .offset((q.page - 1) * q.limit);
+
+    const [totalCount] = await this.database.db
+      .select({ total: count() })
+      .from(transactions)
+      .where(where);
+
+    const totalDiscountNum = Number(totals?.totalDiscount || 0);
+    const totalCountNum = Number(totals?.count || 0);
+
+    return {
+      summary: {
+        totalDiscount: totalDiscountNum,
+        totalSales: Number(totals?.totalSales || 0),
+        discountedTransactionsCount: totalCountNum,
+        averageDiscount:
+          totalCountNum > 0
+            ? Number((totalDiscountNum / totalCountNum).toFixed(2))
+            : 0,
+      },
+      byReason: breakdown.map((b) => ({
+        reason: b.reason,
+        count: Number(b.count),
+        totalDiscount: Number(b.totalDiscount),
+        totalSales: Number(b.totalSales),
+      })),
+      transactions: {
+        data: rows.map((r) => ({
+          ...r,
+          subtotalAmount: Number(r.subtotalAmount),
+          discountAmount: Number(r.discountAmount),
+          totalAmount: Number(r.totalAmount),
+        })),
+        page: q.page,
+        limit: q.limit,
+        total: Number(totalCount?.total || 0),
+      },
+    };
+  }
+
+  async paymentMethods(q: ReportQueryDto) {
+    const whereFilters = [
+      ...this.dateFilter(q, transactions.createdAt),
+      eq(transactions.status, 'COMPLETED'),
+    ];
+    if (q.userId) whereFilters.push(eq(transactions.userId, q.userId));
+    const where = and(...whereFilters);
+
+    const [totals] = await this.database.db
+      .select({
+        totalRevenue: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        totalCount: count(),
+      })
+      .from(transactions)
+      .where(where);
+
+    const methods = await this.database.db
+      .select({
+        paymentMethod: transactions.paymentMethod,
+        revenue: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        count: count(),
+      })
+      .from(transactions)
+      .where(where)
+      .groupBy(transactions.paymentMethod);
+
+    const daily = await this.database.db
+      .select({
+        businessDate: sql<string>`to_char(DATE(${transactions.createdAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`,
+        paymentMethod: transactions.paymentMethod,
+        revenue: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        count: count(),
+      })
+      .from(transactions)
+      .where(where)
+      .groupBy(
+        sql`DATE(${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+        transactions.paymentMethod,
+      )
+      .orderBy(
+        sql`DATE(${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+      );
+
+    const totalRev = Number(totals?.totalRevenue || 0);
+    const totalCnt = Number(totals?.totalCount || 0);
+
+    return {
+      summary: {
+        totalRevenue: totalRev,
+        totalTransactions: totalCnt,
+      },
+      methods: methods.map((m) => {
+        const rev = Number(m.revenue);
+        const cnt = Number(m.count);
+        return {
+          paymentMethod: m.paymentMethod,
+          revenue: rev,
+          count: cnt,
+          percentageRevenue:
+            totalRev > 0 ? Number(((rev / totalRev) * 100).toFixed(2)) : 0,
+          percentageCount:
+            totalCnt > 0 ? Number(((cnt / totalCnt) * 100).toFixed(2)) : 0,
+        };
+      }),
+      daily: daily.map((d) => ({
+        businessDate: d.businessDate,
+        paymentMethod: d.paymentMethod,
+        revenue: Number(d.revenue),
+        count: Number(d.count),
+      })),
+    };
+  }
+
+  async reconciliation(q: OverviewQueryDto) {
+    const start = new Date(q.startDate);
+    const end = new Date(q.endDate);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(q.endDate)) {
+      end.setUTCDate(end.getUTCDate() + 1);
+    }
+
+    const completedInRange = and(
+      gte(transactions.createdAt, start),
+      lt(transactions.createdAt, end),
+      eq(transactions.status, 'COMPLETED'),
+    );
+
+    // 1. Calendar day sales (00:00 WIB cut-off)
+    const calendarSales = await this.database.db
+      .select({
+        date: sql<string>`to_char(DATE(${transactions.createdAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`,
+        sales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        txCount: count(),
+      })
+      .from(transactions)
+      .where(completedInRange)
+      .groupBy(
+        sql`DATE(${transactions.createdAt} at time zone 'Asia/Jakarta')`,
+      );
+
+    // 2. Shift-based sales (grouped by shift openedAt in WIB)
+    const shiftSales = await this.database.db
+      .select({
+        date: sql<string>`to_char(DATE(${shifts.openedAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`,
+        sales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
+        txCount: count(),
+        shiftCount: sql<number>`count(distinct ${shifts.id})`,
+      })
+      .from(transactions)
+      .innerJoin(shifts, eq(transactions.shiftId, shifts.id))
+      .where(
+        and(
+          gte(shifts.openedAt, start),
+          lt(shifts.openedAt, end),
+          eq(transactions.status, 'COMPLETED'),
+        ),
+      )
+      .groupBy(sql`DATE(${shifts.openedAt} at time zone 'Asia/Jakarta')`);
+
+    const calMap = new Map(calendarSales.map((c) => [c.date, c]));
+    const shiftMap = new Map(shiftSales.map((s) => [s.date, s]));
+
+    const allDates = Array.from(
+      new Set([...calMap.keys(), ...shiftMap.keys()]),
+    ).sort();
+
+    let totalCalendar = 0;
+    let totalShift = 0;
+
+    const days = allDates.map((date) => {
+      const cal = calMap.get(date);
+      const sh = shiftMap.get(date);
+      const cSales = Number(cal?.sales || 0);
+      const sSales = Number(sh?.sales || 0);
+      const diff = cSales - sSales;
+      totalCalendar += cSales;
+      totalShift += sSales;
+      return {
+        date,
+        calendarSales: cSales,
+        calendarTxCount: Number(cal?.txCount || 0),
+        shiftSales: sSales,
+        shiftTxCount: Number(sh?.txCount || 0),
+        shiftCount: Number(sh?.shiftCount || 0),
+        difference: diff,
+      };
+    });
+
+    return {
+      summary: {
+        totalCalendarSales: totalCalendar,
+        totalShiftSales: totalShift,
+        netDifference: totalCalendar - totalShift,
+      },
+      days,
+    };
+  }
+
+  async export(
+    res: Response,
+    type: string,
+    q: ExportQueryDto,
+    _actor: AuthenticatedUser,
+  ) {
+    if (q.startDate && q.endDate) {
+      const diffMs = Math.abs(
+        new Date(q.endDate).getTime() - new Date(q.startDate).getTime(),
+      );
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays > 92) {
+        throw new BadRequestException(
+          'Export date range cannot exceed 92 days',
+        );
+      }
+    }
+
+    const format = q.format || 'xlsx';
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `report-${type}-${q.startDate || 'all'}-${q.endDate || timestamp}`;
+
+    const { columns, rows } = await this.getExportData(type, q);
+
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename}.csv"`,
+      );
+
+      const headerLine = columns.map((c) => this.escapeCsv(c.header)).join(',');
+      res.write(headerLine + '\n');
+
+      for (const row of rows) {
+        const line = columns
+          .map((col) => this.escapeCsv(row[col.key]))
+          .join(',');
+        res.write(line + '\n');
+      }
+      res.end();
+    } else {
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename}.xlsx"`,
+      );
+
+      const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+        stream: res,
+        useStyles: true,
+        useSharedStrings: false,
+      });
+
+      const worksheet = workbook.addWorksheet('Report');
+      worksheet.columns = columns.map((c) => ({
+        header: c.header,
+        key: c.key,
+        width: c.width || 20,
+      }));
+
+      for (const row of rows) {
+        worksheet.addRow(row).commit();
+      }
+
+      worksheet.commit();
+      await workbook.commit();
+    }
+  }
+
+  private escapeCsv(val: any): string {
+    if (val === null || val === undefined) return '';
+    const str = String(val);
+    if (
+      str.includes(',') ||
+      str.includes('"') ||
+      str.includes('\n') ||
+      str.includes('\r')
+    ) {
+      return `"${str.replaceAll('"', '""')}"`;
+    }
+    return str;
+  }
+
+  private async getExportData(
+    type: string,
+    q: ExportQueryDto,
+  ): Promise<{
+    columns: Array<{ header: string; key: string; width?: number }>;
+    rows: Array<Record<string, any>>;
+  }> {
+    const reportQuery: ReportQueryDto = {
+      startDate: q.startDate,
+      endDate: q.endDate,
+      userId: q.userId,
+      paymentMethod: q.paymentMethod,
+      productId: q.productId,
+      categoryId: q.categoryId,
+      shiftId: q.shiftId,
+      status: q.status,
+      type: q.cashMovementType,
+      page: 1,
+      limit: 10000,
+    };
+
+    switch (type) {
+      case 'sales': {
+        const result = await this.sales(reportQuery);
+        return {
+          columns: [
+            { header: 'No. Transaksi', key: 'transactionNumber', width: 25 },
+            { header: 'Tanggal', key: 'createdAt', width: 22 },
+            { header: 'Kasir', key: 'cashierUsername', width: 18 },
+            { header: 'Subtotal', key: 'subtotalAmount', width: 15 },
+            { header: 'Diskon', key: 'discountAmount', width: 15 },
+            { header: 'Total', key: 'totalAmount', width: 15 },
+            { header: 'Metode Pembayaran', key: 'paymentMethod', width: 18 },
+            { header: 'Status', key: 'status', width: 15 },
+          ],
+          rows: result.transactions.data,
+        };
+      }
+      case 'products': {
+        const result = await this.products(reportQuery);
+        return {
+          columns: [
+            { header: 'Nama Produk', key: 'productName', width: 28 },
+            { header: 'Kategori', key: 'categoryName', width: 20 },
+            { header: 'Jumlah Terjual', key: 'quantitySold', width: 16 },
+            { header: 'Total Pendapatan', key: 'totalRevenue', width: 18 },
+            { header: 'Harga Rata-rata', key: 'averagePrice', width: 18 },
+          ],
+          rows: result.data,
+        };
+      }
+      case 'inventory': {
+        const result = await this.inventory(reportQuery);
+        return {
+          columns: [
+            { header: 'Nama Produk', key: 'productName', width: 28 },
+            { header: 'Kategori', key: 'categoryName', width: 20 },
+            { header: 'Lokasi', key: 'location', width: 16 },
+            { header: 'Stok', key: 'stock', width: 14 },
+          ],
+          rows: result.balances,
+        };
+      }
+      case 'cash':
+      case 'cash-entries': {
+        const result = await this.cashEntries(reportQuery);
+        return {
+          columns: [
+            { header: 'Tanggal', key: 'createdAt', width: 22 },
+            { header: 'ID Shift', key: 'shiftId', width: 36 },
+            { header: 'Dicatat Oleh', key: 'username', width: 18 },
+            { header: 'Jenis', key: 'type', width: 12 },
+            { header: 'Jumlah', key: 'amount', width: 16 },
+            { header: 'Keterangan', key: 'description', width: 30 },
+          ],
+          rows: result.data,
+        };
+      }
+      case 'shifts': {
+        const result = await this.shifts(reportQuery);
+        return {
+          columns: [
+            { header: 'ID Shift', key: 'id', width: 36 },
+            { header: 'Kasir', key: 'username', width: 18 },
+            { header: 'Waktu Buka', key: 'openedAt', width: 22 },
+            { header: 'Waktu Tutup', key: 'closedAt', width: 22 },
+            { header: 'Kas Awal', key: 'openingCash', width: 15 },
+            { header: 'Kas Akhir', key: 'closingCash', width: 15 },
+            { header: 'Kas Diharapkan', key: 'expectedCash', width: 15 },
+            { header: 'Selisih Kas', key: 'cashDifference', width: 15 },
+            { header: 'Jumlah Transaksi', key: 'transactionCount', width: 18 },
+          ],
+          rows: result.data,
+        };
+      }
+      case 'cashiers': {
+        const result = await this.cashierPerformance(reportQuery);
+        return {
+          columns: [
+            { header: 'Kode Kasir', key: 'cashierCode', width: 15 },
+            { header: 'Nama Kasir', key: 'cashierName', width: 20 },
+            { header: 'Total Shift', key: 'totalShifts', width: 14 },
+            { header: 'Total Transaksi', key: 'totalTransactions', width: 16 },
+            { header: 'Total Penjualan', key: 'totalSales', width: 18 },
+            { header: 'Selisih Kas', key: 'cashDifference', width: 15 },
+            { header: 'Akurasi (%)', key: 'accuracyRate', width: 14 },
+            { header: 'Jumlah Void', key: 'voidCount', width: 14 },
+            { header: 'Status Audit', key: 'auditStatus', width: 15 },
+          ],
+          rows: result.cashiers.data,
+        };
+      }
+      case 'profit': {
+        const result = await this.profit({
+          startDate: q.startDate,
+          endDate: q.endDate,
+          categoryId: q.categoryId,
+          page: 1,
+          limit: 10000,
+        });
+        return {
+          columns: [
+            { header: 'Nama Produk', key: 'name', width: 28 },
+            { header: 'SKU', key: 'sku', width: 16 },
+            { header: 'Kategori', key: 'category', width: 20 },
+            { header: 'Unit Terjual', key: 'unitsSold', width: 14 },
+            { header: 'Harga Jual', key: 'sellingPrice', width: 15 },
+            { header: 'Harga Modal (HPP)', key: 'costPrice', width: 18 },
+            { header: 'Total Pendapatan', key: 'totalRevenue', width: 18 },
+            { header: 'Total HPP', key: 'totalCogs', width: 18 },
+            { header: 'Laba Kotor', key: 'grossProfit', width: 18 },
+            { header: 'Margin (%)', key: 'profitMargin', width: 14 },
+          ],
+          rows: result.products.data,
+        };
+      }
+      case 'discounts': {
+        const result = await this.discounts(reportQuery);
+        return {
+          columns: [
+            { header: 'No. Transaksi', key: 'transactionNumber', width: 25 },
+            { header: 'Tanggal', key: 'createdAt', width: 22 },
+            { header: 'Kasir', key: 'cashierUsername', width: 18 },
+            { header: 'Alasan Diskon', key: 'discountReason', width: 25 },
+            { header: 'Jumlah Diskon', key: 'discountAmount', width: 16 },
+            { header: 'Total Transaksi', key: 'totalAmount', width: 18 },
+          ],
+          rows: result.transactions.data,
+        };
+      }
+      case 'payment-methods': {
+        const result = await this.paymentMethods(reportQuery);
+        return {
+          columns: [
+            { header: 'Metode Pembayaran', key: 'paymentMethod', width: 20 },
+            { header: 'Jumlah Transaksi', key: 'count', width: 18 },
+            { header: 'Total Pendapatan', key: 'revenue', width: 20 },
+            { header: 'Pangsa Nilai (%)', key: 'percentageRevenue', width: 18 },
+            { header: 'Pangsa Volume (%)', key: 'percentageCount', width: 18 },
+          ],
+          rows: result.methods,
+        };
+      }
+      case 'reconciliation': {
+        const result = await this.reconciliation({
+          startDate: q.startDate || '2000-01-01',
+          endDate: q.endDate || new Date().toISOString().slice(0, 10),
+        });
+        return {
+          columns: [
+            { header: 'Tanggal', key: 'date', width: 16 },
+            {
+              header: 'Penjualan Kalender (WIB)',
+              key: 'calendarSales',
+              width: 24,
+            },
+            { header: 'Tx Kalender', key: 'calendarTxCount', width: 16 },
+            {
+              header: 'Penjualan Shift (WIB)',
+              key: 'shiftSales',
+              width: 24,
+            },
+            { header: 'Tx Shift', key: 'shiftTxCount', width: 16 },
+            { header: 'Jumlah Shift', key: 'shiftCount', width: 14 },
+            { header: 'Selisih', key: 'difference', width: 16 },
+          ],
+          rows: result.days,
+        };
+      }
+      default:
+        throw new BadRequestException(
+          `Unsupported report export type: ${type}`,
+        );
+    }
   }
 }
