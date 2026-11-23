@@ -20,6 +20,7 @@ import { DiscountsModule } from './discounts/discounts.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { BrandsModule } from './brands/brands.module.js';
 import { SyncModule } from './sync/sync.module.js';
+import { MaintenanceModule } from './maintenance/maintenance.module.js';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SyncModule } from './sync/sync.module.js';
     DiscountsModule,
     SettingsModule,
     SyncModule,
+    MaintenanceModule,
   ],
   controllers: [AppController],
   providers: [

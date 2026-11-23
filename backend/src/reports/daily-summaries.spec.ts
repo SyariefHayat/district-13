@@ -44,7 +44,7 @@ describe('DailySummariesService', () => {
         discountAmount: 5000,
         totalAmount: 45000,
         paymentMethod: 'CASH' as const,
-        createdAt: new Date('2026-11-22T10:00:00+07:00'),
+        createdAt: new Date(),
         items: [
           {
             productId: 'prod-1',

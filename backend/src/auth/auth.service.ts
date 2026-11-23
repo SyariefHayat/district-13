@@ -358,7 +358,12 @@ export class AuthService {
         );
       if (Number(limits?.total ?? 0) >= LOGIN_LIMIT) {
         throw new HttpException(
-          'Too many login attempts',
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            code: 'RATE_LIMITED',
+            error: 'Too Many Requests',
+            message: 'Too many login attempts',
+          },
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }

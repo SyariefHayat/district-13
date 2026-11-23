@@ -35,7 +35,7 @@ const HTTP_ERROR_MAP: Record<number, { code: string; defaultMessage: string }> =
       defaultMessage: 'Permintaan tidak dapat diproses',
     },
     [HttpStatus.TOO_MANY_REQUESTS]: {
-      code: 'TOO_MANY_REQUESTS',
+      code: 'RATE_LIMITED',
       defaultMessage:
         'Terlalu banyak permintaan, silakan coba beberapa saat lagi',
     },

@@ -86,6 +86,9 @@ export const transactions = pgTable(
       .where(
         sql`${table.status} = 'COMPLETED' AND ${table.paymentMethod} = 'CASH'`,
       ),
+    index('transactions_created_at_idx').on(table.createdAt),
+    index('transactions_user_id_idx').on(table.userId),
+    index('transactions_status_idx').on(table.status),
   ],
 );
 
@@ -114,6 +117,7 @@ export const transactionItems = pgTable(
       sql`${table.unitPrice} >= 0 AND ${table.subtotalAmount} >= 0`,
     ),
     index('transaction_items_transaction_idx').on(table.transactionId),
+    index('transaction_items_product_idx').on(table.productId),
   ],
 );
 

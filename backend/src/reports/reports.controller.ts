@@ -3,6 +3,8 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpException,
+  HttpStatus,
   Param,
   Query,
   Res,
@@ -143,11 +145,15 @@ export class ReportsController {
     this.verifyExportPermissions(type, actor);
 
     if (actor?.id && this.activeExports.has(actor.id)) {
-      throw new ConflictException({
-        statusCode: 409,
-        error: 'Conflict',
-        message: 'Another export is already in progress for this user',
-      });
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          code: 'RATE_LIMITED',
+          error: 'Too Many Requests',
+          message: 'Another export is already in progress for this user',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     if (actor?.id) {

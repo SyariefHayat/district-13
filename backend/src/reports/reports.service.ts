@@ -21,9 +21,15 @@ import type { ExportQueryDto } from './dto/export-query.dto.js';
 import type { AuthenticatedUser } from '../auth/types/auth.types.js';
 import { getWibBusinessDate } from '../common/utils/formatters.js';
 
+import type { AppDatabase } from '../drizzle/database/database.types.js';
+
 @Injectable()
 export class ReportsService {
   constructor(private readonly database: DatabaseService) {}
+
+  private get db(): AppDatabase {
+    return this.database.reportingDb ?? this.database.db;
+  }
   private dateFilter(q: { startDate?: string; endDate?: string }, column: any) {
     if (
       q.startDate &&
@@ -58,7 +64,7 @@ export class ReportsService {
     if (q.paymentMethod)
       filters.push(eq(transactions.paymentMethod, q.paymentMethod));
     const where = and(...filters);
-    const [totals] = await this.database.db
+    const [totals] = await this.db
       .select({
         gross: sql<string>`coalesce(sum(${transactions.subtotalAmount}),0)`,
         discount: sql<string>`coalesce(sum(${transactions.discountAmount}),0)`,
@@ -67,7 +73,7 @@ export class ReportsService {
       })
       .from(transactions)
       .where(where);
-    const rows = this.database.db
+    const rows = this.db
       .select({
         id: transactions.id,
         transactionNumber: transactions.transactionNumber,
@@ -90,7 +96,7 @@ export class ReportsService {
       .orderBy(desc(transactions.createdAt))
       .limit(q.limit)
       .offset((q.page - 1) * q.limit);
-    const total = this.database.db
+    const total = this.db
       .select({ total: count() })
       .from(transactions)
       .where(where);
@@ -99,7 +105,7 @@ export class ReportsService {
     const txIds = data.map((t) => t.id);
     const itemsMap: Record<string, any[]> = {};
     if (txIds.length > 0) {
-      const items = await this.database.db
+      const items = await this.db
         .select({
           id: transactionItems.id,
           transactionId: transactionItems.transactionId,
@@ -144,7 +150,7 @@ export class ReportsService {
       averageTransactionValue: Number(totals.count)
         ? (Number(totals.net) / Number(totals.count)).toFixed(2)
         : '0.00',
-      byPaymentMethod: await this.database.db
+      byPaymentMethod: await this.db
         .select({
           paymentMethod: transactions.paymentMethod,
           gross: sql<string>`coalesce(sum(${transactions.subtotalAmount}),0)`,
@@ -176,7 +182,7 @@ export class ReportsService {
     const productFilters = q.categoryId
       ? eq(products.categoryId, q.categoryId)
       : undefined;
-    const balances = await this.database.db
+    const balances = await this.db
       .select({
         productId: products.id,
         productName: products.name,
@@ -200,7 +206,7 @@ export class ReportsService {
     if (q.categoryId)
       movementFilters.push(eq(products.categoryId, q.categoryId));
     const movementWhere = and(...movementFilters);
-    const movements = this.database.db
+    const movements = this.db
       .select({
         id: inventoryMovements.id,
         productId: inventoryMovements.productId,
@@ -223,7 +229,7 @@ export class ReportsService {
       balances,
       movements: await this.page(
         movements,
-        this.database.db
+        this.db
           .select({ total: count() })
           .from(inventoryMovements)
           .innerJoin(products, eq(products.id, inventoryMovements.productId))
@@ -237,7 +243,7 @@ export class ReportsService {
     const shiftFilter = q.shiftId ? eq(shifts.id, q.shiftId) : undefined;
     const userFilter = q.userId ? eq(shifts.userId, q.userId) : undefined;
     const base = and(...dateFilters, shiftFilter, userFilter);
-    const [summary] = await this.database.db
+    const [summary] = await this.db
       .select({
         cashSales: sql<string>`coalesce(sum(case when ${transactions.status}='COMPLETED' and ${transactions.paymentMethod}='CASH' then ${transactions.totalAmount} else 0 end),0)`,
         qrisSales: sql<string>`coalesce(sum(case when ${transactions.status}='COMPLETED' and ${transactions.paymentMethod}='QRIS' then ${transactions.totalAmount} else 0 end),0)`,
@@ -258,7 +264,7 @@ export class ReportsService {
     const listMovementFilters = [...summaryMovementFilters];
     if (q.type) listMovementFilters.push(eq(cashMovements.type, q.type));
 
-    const [moves] = await this.database.db
+    const [moves] = await this.db
       .select({
         cashIn: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='IN'),0)`,
         cashOut: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='OUT'),0)`,
@@ -269,7 +275,7 @@ export class ReportsService {
       .from(cashMovements)
       .where(and(...summaryMovementFilters));
 
-    const movementRows = this.database.db
+    const movementRows = this.db
       .select({
         id: cashMovements.id,
         shiftId: cashMovements.shiftId,
@@ -287,12 +293,12 @@ export class ReportsService {
       .limit(q.limit)
       .offset((q.page - 1) * q.limit);
 
-    const movementTotalQuery = this.database.db
+    const movementTotalQuery = this.db
       .select({ total: count() })
       .from(cashMovements)
       .where(and(...listMovementFilters));
 
-    const rows = this.database.db
+    const rows = this.db
       .select({
         transaction: transactions,
         shiftId: shifts.id,
@@ -304,7 +310,7 @@ export class ReportsService {
       .orderBy(desc(transactions.createdAt))
       .limit(q.limit)
       .offset((q.page - 1) * q.limit);
-    const total = this.database.db
+    const total = this.db
       .select({ total: count() })
       .from(transactions)
       .innerJoin(shifts, eq(shifts.id, transactions.shiftId))
@@ -375,7 +381,7 @@ export class ReportsService {
           : sql`${shifts.closedAt} is not null`,
       );
     const where = and(...filters);
-    const rows = this.database.db
+    const rows = this.db
       .select({
         shift: shifts,
         username: users.username,
@@ -388,11 +394,8 @@ export class ReportsService {
       .orderBy(desc(shifts.openedAt))
       .limit(q.limit)
       .offset((q.page - 1) * q.limit);
-    const total = this.database.db
-      .select({ total: count() })
-      .from(shifts)
-      .where(where);
-    const summaryStatsQuery = this.database.db
+    const total = this.db.select({ total: count() }).from(shifts).where(where);
+    const summaryStatsQuery = this.db
       .select({
         totalShifts: count(),
         openShifts: sql<number>`count(*) filter (where ${shifts.closedAt} is null)`,
@@ -491,20 +494,17 @@ export class ReportsService {
 
     const [[current], [previous], dailySales, topProducts, hourlyHeatmap] =
       await Promise.all([
-        this.database.db
+        this.db
           .select(summarySelect)
           .from(transactions)
           .where(completedInRange),
-        this.database.db
-          .select(summarySelect)
-          .from(transactions)
-          .where(completedInPrev),
+        this.db.select(summarySelect).from(transactions).where(completedInPrev),
 
         // 2. Daily sales (for the chart, extend to cover a rolling window)
         this.dailySalesForChart(q),
 
         // 3. Best selling products
-        this.database.db
+        this.db
           .select({
             productId: transactionItems.productId,
             productName: transactionItems.productName,
@@ -529,7 +529,7 @@ export class ReportsService {
           .limit(50),
 
         // 4. Hourly heatmap: day-of-week × hour-of-day (Asia/Jakarta timezone)
-        this.database.db
+        this.db
           .select({
             dow: sql<number>`extract(dow from ${transactions.createdAt} at time zone 'Asia/Jakarta')`.as(
               'dow',
@@ -636,7 +636,7 @@ export class ReportsService {
       chartStart = from;
     }
 
-    return this.database.db
+    return this.db
       .select({
         date: sql<string>`to_char(DATE(${transactions.createdAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`.as(
           'date',
@@ -672,7 +672,7 @@ export class ReportsService {
     const where = and(...whereFilters);
 
     // 1. Overall Summary
-    const [summaryResult] = await this.database.db
+    const [summaryResult] = await this.db
       .select({
         totalRevenue: sql<string>`coalesce(sum(${transactionItems.subtotalAmount}), 0)`,
         totalCogs: sql<string>`coalesce(sum(${transactionItems.quantity} * coalesce(${products.costPrice}, 0)), 0)`,
@@ -689,7 +689,7 @@ export class ReportsService {
       .where(where);
 
     // Transaction discount total in period
-    const [discountResult] = await this.database.db
+    const [discountResult] = await this.db
       .select({
         totalDiscount: sql<string>`coalesce(sum(${transactions.discountAmount}), 0)`,
       })
@@ -709,7 +709,7 @@ export class ReportsService {
     const profitMargin = totalRev > 0 ? (grossProfit / totalRev) * 100 : 0;
 
     // 2. Product-level breakdown (paginated)
-    const productRowsPromise = this.database.db
+    const productRowsPromise = this.db
       .select({
         id: products.id,
         name: products.name,
@@ -744,7 +744,7 @@ export class ReportsService {
       .limit(q.limit)
       .offset((q.page - 1) * q.limit);
 
-    const totalProductsCountPromise = this.database.db
+    const totalProductsCountPromise = this.db
       .select({
         total: sql<number>`count(distinct ${transactionItems.productId})::int`,
       })
@@ -758,7 +758,7 @@ export class ReportsService {
       .where(where);
 
     // 3. Category-level breakdown
-    const categoryRowsPromise = this.database.db
+    const categoryRowsPromise = this.db
       .select({
         category: sql<string>`coalesce(${categories.name}, 'Umum')`,
         categoryId: categories.id,
@@ -859,7 +859,7 @@ export class ReportsService {
       userFilters.push(eq(users.role, 'CASHIER'));
     }
 
-    const cashierUsers = await this.database.db
+    const cashierUsers = await this.db
       .select({
         id: users.id,
         username: users.username,
@@ -869,7 +869,7 @@ export class ReportsService {
       .where(and(...userFilters));
 
     // 2. Fetch shifts aggregation per user in period
-    const shiftsAgg = await this.database.db
+    const shiftsAgg = await this.db
       .select({
         userId: shifts.userId,
         totalShifts: sql<number>`count(*)::int`,
@@ -883,7 +883,7 @@ export class ReportsService {
       .groupBy(shifts.userId);
 
     // 3. Fetch completed & voided transactions aggregation per user in period
-    const txCompletedAgg = await this.database.db
+    const txCompletedAgg = await this.db
       .select({
         userId: transactions.userId,
         totalTransactions: sql<number>`count(*)::int`,
@@ -896,7 +896,7 @@ export class ReportsService {
       .where(and(...txFilters, eq(transactions.status, 'COMPLETED')))
       .groupBy(transactions.userId);
 
-    const txVoidAgg = await this.database.db
+    const txVoidAgg = await this.db
       .select({
         userId: transactions.userId,
         voidCount: sql<number>`count(*)::int`,
@@ -1049,7 +1049,7 @@ export class ReportsService {
     if (q.productId) txWhere.push(eq(transactionItems.productId, q.productId));
     if (q.categoryId) txWhere.push(eq(products.categoryId, q.categoryId));
 
-    const rows = await this.database.db
+    const rows = await this.db
       .select({
         productId: transactionItems.productId,
         productName: transactionItems.productName,
@@ -1122,7 +1122,7 @@ export class ReportsService {
 
     const where = and(...filters);
 
-    const [moves] = await this.database.db
+    const [moves] = await this.db
       .select({
         cashIn: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='IN'),0)`,
         cashOut: sql<string>`coalesce(sum(${cashMovements.amount}) filter(where ${cashMovements.type}='OUT'),0)`,
@@ -1133,7 +1133,7 @@ export class ReportsService {
       .from(cashMovements)
       .where(where);
 
-    const rows = await this.database.db
+    const rows = await this.db
       .select({
         id: cashMovements.id,
         shiftId: cashMovements.shiftId,
@@ -1151,7 +1151,7 @@ export class ReportsService {
       .limit(q.limit)
       .offset((q.page - 1) * q.limit);
 
-    const [totalResult] = await this.database.db
+    const [totalResult] = await this.db
       .select({ total: count() })
       .from(cashMovements)
       .where(where);
@@ -1193,7 +1193,7 @@ export class ReportsService {
     if (q.userId) whereFilters.push(eq(transactions.userId, q.userId));
     const where = and(...whereFilters);
 
-    const [totals] = await this.database.db
+    const [totals] = await this.db
       .select({
         totalDiscount: sql<string>`coalesce(sum(${transactions.discountAmount}), 0)`,
         totalSales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
@@ -1202,7 +1202,7 @@ export class ReportsService {
       .from(transactions)
       .where(where);
 
-    const breakdown = await this.database.db
+    const breakdown = await this.db
       .select({
         reason: sql<string>`coalesce(${transactions.discountReason}, 'Tanpa Alasan')`,
         count: count(),
@@ -1213,7 +1213,7 @@ export class ReportsService {
       .where(where)
       .groupBy(transactions.discountReason);
 
-    const rows = await this.database.db
+    const rows = await this.db
       .select({
         id: transactions.id,
         transactionNumber: transactions.transactionNumber,
@@ -1232,7 +1232,7 @@ export class ReportsService {
       .limit(q.limit)
       .offset((q.page - 1) * q.limit);
 
-    const [totalCount] = await this.database.db
+    const [totalCount] = await this.db
       .select({ total: count() })
       .from(transactions)
       .where(where);
@@ -1278,7 +1278,7 @@ export class ReportsService {
     if (q.userId) whereFilters.push(eq(transactions.userId, q.userId));
     const where = and(...whereFilters);
 
-    const [totals] = await this.database.db
+    const [totals] = await this.db
       .select({
         totalRevenue: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
         totalCount: count(),
@@ -1286,7 +1286,7 @@ export class ReportsService {
       .from(transactions)
       .where(where);
 
-    const methods = await this.database.db
+    const methods = await this.db
       .select({
         paymentMethod: transactions.paymentMethod,
         revenue: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
@@ -1296,7 +1296,7 @@ export class ReportsService {
       .where(where)
       .groupBy(transactions.paymentMethod);
 
-    const daily = await this.database.db
+    const daily = await this.db
       .select({
         businessDate: sql<string>`to_char(DATE(${transactions.createdAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`,
         paymentMethod: transactions.paymentMethod,
@@ -1357,7 +1357,7 @@ export class ReportsService {
     );
 
     // 1. Calendar day sales (00:00 WIB cut-off)
-    const calendarSales = await this.database.db
+    const calendarSales = await this.db
       .select({
         date: sql<string>`to_char(DATE(${transactions.createdAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`,
         sales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,
@@ -1370,7 +1370,7 @@ export class ReportsService {
       );
 
     // 2. Shift-based sales (grouped by shift openedAt in WIB)
-    const shiftSales = await this.database.db
+    const shiftSales = await this.db
       .select({
         date: sql<string>`to_char(DATE(${shifts.openedAt} at time zone 'Asia/Jakarta'), 'YYYY-MM-DD')`,
         sales: sql<string>`coalesce(sum(${transactions.totalAmount}), 0)`,

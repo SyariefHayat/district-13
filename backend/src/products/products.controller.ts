@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -34,6 +36,8 @@ import { ProductsService } from './products.service.js';
 
 @Controller('products')
 export class ProductsController {
+  private readonly activeImports = new Set<string>();
+
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
@@ -95,7 +99,24 @@ export class ProductsController {
         'Please provide a CSV file upload or csv text in the body',
       );
     }
-    return this.productsService.importProducts(csvContent, actor!);
+    const importKey = actor?.id || 'global-import';
+    if (this.activeImports.has(importKey)) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          code: 'RATE_LIMITED',
+          error: 'Too Many Requests',
+          message: 'Another product import is already in progress',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    this.activeImports.add(importKey);
+    try {
+      return await this.productsService.importProducts(csvContent, actor!);
+    } finally {
+      this.activeImports.delete(importKey);
+    }
   }
 
   @Patch(':id/price')

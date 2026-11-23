@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Headers,
+  HttpException,
+  HttpStatus,
   Post,
   Query,
   UsePipes,
@@ -18,6 +20,8 @@ import { SyncService } from './sync.service.js';
 
 @Controller('sync')
 export class SyncController {
+  private readonly activeDeviceSyncs = new Set<string>();
+
   constructor(private readonly syncService: SyncService) {}
 
   @Get('catalog')
@@ -37,11 +41,41 @@ export class SyncController {
   @Post(['events', 'sales'])
   @AnyPermissions(PERMISSIONS.transactionsCreate, PERMISSIONS.shiftsOpen)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
-  processEvents(
+  async processEvents(
     @Body() dto: SyncEventsDto,
     @CurrentUser() actor: AuthenticatedUser,
     @Headers('x-device-code') deviceCode?: string,
   ) {
-    return this.syncService.processEvents(dto, actor, deviceCode);
+    if (dto.events && dto.events.length > 50) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          code: 'RATE_LIMITED',
+          error: 'Too Many Requests',
+          message: 'Sync payload exceeds maximum limit of 50 events per batch',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const deviceKey = deviceCode?.trim() || actor?.id || 'default-device';
+    if (this.activeDeviceSyncs.has(deviceKey)) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          code: 'RATE_LIMITED',
+          error: 'Too Many Requests',
+          message: 'A sync process is already running for this device',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    this.activeDeviceSyncs.add(deviceKey);
+    try {
+      return await this.syncService.processEvents(dto, actor, deviceCode);
+    } finally {
+      this.activeDeviceSyncs.delete(deviceKey);
+    }
   }
 }

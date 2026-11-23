@@ -8,6 +8,19 @@ const SENSITIVE_KEYS = new Set([
   'secret',
   'authorization',
   'cookie',
+  'pin',
+  'cvv',
+  'creditcard',
+  'credit_card',
+  'card_number',
+  'private_key',
+  'apikey',
+  'api_key',
+  'jwt',
+  'refresh_token',
+  'access_token',
+  'csrf',
+  'csrf_token',
 ]);
 
 function redactSensitive(data: unknown): unknown {

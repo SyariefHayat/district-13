@@ -5,15 +5,37 @@
 }
 
 :{$PORT:8080} {
-    # Compression (zstd, gzip)
+    # TLS enforcement (TLS 1.2 and TLS 1.3 only - SDD 6.6 / SEC-05)
+    tls {
+        protocols tls1.2 tls1.3
+    }
+
+    # Compression (Brotli / zstd and gzip)
     encode zstd gzip
 
-    # Security Headers
+    # Request payload size limit: max 10MB (T-60)
+    request_body {
+        max_size 10MB
+    }
+
+    # Security Headers (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        X-XSS-Protection "1; mode=block"
+    }
+
+    # IP Rate Limiting: 300 requests/minute per client IP (T-60)
+    rate_limit {
+        zone dynamic_ip {
+            key {remote_host}
+            events 300
+            window 1m
+        }
     }
 
     # Proxy to NestJS backend service
