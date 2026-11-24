@@ -630,25 +630,43 @@ export async function runDatabaseSeed(databaseUrl = process.env.DATABASE_URL) {
           is_active = true;
     `;
 
-    // Default Cashier 1
-    await sql`
-      INSERT INTO users (username, full_name, password_hash, role, is_active)
-      VALUES ('kasir1', 'Kasir Satu', ${standardHash}, 'cashier', true)
-      ON CONFLICT (username) DO UPDATE
-      SET full_name = EXCLUDED.full_name,
-          is_active = true;
-    `;
-    console.log('✅ Default users seeded (owner, admin, kasir1).');
+    // Default Cashiers 1, 2, and 3
+    const cashiers = [
+      { username: 'kasir1', fullName: 'Budi Kasir Satu' },
+      { username: 'kasir2', fullName: 'Siti Kasir Dua' },
+      { username: 'kasir3', fullName: 'Andi Kasir Tiga' },
+    ];
+
+    for (const cashier of cashiers) {
+      await sql`
+        INSERT INTO users (username, full_name, password_hash, role, is_active)
+        VALUES (${cashier.username}, ${cashier.fullName}, ${standardHash}, 'cashier', true)
+        ON CONFLICT (username) DO UPDATE
+        SET full_name = EXCLUDED.full_name,
+            is_active = true;
+      `;
+    }
+    console.log(
+      '✅ Default users seeded (owner, admin, kasir1, kasir2, kasir3).',
+    );
 
     // =========================================================================
-    // 6. Seed Default Device (T1)
+    // 6. Seed Default Devices (T1, T2, T3) for Multi-Tablet POS
     // =========================================================================
-    await sql`
-      INSERT INTO devices (code, name, is_active)
-      VALUES ('T1', 'Tablet Kasir Utama', true)
-      ON CONFLICT (code) DO NOTHING;
-    `;
-    console.log('✅ Default device T1 seeded.');
+    const devices = [
+      { code: 'T1', name: 'Tablet Kasir Utama' },
+      { code: 'T2', name: 'Tablet Kasir Dua' },
+      { code: 'T3', name: 'Tablet Kasir Tiga' },
+    ];
+
+    for (const device of devices) {
+      await sql`
+        INSERT INTO devices (code, name, is_active)
+        VALUES (${device.code}, ${device.name}, true)
+        ON CONFLICT (code) DO NOTHING;
+      `;
+    }
+    console.log('✅ Default devices seeded (T1, T2, T3).');
 
     // =========================================================================
     // 7. Seed Baseline Product Catalog & Categories
