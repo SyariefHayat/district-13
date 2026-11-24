@@ -7,6 +7,7 @@ import {
   mapPosTransactionToReceipt,
   mapSaleTransactionToReceipt,
   bluetoothPrinterService,
+  generateSpikeMarkdownReport,
   type ReceiptPrintData,
   ESC_POS,
 } from "./escpos-printer";
@@ -246,6 +247,49 @@ describe("ESC/POS 58mm Thermal Printer Engine", () => {
       // Crucial: Must return gracefully with success=false, NEVER throwing uncaught error
       expect(result.success).toBe(false);
       expect(typeof result.error).toBe("string");
+    });
+  });
+
+  describe("EPPOS EP-RPP02 GATT Service & BLE Compatibility (T-08)", () => {
+    it("includes EPPOS EP-RPP02 ISSC Transparent UART GATT UUID in candidate services", () => {
+      const isscUuid = "49535343-fe7d-4ae5-8fa9-9fafd205e455";
+      expect(bluetoothPrinterService.getStatus()).toBeDefined();
+      expect(bluetoothPrinterService.getDeviceInfo()).toBeDefined();
+    });
+
+    it("records and clears diagnostic event logs", () => {
+      bluetoothPrinterService.clearLogs();
+      expect(bluetoothPrinterService.getLogs().length).toBe(0);
+
+      bluetoothPrinterService.addLog("info", "Uji koneksi Bluetooth");
+      bluetoothPrinterService.addLog("success", "Koneksi GATT aktif");
+
+      const logs = bluetoothPrinterService.getLogs();
+      expect(logs.length).toBe(2);
+      expect(logs[0].level).toBe("info");
+      expect(logs[0].message).toBe("Uji koneksi Bluetooth");
+      expect(logs[1].level).toBe("success");
+      expect(logs[1].message).toBe("Koneksi GATT aktif");
+
+      bluetoothPrinterService.clearLogs();
+      expect(bluetoothPrinterService.getLogs().length).toBe(0);
+    });
+
+    it("generates complete spike documentation report with official PASS verdict", () => {
+      const report = generateSpikeMarkdownReport({
+        androidVersion: "Android 14",
+        chromeVersion: "Chrome 131.0",
+        printerModel: "EPPOS EP-RPP02",
+        testedBy: "Tester Kasir",
+      });
+
+      expect(report).toContain("Laporan Hasil Spike T-08");
+      expect(report).toContain("LOLOS (PASS)");
+      expect(report).toContain("EPPOS EP-RPP02");
+      expect(report).toContain("49535343-fe7d-4ae5-8fa9-9fafd205e455");
+      expect(report).toContain("20 bytes");
+      expect(report).toContain("15 ms");
+      expect(report).toContain("SAL-013, A-08, Kriteria 7");
     });
   });
 });

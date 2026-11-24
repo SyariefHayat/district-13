@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Link } from "react-router";
 import {
   IconBuildingStore,
   IconDeviceTablet,
@@ -774,6 +775,23 @@ export default function SettingsPage() {
                     </Button>
                   )}
                 </div>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t text-xs">
+                <span className="text-muted-foreground">
+                  Ingin melakukan benchmark MTU paket atau pengujian GATT
+                  lanjutan?
+                </span>
+                <Link to="/dashboard/printer-spike">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
+                  >
+                    <IconDeviceTablet className="size-3.5" />
+                    <span>Halaman Uji Spike EPPOS (T-08)</span>
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>

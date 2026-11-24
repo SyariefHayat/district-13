@@ -31,6 +31,7 @@ import { CashierDashboardPage } from "./features/cashier";
 import { PosPage } from "./features/pos";
 import { AdminDashboardPage } from "./features/admin";
 import { SettingsPage } from "./features/settings";
+import { PrinterSpikePage } from "./features/printer-spike";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 import { RequireAuth } from "./context/RequireAuth";
 import { RequireRole } from "./context/RequireRole";
@@ -40,6 +41,10 @@ export const router = createBrowserRouter([
   {
     path: "/",
     Component: LoginPage,
+  },
+  {
+    path: "/printer-spike",
+    Component: PrinterSpikePage,
   },
   {
     element: <RequireAuth />,
@@ -54,6 +59,7 @@ export const router = createBrowserRouter([
           { path: "schedules/new", Component: AddSchedulePage },
           { path: "transactions", Component: SalesPage },
           { path: "sales", Component: SalesPage },
+          { path: "printer-spike", Component: PrinterSpikePage },
           { path: "help", element: <div>Dashboard Help</div> },
           { path: "forbidden", Component: ForbiddenPage },
 
