@@ -66,8 +66,22 @@ jobs:
         run: npm run typecheck
 
   test:
-    name: Automated Unit Tests (Vitest)
+    name: Automated Unit & Integration Tests (Vitest)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: district13_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       NODE_ENV: test
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/district13_test
@@ -90,8 +104,39 @@ jobs:
       - name: Install backend dependencies
         run: npm --prefix backend ci --legacy-peer-deps
 
+      - name: Run Domain Logic Coverage Check (>= 80%)
+        run: npm --prefix backend run test:cov -- test/domain-logic.spec.ts
+
       - name: Run Backend Tests
         run: npm test
+
+  e2e:
+    name: E2E Playwright Tests (UC-POS-001/002/003)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci --legacy-peer-deps
+
+      - name: Install Playwright Browsers
+        run: npx --prefix frontend playwright install --with-deps chromium
+
+      - name: Build Frontend
+        run: npm --prefix frontend run build
+
+      - name: Run Playwright E2E Tests
+        run: npm --prefix frontend run test:e2e
 
   security:
     name: Dependency Security Audit
