@@ -10,6 +10,10 @@ const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'none';",
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), camera=(), microphone=()',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
 };
 
 const server = http.createServer((req, res) => {
