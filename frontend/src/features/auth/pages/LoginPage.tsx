@@ -1,9 +1,9 @@
 import { Navigate } from "react-router";
 import { LoginForm } from "../components/LoginForm";
-import { useAuth } from "../../../context/auth-context";
+import { useLoginSession } from "../hooks/useLogin";
 
 export default function LoginPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useLoginSession();
   if (isLoading) return <div className="p-6 text-sm">Restoring session…</div>;
   if (user) return <Navigate to="/dashboard" replace />;
 
