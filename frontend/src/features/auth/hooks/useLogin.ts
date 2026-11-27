@@ -35,7 +35,7 @@ export function useLoginForm() {
       navigate(from ?? "/dashboard", { replace: true });
     } catch (error) {
       toast.add({
-        title: "Sign in failed",
+        title: "Login Gagal",
         description:
           error instanceof Error ? error.message : "Unable to sign in.",
         type: "error",
