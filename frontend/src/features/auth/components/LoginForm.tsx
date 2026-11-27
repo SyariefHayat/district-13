@@ -1,12 +1,20 @@
+import { useState } from "react";
+import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 
 import z from "zod";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Button } from "@/components/ui/button";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../../../context/auth-context";
 import { toast } from "@/components/ui/toast";
 
@@ -28,6 +36,7 @@ export function LoginForm({
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showPassword, setShowPassword] = useState(false);
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -54,28 +63,20 @@ export function LoginForm({
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className={cn("flex flex-col gap-6", className)}
+      className={cn("flex flex-col gap-5 lg:gap-6", className)}
       {...props}
     >
       <FieldGroup>
-        <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-bold">Login to your account</h1>
-          <p className="text-sm text-balance text-muted-foreground">
-            Enter your username and password to sign in
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold leading-tight sm:text-[28px] md:text-[32px]">
+          Masuk untuk melanjutkan ke ruang kerja anda
+        </h1>
         <Controller
           name="username"
           control={form.control}
           render={({ field }) => (
             <Field>
               <FieldLabel htmlFor="username">Username</FieldLabel>
-              <Input
-                id="username"
-                placeholder="Username"
-                autoComplete="username"
-                {...field}
-              />
+              <Input id="username" autoComplete="username" {...field} />
             </Field>
           )}
         />
@@ -87,19 +88,48 @@ export function LoginForm({
               <div className="flex items-center">
                 <FieldLabel htmlFor="password">Password</FieldLabel>
               </div>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                {...field}
-              />
+              <InputGroup className="h-11.25">
+                <InputGroupInput
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  {...field}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-sm"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    onClick={() => setShowPassword((prev) => !prev)}
+                  >
+                    {showPassword ? (
+                      <IconEyeOff className="size-6" />
+                    ) : (
+                      <IconEye className="size-6" />
+                    )}
+                  </InputGroupButton>
+                </InputGroupAddon>
+              </InputGroup>
             </Field>
           )}
         />
-        <Field>
-          <Button type="submit" disabled={form.formState.isSubmitting}>
+
+        <Field className="space-y-2">
+          <Button
+            type="submit"
+            className="h-11.25"
+            disabled={form.formState.isSubmitting}
+          >
             {form.formState.isSubmitting ? "Signing in…" : "Login"}
           </Button>
+
+          <p className="text-sm text-muted-foreground text-center">
+            Butuh akses?{" "}
+            <Link to="/signup" className="underline underline-offset-4">
+              Hubungi admin untuk mendaftar
+            </Link>
+          </p>
         </Field>
       </FieldGroup>
     </form>

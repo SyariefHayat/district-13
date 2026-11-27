@@ -1,4 +1,3 @@
-import { GalleryVerticalEnd } from "lucide-react";
 import { Navigate } from "react-router";
 import { LoginForm } from "../components/LoginForm";
 import { useAuth } from "../../../context/auth-context";
@@ -9,28 +8,22 @@ export default function LoginPage() {
   if (user) return <Navigate to="/dashboard" replace />;
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
-      <div className="flex flex-col gap-4 p-6 md:p-10">
-        <div className="flex justify-center gap-2 md:justify-start">
-          <a href="#" className="flex items-center gap-2 font-medium">
-            <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <GalleryVerticalEnd className="size-4" />
-            </div>
-            Acme Inc.
+    <div className="grid min-h-svh bg-[url('/images/moody-crimson.png')] bg-cover bg-center bg-no-repeat">
+      <div className="flex flex-col gap-6 px-5 py-10 sm:p-8 lg:gap-4 lg:p-10">
+        <div className="flex justify-start">
+          <a href="#">
+            <img
+              src="/logo/logo.png"
+              alt="District 13"
+              className="h-8 w-auto object-contain"
+            />
           </a>
         </div>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-xs">
+        <div className="flex flex-1 items-center justify-center py-4 sm:py-6 lg:py-0">
+          <div className="w-full max-w-sm sm:max-w-100">
             <LoginForm />
           </div>
         </div>
-      </div>
-      <div className="relative hidden bg-muted lg:block">
-        <img
-          src="/placeholder.svg"
-          alt="Image"
-          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-        />
       </div>
     </div>
   );

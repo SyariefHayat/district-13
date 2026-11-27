@@ -49,16 +49,35 @@ export async function requestPersistentStorage(): Promise<boolean> {
 }
 
 export function registerServiceWorker() {
-  if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) => {
-          console.info("Service Worker registered successfully:", reg.scope);
-        })
-        .catch((err) => {
-          console.warn("Service Worker registration failed:", err);
-        });
-    });
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+    return;
   }
+
+  if (!import.meta.env.PROD) {
+    // Keep dev/HMR clean by unregistering any previously active SW and clearing its caches.
+    void navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((reg) => {
+        void reg.unregister();
+      });
+    });
+    if ("caches" in window) {
+      void caches.keys().then((keys) => {
+        keys.forEach((key) => {
+          void caches.delete(key);
+        });
+      });
+    }
+    return;
+  }
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        console.info("Service Worker registered successfully:", reg.scope);
+      })
+      .catch((err) => {
+        console.warn("Service Worker registration failed:", err);
+      });
+  });
 }
