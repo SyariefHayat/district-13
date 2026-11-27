@@ -17,6 +17,9 @@ export default defineConfig({
     },
   },
   server: {
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       "/auth": process.env.BACKEND_URL ?? "http://localhost:3000",
       "/users": process.env.BACKEND_URL ?? "http://localhost:3000",

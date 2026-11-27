@@ -11,8 +11,6 @@ import {
 } from 'drizzle-orm/pg-core';
 import { userRoleEnum } from './enums.schema.js';
 
-export { userRoleEnum };
-
 export const users = pgTable(
   'users',
   {

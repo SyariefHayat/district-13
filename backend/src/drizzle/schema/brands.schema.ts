@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -17,5 +18,7 @@ export const brands = pgTable('brands', {
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
-  updatedSeq: bigint('updated_seq', { mode: 'number' }).notNull(),
+  updatedSeq: bigint('updated_seq', { mode: 'number' })
+    .default(sql`nextval('master_updated_seq')`)
+    .notNull(),
 });

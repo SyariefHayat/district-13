@@ -1,4 +1,6 @@
-import { pgEnum } from 'drizzle-orm/pg-core';
+import { pgEnum, pgSequence } from 'drizzle-orm/pg-core';
+
+export const masterUpdatedSeq = pgSequence('master_updated_seq');
 
 export const userRoleEnum = pgEnum('user_role', [
   'owner',
