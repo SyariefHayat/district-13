@@ -51,6 +51,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: development
     container_name: district13-web
     restart: unless-stopped
     depends_on:
