@@ -1,9 +1,5 @@
 import * as React from "react";
-import {
-  IconHelp,
-  IconInnerShadowTop,
-  IconSettings,
-} from "@tabler/icons-react";
+import { IconHelp, IconSettings } from "@tabler/icons-react";
 
 import {
   Sidebar,
