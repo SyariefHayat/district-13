@@ -24,21 +24,17 @@ import { dashboardMenu } from "@/constants/dashboard-menu";
 
 import { NavUser } from "./NavUser";
 import { ModeToggle } from "./ModeToggle";
-import { useConnectivity } from "@/context/connectivity-context";
-import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 
 type SiteHeaderProps = {
   user: {
     name: string;
     role: string;
     onLogout: () => void;
-    onLockSession?: () => void;
   };
 };
 
 export function SiteHeader({ user }: SiteHeaderProps) {
   const { pathname } = useLocation();
-  const { isOffline, pendingSyncCount, isSyncing, syncNow } = useConnectivity();
   const directItem = dashboardMenu.find(
     (item) => "url" in item && item.url === pathname
   );
@@ -83,35 +79,6 @@ export function SiteHeader({ user }: SiteHeaderProps) {
         </Breadcrumb>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {/* Connectivity & Outbox Sync Status Badge (T-48, OFF-005) */}
-          <div className="flex items-center gap-1.5">
-            {isOffline ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-600 border border-amber-500/30">
-                <WifiOff className="size-3" />
-                <span className="hidden sm:inline">Offline</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
-                <Wifi className="size-3" />
-                <span className="hidden sm:inline">Online</span>
-              </span>
-            )}
-
-            {pendingSyncCount > 0 && (
-              <button
-                onClick={() => syncNow()}
-                disabled={isSyncing || isOffline}
-                title="Klik untuk menyinkronkan sekarang"
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw
-                  className={`size-3 ${isSyncing ? "animate-spin" : ""}`}
-                />
-                <span>{pendingSyncCount}</span>
-                <span className="hidden md:inline">pending</span>
-              </button>
-            )}
-          </div>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

@@ -8,8 +8,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useAuth } from "@/context/auth-context";
-import { type RoleType } from "@/constants/dashboard-menu";
 
 export function NavSecondary({
   items,
@@ -19,21 +17,13 @@ export function NavSecondary({
     title: string;
     url: string;
     icon: Icon;
-    roles?: readonly RoleType[];
   }[];
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
-  const { user } = useAuth();
-  const userRole = user?.role ?? "CASHIER";
-
-  const visibleItems = items.filter(
-    (item) => !item.roles || item.roles.includes(userRole)
-  );
-
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {visibleItems.map((item) => (
+          {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 render={

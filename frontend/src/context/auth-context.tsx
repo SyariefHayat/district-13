@@ -413,9 +413,13 @@ function readTokenClaims(token: string): { role: UserRole; exp?: number } {
     const claims = JSON.parse(
       atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
     );
-    const role: UserRole = ["OWNER", "ADMIN", "CASHIER"].includes(claims.role)
-      ? claims.role
-      : "CASHIER";
+    const normalizedRole =
+      typeof claims.role === "string" ? claims.role.toUpperCase() : "";
+    const role: UserRole = (
+      ["OWNER", "ADMIN", "CASHIER"].includes(normalizedRole)
+        ? normalizedRole
+        : "CASHIER"
+    ) as UserRole;
     return {
       role,
       exp: typeof claims.exp === "number" ? claims.exp : undefined,

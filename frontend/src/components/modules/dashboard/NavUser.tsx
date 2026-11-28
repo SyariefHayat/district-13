@@ -1,6 +1,5 @@
 import {
   IconCreditCard,
-  IconLock,
   IconLogout,
   IconNotification,
   IconUserCircle,
@@ -25,16 +24,8 @@ export function NavUser({
     name: string;
     role: string;
     onLogout: () => void;
-    onLockSession?: () => void;
   };
 }) {
-  const roleLabel =
-    user.role === "OWNER"
-      ? "Pemilik"
-      : user.role === "ADMIN"
-        ? "Admin"
-        : "Kasir";
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -42,9 +33,7 @@ export function NavUser({
           <Button variant="ghost" size="icon" className="rounded-full">
             <Avatar>
               <AvatarImage src="https://github.com/shadcn.png" alt="shadcn" />
-              <AvatarFallback>
-                {user.name.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
+              <AvatarFallback>LR</AvatarFallback>
             </Avatar>
           </Button>
         }
@@ -66,7 +55,7 @@ export function NavUser({
               <div className="grid min-w-0 flex-1 leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {roleLabel}
+                  {user.role}
                 </span>
               </div>
             </div>
@@ -76,28 +65,21 @@ export function NavUser({
         <DropdownMenuGroup>
           <DropdownMenuItem>
             <IconUserCircle />
-            Profil Akun
+            Account
           </DropdownMenuItem>
           <DropdownMenuItem>
             <IconCreditCard />
-            Langganan & Tagihan
+            Billing
           </DropdownMenuItem>
           <DropdownMenuItem>
             <IconNotification />
-            Pemberitahuan
+            Notifications
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        {user.onLockSession &&
-          (user.role === "OWNER" || user.role === "ADMIN") && (
-            <DropdownMenuItem onClick={user.onLockSession}>
-              <IconLock />
-              Kunci Sesi
-            </DropdownMenuItem>
-          )}
         <DropdownMenuItem onClick={user.onLogout}>
           <IconLogout />
-          Keluar
+          Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
